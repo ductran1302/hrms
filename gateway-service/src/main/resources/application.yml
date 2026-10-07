@@ -1,0 +1,37 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: gateway-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI:http://keycloak:8080/realms/hrms/protocol/openid-connect/certs}
+  cloud:
+    gateway:
+      routes:
+        - id: identity-employees
+          uri: ${IDENTITY_URI:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/employees/**
+      # CORS khai báo trong SecurityConfig (Security filter chain chạy trước gateway)
+
+hrms:
+  keycloak:
+    # Phải khớp issuer trong token (Keycloak KC_HOSTNAME=http://localhost:8081)
+    issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
+
+logging:
+  pattern:
+    correlation: "[gateway-service,%X{traceId:-},%X{spanId:-},%X{correlationId:-}] "

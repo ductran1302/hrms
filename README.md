@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 4 — `identity-service` hoàn tất (CRUD + RBAC + outbox → Kafka đã verify runtime).** Bước 5: `gateway-service`.
+> **Trạng thái: Bước 5 — `gateway-service` hoàn tất (route, JWT validate, CORS, correlation; đã verify runtime).** Bước 6: `attendance-service` (stub).
 
 ## Kiến trúc
 
@@ -148,7 +148,7 @@ HRMS/
 ├── identity-service/           # CRUD nhân viên + Transactional Outbox → Kafka
 │   └── src/main/resources/db/migration/  # Flyway
 ├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
-├── gateway-service/            # (TODO)
+├── gateway-service/            # Spring Cloud Gateway — route + JWT + CORS (WebFlux)
 ├── attendance-service/         # (TODO)
 └── frontend/                   # (TODO)
 ```
@@ -191,13 +191,37 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
 > `keycloak:8080` (in-network). Service tự build `JwtDecoder`: JWKS lấy in-network,
 > validate `iss` theo giá trị cố định (`hrms.keycloak.issuer`).
 
+### Chạy gateway-service (dev)
+
+Gateway **không phụ thuộc `hrms-common`** (WebFlux) — tự khai báo JWT decoder, CORS,
+correlation filter riêng. Trong dev container chạy `SERVER_PORT=8085` (8080 đã cho
+identity); compose app (Bước 8) sẽ map container 8080 → host 8080.
+
+```powershell
+docker exec -d hrms-dev bash -lc "SERVER_PORT=8085 java -jar /workspaces/HRMS/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar > /tmp/gateway.log 2>&1"
+docker exec hrms-dev tail -f /tmp/gateway.log
+```
+
+| Route | Predicate | Upstream |
+|---|---|---|
+| `identity-employees` | `Path=/api/v1/employees/**` | `IDENTITY_URI` (mặc định `http://localhost:8080`) |
+
+- **JWT** validate tại gateway (JWKS + issuer) rồi **forward `Authorization`** xuống
+  service — identity re-validate và enforce role (403 tại service, không phải gateway).
+- **CORS** khai báo trong `SecurityConfig` (Security filter chain chạy trước gateway;
+  khai báo ở `spring.cloud.gateway.globalcors` sẽ bị Security từ chối preflight 403).
+- **`X-Correlation-Id`**: filter ở gateway sinh/echo về client và truyền xuống service
+  con (kiểm chứng được qua `correlationId` trong body lỗi của identity).
+- Preflight test phải dùng client thật (`WebTestClient.bindToServer`) — mock client
+  của Boot có URI tương đối, phá `CorsUtils.isSameOrigin`.
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
 - [x] **Bước 2** — Dev container (JDK 21 + Maven + Node trong container)
 - [x] **Bước 3** — Parent POM + `hrms-common` (Avro event, outbox, error handler, security, Kafka config)
 - [x] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
-- [ ] **Bước 5** — `gateway-service` (route + JWT)
+- [x] **Bước 5** — `gateway-service` (route + JWT + CORS + correlation)
 - [ ] **Bước 6** — `attendance-service` (consumer idempotent + DLQ)
 - [ ] **Bước 7** — React frontend (AntD + ProComponents)
 - [ ] **Bước 8** — Tracing + Dockerfile multi-stage + `docker-compose.app.yml`

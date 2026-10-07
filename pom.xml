@@ -21,6 +21,7 @@
   <modules>
     <module>hrms-common</module>
     <module>identity-service</module>
+    <module>gateway-service</module>
   </modules>
 
   <properties>
