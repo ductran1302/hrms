@@ -21,6 +21,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 /**
  * Kafka + Avro (Confluent) dùng chung cho mọi service.
@@ -78,7 +79,11 @@ public class KafkaAvroConfiguration {
       KafkaProperties kafkaProperties) {
     Map<String, Object> props = new HashMap<>(kafkaProperties.buildConsumerProperties());
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class);
+    // ErrorHandlingDeserializer bọc KafkaAvroDeserializer: message lỗi (poison pill) trả về
+    // value=null + ném DeserializationException ở listener → DefaultErrorHandler đưa vào DLQ,
+    // thay vì exception trong poll() làm chết container. Không ảnh hưởng message hợp lệ.
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+    props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, KafkaAvroDeserializer.class.getName());
     props.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, true);
     props.putIfAbsent(KafkaAvroSerializerConfig.VALUE_SUBJECT_NAME_STRATEGY,
         RecordNameStrategy.class.getName());

@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 5 — `gateway-service` hoàn tất (route, JWT validate, CORS, correlation; đã verify runtime).** Bước 6: `attendance-service` (stub).
+> **Trạng thái: Bước 6 hoàn tất — `attendance-service` (consumer idempotent + DLQ, đã verify runtime) + springdoc Swagger UI với Bearer Auth (identity + attendance).** Bước 7: React frontend.
 
 ## Kiến trúc
 
@@ -149,7 +149,10 @@ HRMS/
 │   └── src/main/resources/db/migration/  # Flyway
 ├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
 ├── gateway-service/            # Spring Cloud Gateway — route + JWT + CORS (WebFlux)
-├── attendance-service/         # (TODO)
+├── attendance-service/         # consumer Kafka idempotent + DLQ → projection nhân sự
+│   └── src/main/resources/db/migration/  # Flyway (attendance_db)
+├── scripts/verify-attendance.sh # smoke test attendance (RBAC + E2E qua gateway)
+├── scripts/verify-swagger.sh    # kiểm tra springdoc + bearerAuth (identity + attendance)
 └── frontend/                   # (TODO)
 ```
 
@@ -215,6 +218,48 @@ docker exec hrms-dev tail -f /tmp/gateway.log
 - Preflight test phải dùng client thật (`WebTestClient.bindToServer`) — mock client
   của Boot có URI tương đối, phá `CorsUtils.isSameOrigin`.
 
+### Chạy attendance-service (dev)
+
+Service đọc event `hrms.employee.v1` từ Kafka (cùng partition key = employeeId → thứ tự theo
+nhân sự được giữ) và ghi projection vào `attendance_db`. Idempotent theo `eventId` (bảng
+`processed_events`) — replay không tạo trùng. Lỗi xử lý retry 3 lần rồi đẩy vào DLQ
+`hrms.employee.v1.DLQ`; message lỗi deserialization (poison pill) được đẩy sang DLQ dạng
+`byte[]` gốc (không chết container).
+
+```powershell
+docker exec -d hrms-dev bash -lc "SERVER_PORT=8086 java -jar /workspaces/HRMS/attendance-service/target/attendance-service-0.1.0-SNAPSHOT.jar > /tmp/attendance.log 2>&1"
+docker exec hrms-dev tail -f /tmp/attendance.log
+
+# smoke test: RBAC 401/200/403 + E2E tạo nhân viên qua gateway → projection (cần hạ tầng + identity + gateway đang chạy)
+docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-attendance.sh
+```
+
+| Endpoint | Method | Role |
+|---|---|---|
+| `/api/v1/attendance/employees` | GET | `HR_ADMIN`, `MANAGER` |
+| `/api/v1/attendance/employees/{employeeCode}` | GET | `HR_ADMIN`, `MANAGER` |
+
+### Swagger UI + Bearer Auth (springdoc)
+
+Mỗi service tự phục vụ Swagger UI (per-service, không aggregate qua gateway):
+
+| Service | Swagger UI | OpenAPI JSON |
+|---|---|---|
+| identity (8080) | http://localhost:8080/swagger-ui.html | http://localhost:8080/v3/api-docs |
+| attendance (8086) | http://localhost:8086/swagger-ui.html | http://localhost:8086/v3/api-docs |
+
+Cách dùng: mở Swagger UI → bấm **Authorize** → dán `access_token` lấy theo mục
+"Lấy token" ở trên (scheme `bearerAuth`, JWT) → **Try it out**.
+
+```powershell
+# kiểm tra spec + security scheme
+docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-swagger.sh
+```
+
+> **Lưu ý version:** `kafka-schema-registry-client` (Confluent) kéo `swagger-annotations:2.1.10`
+> trùng package với `swagger-annotations-jakarta` của springdoc → `NoSuchMethodError` trên
+> `/v3/api-docs`. Parent POM đã pin `swagger-annotations` = 2.2.22 trong `dependencyManagement`.
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
@@ -222,6 +267,6 @@ docker exec hrms-dev tail -f /tmp/gateway.log
 - [x] **Bước 3** — Parent POM + `hrms-common` (Avro event, outbox, error handler, security, Kafka config)
 - [x] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
 - [x] **Bước 5** — `gateway-service` (route + JWT + CORS + correlation)
-- [ ] **Bước 6** — `attendance-service` (consumer idempotent + DLQ)
+- [x] **Bước 6** — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI / Bearer Auth
 - [ ] **Bước 7** — React frontend (AntD + ProComponents)
 - [ ] **Bước 8** — Tracing + Dockerfile multi-stage + `docker-compose.app.yml`

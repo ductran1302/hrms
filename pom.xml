@@ -22,6 +22,7 @@
     <module>hrms-common</module>
     <module>identity-service</module>
     <module>gateway-service</module>
+    <module>attendance-service</module>
   </modules>
 
   <properties>
@@ -32,6 +33,8 @@
     <avro.version>1.12.2</avro.version>
     <confluent.version>7.6.3</confluent.version>
     <springdoc.version>2.6.0</springdoc.version>
+    <!-- Khớp swagger-annotations-jakarta mà springdoc 2.6.0 kéo theo (2.2.22) -->
+    <swagger.annotations.version>2.2.22</swagger.annotations.version>
     <testcontainers.version>1.20.4</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
   </properties>
@@ -73,6 +76,17 @@
         <groupId>org.springdoc</groupId>
         <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         <version>${springdoc.version}</version>
+      </dependency>
+      <!--
+        kafka-schema-registry-client (Confluent) kéo swagger-annotations 2.1.10 — cùng package
+        io.swagger.v3.oas.annotations với swagger-annotations-jakarta của springdoc. Hai jar trùng
+        class, jar cũ load trước → NoSuchMethodError (Info.summary) khi mở /v3/api-docs.
+        Pin cùng version thì jar nào trước cũng chạy được.
+      -->
+      <dependency>
+        <groupId>io.swagger.core.v3</groupId>
+        <artifactId>swagger-annotations</artifactId>
+        <version>${swagger.annotations.version}</version>
       </dependency>
       <dependency>
         <groupId>org.mapstruct</groupId>

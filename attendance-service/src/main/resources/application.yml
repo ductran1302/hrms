@@ -1,0 +1,46 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: attendance-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/attendance_db
+    username: ${DB_USER:hrms}
+    password: ${DB_PASSWORD:hrms_dev_pw}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    consumer:
+      # Group mới đọc từ đầu (auto-offset-reset) — replay test reset offset về earliest
+      group-id: attendance-service
+      auto-offset-reset: earliest
+    properties:
+      # Client URL in-network (SCHEMA_REGISTRY_ADVERTISED chỉ dành cho host)
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWK_SET_URI:http://keycloak:8080/realms/hrms/protocol/openid-connect/certs}
+
+hrms:
+  keycloak:
+    # Issuer cố định trong token (Keycloak cấu hình KC_HOSTNAME=http://localhost:8081)
+    issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
+  # KHÔNG bật outbox — attendance chỉ là consumer
+
+logging:
+  pattern:
+    correlation: "[attendance-service,%X{traceId:-},%X{spanId:-},%X{correlationId:-}] "
+
+management:
+  zipkin:
+    tracing:
+      # in-network (default của Boot là localhost:9411 — không tới được từ container)
+      endpoint: ${ZIPKIN_ENDPOINT:http://zipkin:9411/api/v2/spans}
