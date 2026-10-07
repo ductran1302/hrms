@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 1 — Hạ tầng.** Chưa có service Java/React.
+> **Trạng thái: Bước 2 — Dev container.** Chưa có service Java/React.
 
 ## Kiến trúc
 
@@ -25,20 +25,44 @@ Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + 
 | Công cụ | Phiên bản | Ghi chú |
 |---|---|---|
 | Docker + Compose | ≥ 24 / v2 | **Bắt buộc** |
-| JDK | — | **Không cần cài.** Build/run Java nằm trong container (`mcr.microsoft.com/devcontainers/java:21`) |
-| Node | — | **Không cần cài.** FE chạy trong dev container |
+| JDK | — | **Không cần cài.** Build/run Java nằm trong dev container (JDK 21) |
+| Node | — | **Không cần cài.** FE chạy trong dev container (Node 22) |
+| VS Code + Dev Containers | — | Để mở repo trong container |
 
 Máy bạn có thể có sẵn Java 8 cho các project khác — project này **không đụng vào `JAVA_HOME` hệ thống**.
+
+## Dev container
+
+```powershell
+# Từ VS Code: Ctrl+Shift+P → "Dev Containers: Reopen in Container"
+# Hoặc CLI:
+npx @devcontainers/cli up --workspace-folder .
+npx @devcontainers/cli exec --workspace-folder . bash
+```
+
+Bên trong container đã có sẵn: **JDK 21, Maven 3.8.7, Node 22.23.2, npm 12, git, ripgrep**.
+Container join network `hrms_default` nên kết nối trực tiếp bằng hostname:
+`postgres:5432`, `kafka:29092`, `schema-registry:8081`, `keycloak:8080`.
+
+```powershell
+docker exec hrms-dev mvn -v      # verify toolchain
+docker compose logs -f           # log hạ tầng (chạy ở host)
+```
 
 ## Bắt đầu nhanh
 
 ```powershell
-# 1. Khởi động hạ tầng (6 container)
+# 1. Khởi động hạ tầng — chạy từ HOST (6 container)
 docker compose up -d
-
-# 2. Kiểm tra
 docker compose ps          # tất cả healthy
+
+# 2. Mở VS Code → Ctrl+Shift+P → "Dev Containers: Reopen in Container"
+#    (dev container tự build image hrms-dev: JDK21 + Maven + Node)
 ```
+
+> Hạ tầng chạy ở **host** (Docker Desktop), dev container join cùng network `hrms_default`.
+> Hai process compose độc nhau: `docker compose` (root) cho infra,
+> `.devcontainer/docker-compose.dev.yml` cho dev container.
 
 Mở:
 
@@ -109,7 +133,11 @@ docker compose up -d --wait
 
 ```
 HRMS/
-├── docker-compose.yml          # hạ tầng dev
+├── docker-compose.yml          # hạ tầng dev (chạy từ host)
+├── .devcontainer/
+│   ├── devcontainer.json       # VS Code Dev Container config
+│   ├── Dockerfile              # JDK 21 + Maven + Node (build image hrms-dev)
+│   └── docker-compose.dev.yml  # service dev, join network hrms_default
 ├── .env.example                # biến cấu hình (copy thành .env nếu muốn ghi đè)
 ├── infra/postgres/init.sql     # tạo các database per-service
 ├── keycloak/realm-hrms.json    # realm, client, roles, user mẫu
@@ -123,7 +151,7 @@ HRMS/
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
-- [ ] **Bước 2** — Dev container (JDK 21 + Node trong container)
+- [x] **Bước 2** — Dev container (JDK 21 + Maven + Node trong container)
 - [ ] **Bước 3** — Parent POM + `hrms-common`
 - [ ] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
 - [ ] **Bước 5** — `gateway-service` (route + JWT)

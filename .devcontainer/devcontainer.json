@@ -1,0 +1,37 @@
+{
+  "name": "HRMS Dev",
+  "dockerComposeFile": "docker-compose.dev.yml",
+  "service": "dev",
+  "build": { "dockerfile": "Dockerfile" },
+  "workspaceFolder": "/workspaces/HRMS",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-spring-initializr",
+        "vscjava.vscode-spring-boot-dashboard",
+        "vscjava.vscode-lombok",
+        "ms-azuretools.vscode-docker",
+        "EditorConfig.EditorConfig",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "files.eol": "\n",
+        "editor.formatOnSave": true,
+        "[java]": {
+          "editor.defaultFormatter": "vscjava.vscode-java-pack"
+        }
+      }
+    }
+  },
+  "forwardPorts": [8080, 5173, 4173],
+  "portsAttributes": {
+    "8080": { "label": "gateway-service", "onAutoForward": "notify" },
+    "5173": { "label": "frontend (vite dev)", "onAutoForward": "notify" },
+    "4173": { "label": "frontend (vite preview)", "onAutoForward": "silent" }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "git config --global --add safe.directory /workspaces/HRMS && java -version && mvn -v && node -v && npm -v"
+}

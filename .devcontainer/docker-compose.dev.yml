@@ -1,0 +1,25 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: hrms-dev:latest
+    container_name: hrms-dev
+    entrypoint: ["/bin/sh", "-c", "sudo chown -R vscode:vscode /home/vscode/.m2 && exec sleep infinity"]
+    init: true
+    volumes:
+      - ..:/workspaces/HRMS:cached
+      - maven_cache:/home/vscode/.m2
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MAVEN_OPTS: -Dmaven.repo.local=/home/vscode/.m2/repository
+    networks:
+      - default
+
+volumes:
+  maven_cache:
+    name: hrms_maven_cache
+
+networks:
+  default:
+    name: hrms_default
