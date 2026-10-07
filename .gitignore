@@ -1,0 +1,33 @@
+# Env local
+.env
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# Build
+target/
+*.class
+*.jar
+!*.jar/*.java
+!.mvn/wrapper/maven-wrapper.jar
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Swagger / generated
+.graphql/
+openapi-output/
+
+# Coverage
+coverage/
