@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 7 hoàn tất — React frontend (Vite + AntD v5 + ProComponents, Keycloak PKCE) đã build + verify PKCE E2E.** Trước đó: Bước 6 — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI/Bearer Auth.
+> **Trạng thái: HOÀN TẤT lộ trình ①–⑧.** Bước 8: Dockerfile multi-stage (3 backend + frontend/nginx), `docker-compose.app.yml` (app stack production-style), tracing Zipkin đã verify. Trước đó: Bước 7 React frontend; Bước 6 attendance + springdoc.
 
 ## Kiến trúc
 
@@ -136,23 +136,26 @@ docker compose up -d --wait
 ```
 HRMS/
 ├── docker-compose.yml          # hạ tầng dev (chạy từ host)
+├── docker-compose.app.yml      # app stack production-style (4 services, join hrms_default)
+├── .dockerignore               # lọc target/, node_modules, .git khi build image
 ├── .devcontainer/
 │   ├── devcontainer.json       # VS Code Dev Container config
 │   ├── Dockerfile              # JDK 21 + Maven + Node (build image hrms-dev)
 │   └── docker-compose.dev.yml  # service dev, join network hrms_default
 ├── .env.example                # biến cấu hình (copy thành .env nếu muốn ghi đè)
 ├── infra/postgres/init.sql     # tạo các database per-service
+├── infra/nginx/frontend.conf   # nginx SPA + proxy /api/ → gateway
 ├── keycloak/realm-hrms.json    # realm, client, roles, user mẫu
 ├── pom.xml                     # parent POM (Boot 3.3, Java 21, multi-module)
 ├── hrms-common/                # lib chung: BaseEntity, error handler, Avro event,
 │   │                           #   Kafka config, outbox, security
 │   └── src/main/avro/          #   event schema (record name strategy)
-├── identity-service/           # CRUD nhân viên + Transactional Outbox → Kafka
+├── identity-service/           # CRUD nhân viên + Transactional Outbox → Kafka (Dockerfile)
 │   └── src/main/resources/db/migration/  # Flyway
-├── gateway-service/            # Spring Cloud Gateway — route + JWT + CORS (WebFlux)
-├── attendance-service/         # consumer Kafka idempotent + DLQ → projection nhân sự
+├── gateway-service/            # Spring Cloud Gateway — route + JWT + CORS (Dockerfile)
+├── attendance-service/         # consumer Kafka idempotent + DLQ (Dockerfile)
 │   └── src/main/resources/db/migration/  # Flyway (attendance_db)
-├── frontend/                   # React 18 + Vite + AntD v5 + ProComponents (Keycloak PKCE)
+├── frontend/                   # React 18 + Vite + AntD v5 + ProComponents (Dockerfile → nginx)
 │   └── src/{auth,api,pages,layouts}/
 ├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
 ├── scripts/verify-attendance.sh # smoke test attendance (RBAC + E2E qua gateway)
@@ -303,6 +306,56 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-frontend-pkce.sh
 > cũng có sẵn). Đổi port thì sửa thêm `redirectUris`/`webOrigins` trong `keycloak/realm-hrms.json`.
 > Env override: `VITE_KEYCLOAK_URL`, `VITE_API_BASE` (mặc định `http://localhost:8081`, `http://localhost:8085`).
 
+### Tracing (Zipkin)
+
+Ba backend đều có Micrometer Tracing (brave) → Zipkin endpoint in-network
+(`http://zipkin:9411/api/v2/spans`), log pattern
+`[service,%X{traceId:-},%X{spanId:-},%X{correlationId:-}]`:
+
+```powershell
+# lấy trace (sau khi gọi vài API)
+Invoke-RestMethod "http://localhost:9411/api/v2/traces?serviceName=identity-service&limit=3"
+```
+
+Đã verify: gateway ↔ identity ↔ attendance có span (trace sample 7 span/trace).
+
+### Docker images & app stack
+
+Multi-stage Dockerfile (build trong image, host không cần JDK/Node):
+
+| Dockerfile | Build stage | Runtime |
+|---|---|---|
+| `identity/gateway/attendance-service/Dockerfile` | `maven:3.9-eclipse-temurin-21` | `eclipse-temurin:21-jre-jammy` |
+| `frontend/Dockerfile` | `node:22-bookworm-slim` | `nginx:1.27-alpine` (SPA + proxy `/api/` → gateway) |
+
+```powershell
+# hạ tầng (docker-compose.yml) phải đang chạy trước
+docker compose -f docker-compose.app.yml up -d --build
+```
+
+| Endpoint | URL | Ghi chú |
+|---|---|---|
+| App gateway | http://localhost:8080 | route identity + attendance |
+| App frontend | http://localhost:3000 | nginx same-origin proxy → gateway |
+
+Flow: browser → nginx (:3000, serve SPA + `/api/**` proxy → gateway) → gateway →
+`identity:8080` / `attendance:8080` (in-network). Bundle build với `VITE_API_BASE=""`
+→ API relative, **không cần CORS**. Keycloak realm đã có redirect `http://localhost:3000/*`.
+
+```powershell
+docker compose -f docker-compose.app.yml down            # dừng app stack (giữ hạ tầng)
+docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổi code
+```
+
+> **Xung đột port 8080:** khi app stack chạy, `localhost:8080` là **app gateway** —
+> Swagger UI dev (identity :8080) chỉ truy cập từ trong dev container
+> (`docker exec hrms-dev curl http://localhost:8080/swagger-ui/index.html`).
+> Dừng app stack để dùng lại Swagger dev qua host.
+
+> **Keycloak admin:** realm `hrms` import tự động từ `keycloak/realm-hrms.json`
+> (không cần Admin Console). Muốn import lại: xóa volume keycloak rồi
+> `docker compose up -d keycloak` — users/secrets re-import từ JSON, mất session cũ.
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
@@ -312,4 +365,4 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-frontend-pkce.sh
 - [x] **Bước 5** — `gateway-service` (route + JWT + CORS + correlation)
 - [x] **Bước 6** — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI / Bearer Auth
 - [x] **Bước 7** — React frontend (Vite + AntD v5 + ProComponents, Keycloak PKCE)
-- [ ] **Bước 8** — Tracing + Dockerfile multi-stage + `docker-compose.app.yml`
+- [x] **Bước 8** — Tracing (verify Zipkin) + Dockerfile multi-stage + `docker-compose.app.yml`

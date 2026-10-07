@@ -2,8 +2,10 @@
 # E2E PKCE y hệt SPA: authorize → form login Keycloak → code → token exchange → gọi API qua gateway.
 set -u
 KC="http://keycloak:8080/realms/hrms"
-REDIR_ENC="http%3A%2F%2Flocalhost%3A5173%2F"
-REDIR="http://localhost:5173/"
+FE_ORIGIN="${FE_ORIGIN:-http://localhost:5173/}"
+GATEWAY="${GATEWAY:-http://localhost:8085}"
+REDIR_ENC=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$FE_ORIGIN")
+REDIR="$FE_ORIGIN"
 JAR=/tmp/pkce-cookies.txt
 fail=1
 
@@ -27,7 +29,7 @@ redirect=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' \
   -d 'username=hr&password=hr@123&credentialId=' "$ACTION")
 echo "login submit → $redirect"
 case "$redirect" in
-  "http://localhost:5173/"*) ;;
+  "$FE_ORIGIN"*) ;;
   *) echo "FAIL redirect khong tro ve SPA"; exit 1 ;;
 esac
 CODE=$(printf '%s' "$redirect" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
@@ -42,12 +44,12 @@ echo "token: ${#TOKEN} bytes"
 
 # 4. gọi API qua gateway (giống axios interceptor của SPA)
 gcode=$(curl -s -o /tmp/pkce-att.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8085/api/v1/attendance/employees)
+  "$GATEWAY/api/v1/attendance/employees")
 echo "gateway attendance: $gcode (expect 200)"
 [ "$gcode" = 200 ] || { cat /tmp/pkce-att.json; exit 1; }
 
 gcode=$(curl -s -o /tmp/pkce-emp.json -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8085/api/v1/employees)
+  "$GATEWAY/api/v1/employees")
 echo "gateway employees: $gcode (expect 200)"
 [ "$gcode" = 200 ] || { cat /tmp/pkce-emp.json; exit 1; }
 

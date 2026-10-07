@@ -1,0 +1,49 @@
+# App stack production-style — cần hạ tầng (docker-compose.yml) đã chạy trước.
+#   docker compose -f docker-compose.app.yml up -d --build
+# Join network hrms_default chung (postgres, kafka, schema-registry, keycloak, zipkin).
+name: hrms-app
+
+services:
+  identity:
+    build:
+      context: .
+      dockerfile: identity-service/Dockerfile
+    restart: unless-stopped
+
+  attendance:
+    build:
+      context: .
+      dockerfile: attendance-service/Dockerfile
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      IDENTITY_URI: http://identity:8080
+      ATTENDANCE_URI: http://attendance:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - identity
+      - attendance
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # rỗng → axios gọi relative /api/** → nginx proxy sang gateway (same-origin, không CORS)
+        VITE_API_BASE: ""
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+
+networks:
+  default:
+    name: hrms_default
+    external: true
