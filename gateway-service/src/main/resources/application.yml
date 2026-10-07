@@ -16,6 +16,10 @@ spring:
           uri: ${IDENTITY_URI:http://localhost:8080}
           predicates:
             - Path=/api/v1/employees/**
+        - id: attendance-employees
+          uri: ${ATTENDANCE_URI:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/attendance/**
       # CORS khai báo trong SecurityConfig (Security filter chain chạy trước gateway)
 
 hrms:

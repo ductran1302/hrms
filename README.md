@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 6 hoàn tất — `attendance-service` (consumer idempotent + DLQ, đã verify runtime) + springdoc Swagger UI với Bearer Auth (identity + attendance).** Bước 7: React frontend.
+> **Trạng thái: Bước 7 hoàn tất — React frontend (Vite + AntD v5 + ProComponents, Keycloak PKCE) đã build + verify PKCE E2E.** Trước đó: Bước 6 — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI/Bearer Auth.
 
 ## Kiến trúc
 
@@ -72,6 +72,8 @@ Mở:
 | Zipkin | http://localhost:9411 | — |
 | Schema Registry | http://localhost:8082/subjects | — |
 | Keycloak (realm hrms) | http://localhost:8081/realms/hrms | issuer + discovery |
+| Frontend (Vite dev) | http://localhost:5173 | cần `npm run dev` trong container |
+| Swagger UI | http://localhost:8080/swagger-ui.html | identity (:8080), attendance (:8086) |
 
 > **Về Keycloak Admin Console:** chưa cần cho giai đoạn này. Toàn bộ cấu hình realm
 > (client, roles, users) nằm trong `keycloak/realm-hrms.json` và được import tự động.
@@ -147,13 +149,17 @@ HRMS/
 │   └── src/main/avro/          #   event schema (record name strategy)
 ├── identity-service/           # CRUD nhân viên + Transactional Outbox → Kafka
 │   └── src/main/resources/db/migration/  # Flyway
-├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
 ├── gateway-service/            # Spring Cloud Gateway — route + JWT + CORS (WebFlux)
 ├── attendance-service/         # consumer Kafka idempotent + DLQ → projection nhân sự
 │   └── src/main/resources/db/migration/  # Flyway (attendance_db)
+├── frontend/                   # React 18 + Vite + AntD v5 + ProComponents (Keycloak PKCE)
+│   └── src/{auth,api,pages,layouts}/
+├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
 ├── scripts/verify-attendance.sh # smoke test attendance (RBAC + E2E qua gateway)
-├── scripts/verify-swagger.sh    # kiểm tra springdoc + bearerAuth (identity + attendance)
-└── frontend/                   # (TODO)
+├── scripts/verify-gateway-attendance.sh # route gateway → attendance (200/401/403)
+├── scripts/verify-swagger.sh   # kiểm tra springdoc + bearerAuth (identity + attendance)
+├── scripts/verify-frontend-pkce.sh # E2E PKCE: authorize → login → token → gateway API
+└── scripts/fix-esbuild.sh      # npm 12 chặn postinstall esbuild → approve + rebuild
 ```
 
 ## Build & test
@@ -208,6 +214,7 @@ docker exec hrms-dev tail -f /tmp/gateway.log
 | Route | Predicate | Upstream |
 |---|---|---|
 | `identity-employees` | `Path=/api/v1/employees/**` | `IDENTITY_URI` (mặc định `http://localhost:8080`) |
+| `attendance-employees` | `Path=/api/v1/attendance/**` | `ATTENDANCE_URI` (mặc định `http://localhost:8086`) |
 
 - **JWT** validate tại gateway (JWKS + issuer) rồi **forward `Authorization`** xuống
   service — identity re-validate và enforce role (403 tại service, không phải gateway).
@@ -260,6 +267,42 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-swagger.sh
 > trùng package với `swagger-annotations-jakarta` của springdoc → `NoSuchMethodError` trên
 > `/v3/api-docs`. Parent POM đã pin `swagger-annotations` = 2.2.22 trong `dependencyManagement`.
 
+### Chạy frontend (dev)
+
+React 18 + Vite + TypeScript, UI **AntD v5 + ProComponents**, đăng nhập qua Keycloak
+(client `hrms-spa`, PKCE S256, `onLoad: login-required` → tự redirect tới trang login).
+API gọi thẳng gateway `http://localhost:8085` (CORS đã allow origin `http://localhost:5173`).
+
+```powershell
+# cài deps (chỉ lần đầu — npm 12 chặn postinstall của esbuild, phải approve)
+docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm install"
+docker exec hrms-dev bash /workspaces/HRMS/scripts/fix-esbuild.sh
+
+# chạy dev server (nền, publish host port 5173)
+docker exec -d hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run dev > /tmp/vite.log 2>&1"
+docker exec hrms-dev tail -f /tmp/vite.log
+
+# build production (tsc strict + vite build)
+docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run build"
+```
+
+Mở **http://localhost:5173** → tự redirect Keycloak → đăng nhập `hr` / `hr@123`:
+
+| Trang | Route | Quyền |
+|---|---|---|
+| Nhân sự (ProTable CRUD) | `/nhan-su` | `HR_ADMIN` thêm/sửa/nghỉ việc; `MANAGER` xem |
+| Chấm công (projection Kafka) | `/cham-cong` | `HR_ADMIN`, `MANAGER` |
+
+Smoke test E2E PKCE không cần browser (authorize → login form → code → token → gateway):
+
+```powershell
+docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-frontend-pkce.sh
+```
+
+> **Port:** `.devcontainer/docker-compose.dev.yml` publish `5173:5173` (VS Code `forwardPorts`
+> cũng có sẵn). Đổi port thì sửa thêm `redirectUris`/`webOrigins` trong `keycloak/realm-hrms.json`.
+> Env override: `VITE_KEYCLOAK_URL`, `VITE_API_BASE` (mặc định `http://localhost:8081`, `http://localhost:8085`).
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
@@ -268,5 +311,5 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-swagger.sh
 - [x] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
 - [x] **Bước 5** — `gateway-service` (route + JWT + CORS + correlation)
 - [x] **Bước 6** — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI / Bearer Auth
-- [ ] **Bước 7** — React frontend (AntD + ProComponents)
+- [x] **Bước 7** — React frontend (Vite + AntD v5 + ProComponents, Keycloak PKCE)
 - [ ] **Bước 8** — Tracing + Dockerfile multi-stage + `docker-compose.app.yml`

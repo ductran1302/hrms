@@ -7,6 +7,8 @@ services:
     container_name: hrms-dev
     entrypoint: ["/bin/sh", "-c", "sudo chown -R vscode:vscode /home/vscode/.m2 && exec sleep infinity"]
     init: true
+    ports:
+      - "5173:5173"   # Vite dev server → host browser (VS Code forwardPorts cũng đã có 5173)
     volumes:
       - ..:/workspaces/HRMS:cached
       - maven_cache:/home/vscode/.m2
