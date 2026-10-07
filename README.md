@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 2 — Dev container.** Chưa có service Java/React.
+> **Trạng thái: Bước 3 — `hrms-common` hoàn tất (build + 18 tests pass).** Bước 4: `identity-service`.
 
 ## Kiến trúc
 
@@ -141,18 +141,33 @@ HRMS/
 ├── .env.example                # biến cấu hình (copy thành .env nếu muốn ghi đè)
 ├── infra/postgres/init.sql     # tạo các database per-service
 ├── keycloak/realm-hrms.json    # realm, client, roles, user mẫu
-├── hrms-common/                # (TODO) lib chung: BaseEntity, error handler, event DTO
+├── pom.xml                     # parent POM (Boot 3.3, Java 21, multi-module)
+├── hrms-common/                # lib chung: BaseEntity, error handler, Avro event,
+│   │                           #   Kafka config, outbox, security
+│   └── src/main/avro/          #   event schema (record name strategy)
 ├── gateway-service/            # (TODO)
 ├── identity-service/           # (TODO)
 ├── attendance-service/         # (TODO)
 └── frontend/                   # (TODO)
 ```
 
+## Build & test
+
+```powershell
+# Chạy từ host — build diễn ra trong dev container (JDK 21)
+docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
+```
+
+> **Avro 1.12 class-security:** Avro chặn deserialize class không được khai báo tin tưởng.
+> Project đã cấu hình sẵn: `org.apache.avro.SERIALIZABLE_PACKAGES=com.hrms`
+> (surefire cho test; `KafkaAvroConfiguration` set lúc khởi động cho runtime).
+> Khi thêm module/package mới nằm ngoài `com.hrms`, phải thêm vào property này.
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
 - [x] **Bước 2** — Dev container (JDK 21 + Maven + Node trong container)
-- [ ] **Bước 3** — Parent POM + `hrms-common`
+- [x] **Bước 3** — Parent POM + `hrms-common` (Avro event, outbox, error handler, security, Kafka config)
 - [ ] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
 - [ ] **Bước 5** — `gateway-service` (route + JWT)
 - [ ] **Bước 6** — `attendance-service` (consumer idempotent + DLQ)

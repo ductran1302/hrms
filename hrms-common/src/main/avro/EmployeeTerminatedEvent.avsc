@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "EmployeeTerminatedEvent",
+  "namespace": "com.hrms.common.avro.employee",
+  "doc": "Emitted by identity-service when an employee is terminated. Topic: hrms.employee.v1, subject strategy: RecordNameStrategy.",
+  "fields": [
+    { "name": "eventId", "type": "string", "doc": "UUID of the event - used by consumers for idempotency" },
+    { "name": "eventType", "type": "string", "default": "employee.terminated" },
+    { "name": "occurredAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "employeeId", "type": "string", "doc": "UUID of the employee" },
+    { "name": "employeeCode", "type": "string", "doc": "Employee code, e.g. NV0001" },
+    { "name": "fullName", "type": "string" },
+    { "name": "terminatedAt", "type": { "type": "long", "logicalType": "timestamp-millis" }, "doc": "effective termination date" },
+    { "name": "reason", "type": ["null", "string"], "default": null },
+    { "name": "actorId", "type": ["null", "string"], "default": null, "doc": "user id of the admin performing the operation" }
+  ]
+}
