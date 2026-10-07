@@ -8,6 +8,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -96,6 +97,13 @@ public class GlobalExceptionHandler {
       HttpServletRequest req) {
     return respond(HttpStatus.NOT_FOUND, ErrorCode.RESOURCE_NOT_FOUND.name(),
         "Không tìm thấy tài nguyên: " + ex.getResourcePath(), req, null, ex);
+  }
+
+  @ExceptionHandler(OptimisticLockingFailureException.class)
+  public ResponseEntity<ApiError> handleOptimisticLock(OptimisticLockingFailureException ex,
+      HttpServletRequest req) {
+    return respond(HttpStatus.CONFLICT, ErrorCode.CONFLICT.name(),
+        "Bản ghi vừa được người khác thay đổi — vui lòng tải lại rồi thử lại", req, null, ex);
   }
 
   @ExceptionHandler(DataIntegrityViolationException.class)

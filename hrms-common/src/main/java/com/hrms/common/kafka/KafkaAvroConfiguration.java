@@ -3,6 +3,8 @@ package com.hrms.common.kafka;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
+import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.avro.specific.SpecificRecord;
@@ -56,6 +58,10 @@ public class KafkaAvroConfiguration {
     Map<String, Object> props = new HashMap<>(kafkaProperties.buildProducerProperties());
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
+    // Nhiều loại record dùng chung 1 topic: subject = tên record (không phải tên topic),
+    // nếu không các record khác nhau sẽ tranh nhau 1 subject và phá compatibility check.
+    props.putIfAbsent(KafkaAvroSerializerConfig.VALUE_SUBJECT_NAME_STRATEGY,
+        RecordNameStrategy.class.getName());
     return new DefaultKafkaProducerFactory<>(props);
   }
 
@@ -74,6 +80,8 @@ public class KafkaAvroConfiguration {
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class);
     props.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, true);
+    props.putIfAbsent(KafkaAvroSerializerConfig.VALUE_SUBJECT_NAME_STRATEGY,
+        RecordNameStrategy.class.getName());
     return new DefaultKafkaConsumerFactory<>(props);
   }
 }

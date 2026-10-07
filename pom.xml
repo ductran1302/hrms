@@ -20,6 +20,7 @@
 
   <modules>
     <module>hrms-common</module>
+    <module>identity-service</module>
   </modules>
 
   <properties>
@@ -33,6 +34,15 @@
     <testcontainers.version>1.20.4</testcontainers.version>
     <mapstruct.version>1.6.3</mapstruct.version>
   </properties>
+
+  <dependencies>
+    <!-- Lombok cho mọi module (scope provided — không đóng vào jar) -->
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 
   <dependencyManagement>
     <dependencies>

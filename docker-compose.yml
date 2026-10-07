@@ -78,6 +78,9 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Issuer cố định: token luôn có iss=http://localhost:8081/realms/hrms dù request qua
+      # localhost:8081 (host) hay keycloak:8080 (in-network) — service validate nhất quán
+      KC_HOSTNAME: http://localhost:8081
       KC_LOG_LEVEL: info
     volumes:
       - ./keycloak/realm-hrms.json:/opt/keycloak/data/import/realm-hrms.json:ro

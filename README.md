@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: Bước 3 — `hrms-common` hoàn tất (build + 18 tests pass).** Bước 4: `identity-service`.
+> **Trạng thái: Bước 4 — `identity-service` hoàn tất (CRUD + RBAC + outbox → Kafka đã verify runtime).** Bước 5: `gateway-service`.
 
 ## Kiến trúc
 
@@ -145,8 +145,10 @@ HRMS/
 ├── hrms-common/                # lib chung: BaseEntity, error handler, Avro event,
 │   │                           #   Kafka config, outbox, security
 │   └── src/main/avro/          #   event schema (record name strategy)
+├── identity-service/           # CRUD nhân viên + Transactional Outbox → Kafka
+│   └── src/main/resources/db/migration/  # Flyway
+├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
 ├── gateway-service/            # (TODO)
-├── identity-service/           # (TODO)
 ├── attendance-service/         # (TODO)
 └── frontend/                   # (TODO)
 ```
@@ -163,12 +165,38 @@ docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
 > (surefire cho test; `KafkaAvroConfiguration` set lúc khởi động cho runtime).
 > Khi thêm module/package mới nằm ngoài `com.hrms`, phải thêm vào property này.
 
+### Chạy identity-service (dev)
+
+```powershell
+# build (chạy trong dev container)
+docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean install -DskipTests
+
+# chạy nền + xem log (port 8080 trong dev container, không publish ra host)
+docker exec -d hrms-dev bash -lc "java -jar /workspaces/HRMS/identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+docker exec hrms-dev tail -f /tmp/identity.log
+
+# smoke test: 401/403/201/409/422 + outbox → Kafka (cần hạ tầng đang chạy)
+docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
+```
+
+| Endpoint | Method | Role |
+|---|---|---|
+| `/api/v1/employees` | POST | `HR_ADMIN` |
+| `/api/v1/employees`, `/api/v1/employees/{id}` | GET | `HR_ADMIN`, `MANAGER` |
+| `/api/v1/employees/{id}` | PATCH | `HR_ADMIN` |
+| `/api/v1/employees/{id}` | DELETE (nghỉ việc, soft) | `HR_ADMIN` |
+
+> **Keycloak issuer:** compose đặt `KC_HOSTNAME=http://localhost:8081` → token luôn có
+> `iss=http://localhost:8081/realms/hrms` dù request qua `localhost:8081` (host) hay
+> `keycloak:8080` (in-network). Service tự build `JwtDecoder`: JWKS lấy in-network,
+> validate `iss` theo giá trị cố định (`hrms.keycloak.issuer`).
+
 ## Lộ trình
 
 - [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
 - [x] **Bước 2** — Dev container (JDK 21 + Maven + Node trong container)
 - [x] **Bước 3** — Parent POM + `hrms-common` (Avro event, outbox, error handler, security, Kafka config)
-- [ ] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
+- [x] **Bước 4** — `identity-service` + Transactional Outbox → Kafka
 - [ ] **Bước 5** — `gateway-service` (route + JWT)
 - [ ] **Bước 6** — `attendance-service` (consumer idempotent + DLQ)
 - [ ] **Bước 7** — React frontend (AntD + ProComponents)
