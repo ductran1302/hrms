@@ -1,6 +1,7 @@
 package com.hrms.identity.employee;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
   boolean existsByEmployeeCode(String employeeCode);
+
+  Optional<Employee> findByEmployeeCode(String employeeCode);
 
   boolean existsByEmployeeCodeAndIdNot(String employeeCode, UUID id);
 

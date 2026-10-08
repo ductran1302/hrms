@@ -381,3 +381,9 @@ docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổ
   - FE: trang Phòng ban, Hợp đồng, Sơ đồ tổ chức (`Tree`), Hồ sơ nhân viên 3 tab
     (Thông tin/Hợp đồng/Lịch sử); danh sách NV tìm kiếm + lọc phòng ban + phân trang.
   - Verify: `scripts/verify-identity.sh` (39/39), `scripts/verify-gateway-routes.sh`.
+- [x] **Bước 10** — Seed data phòng IT (`identity-service` `DataSeeder`, tự chạy khi
+  khởi động, idempotent — tắt bằng `hrms.seed.enabled=false`): cây 3 cấp
+  (Giám đốc CNTT → 3 trưởng bộ phận Backend/Frontend/OPS → 4 nhân viên), mã `NVIT001–008`,
+  gán cả `department.manager_id` + `employees.manager_id` để màn **Sơ đồ tổ chức**
+  hiển thị cây ngay. Tạo qua Service → outbox → attendance sync. Verify:
+  `scripts/verify-seed-it.sh` (root + 3 cấp + đếm = 8, restart không nhân đôi).
