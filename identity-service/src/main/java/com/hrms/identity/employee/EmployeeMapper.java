@@ -12,7 +12,7 @@ public interface EmployeeMapper {
 
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "status", ignore = true)
-  @Mapping(target = "departmentId", ignore = true)
+  @Mapping(target = "departmentName", ignore = true)
   @Mapping(target = "createdAt", ignore = true)
   @Mapping(target = "updatedAt", ignore = true)
   @Mapping(target = "version", ignore = true)

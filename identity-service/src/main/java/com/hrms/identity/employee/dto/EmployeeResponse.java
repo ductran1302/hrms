@@ -2,6 +2,7 @@ package com.hrms.identity.employee.dto;
 
 import com.hrms.identity.employee.EmployeeStatus;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record EmployeeResponse(
@@ -9,12 +10,17 @@ public record EmployeeResponse(
     String employeeCode,
     String fullName,
     String email,
-    String departmentId,
+    UUID departmentId,
     String departmentName,
     String position,
-    String managerId,
+    UUID managerId,
     EmployeeStatus status,
     Instant hiredAt,
+    LocalDate birthDate,
+    String gender,
+    String phone,
+    String nationalId,
+    String address,
     Instant createdAt,
     Instant updatedAt,
     Long version) {}

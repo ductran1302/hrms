@@ -20,6 +20,12 @@ spring:
           uri: ${ATTENDANCE_URI:http://localhost:8086}
           predicates:
             - Path=/api/v1/attendance/**
+        # Các API identity còn lại (departments/contracts/history/org-chart/...) —
+        # phải đặt SAU route attendance để /api/v1/attendance/** không rơi vào đây.
+        - id: identity-api
+          uri: ${IDENTITY_URI:http://localhost:8080}
+          predicates:
+            - Path=/api/v1/**
       # CORS khai báo trong SecurityConfig (Security filter chain chạy trước gateway)
 
 hrms:

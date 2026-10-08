@@ -7,6 +7,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -27,9 +29,9 @@ public class Employee extends BaseEntity {
   @Column(name = "email", length = 200)
   private String email;
 
-  /** Chưa có department-service — lưu UUID dạng string, sẽ map sang event khi có. */
-  @Column(name = "department_id", length = 64)
-  private String departmentId;
+  /** FK → departments.id (V2; trước đây là string tự do). */
+  @Column(name = "department_id")
+  private UUID departmentId;
 
   @Column(name = "department_name", length = 100)
   private String departmentName;
@@ -37,8 +39,9 @@ public class Employee extends BaseEntity {
   @Column(name = "position", length = 100)
   private String position;
 
-  @Column(name = "manager_id", length = 64)
-  private String managerId;
+  /** FK tự tham chiếu → employees.id (quản lý trực tiếp — dùng cho org chart). */
+  @Column(name = "manager_id")
+  private UUID managerId;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 20)
@@ -46,4 +49,21 @@ public class Employee extends BaseEntity {
 
   @Column(name = "hired_at")
   private Instant hiredAt;
+
+  // ---- Personal info (Bước 9 — hồ sơ mở rộng theo SF4C Personal Data) ----
+
+  @Column(name = "birth_date")
+  private LocalDate birthDate;
+
+  @Column(name = "gender", length = 10)
+  private String gender;
+
+  @Column(name = "phone", length = 20)
+  private String phone;
+
+  @Column(name = "national_id", length = 20)
+  private String nationalId;
+
+  @Column(name = "address", length = 300)
+  private String address;
 }

@@ -2,7 +2,7 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: HOÀN TẤT lộ trình ①–⑧.** Bước 8: Dockerfile multi-stage (3 backend + frontend/nginx), `docker-compose.app.yml` (app stack production-style), tracing Zipkin đã verify. Trước đó: Bước 7 React frontend; Bước 6 attendance + springdoc.
+> **Trạng thái: HOÀN TẤT lộ trình ①–⑨.** Bước 9: identity-core — phòng ban, hợp đồng (lương che theo role), lịch sử job info, org chart, hồ sơ nhân viên mở rộng + phân trang/tìm kiếm. Trước đó: Bước 8 Docker/app stack; Bước 7 React frontend; Bước 6 attendance + springdoc.
 
 ## Kiến trúc
 
@@ -366,3 +366,18 @@ docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổ
 - [x] **Bước 6** — `attendance-service` (consumer idempotent + DLQ) + springdoc Swagger UI / Bearer Auth
 - [x] **Bước 7** — React frontend (Vite + AntD v5 + ProComponents, Keycloak PKCE)
 - [x] **Bước 8** — Tracing (verify Zipkin) + Dockerfile multi-stage + `docker-compose.app.yml`
+- [x] **Bước 9** — identity-core (tham khảo SF4C/SAP SuccessFactors EC):
+  - Migration `V2`: bảng `departments`, `contracts`, `employee_job_history`;
+    `employees` thêm personal info (birth_date/gender/phone/national_id/address);
+    `department_id` → uuid FK, `manager_id` → uuid self-FK (org chart).
+  - API: `GET/POST/PATCH/DELETE /api/v1/departments` (+ `/tree`), `/api/v1/contracts`
+    + `/api/v1/employees/{id}/contracts` (POST/PATCH/terminate — **lương chỉ HR_ADMIN
+    thấy**, 1 hợp đồng ACTIVE/nhân viên), `/api/v1/employees/{id}/history`,
+    `GET /api/v1/org-chart`; `GET /api/v1/employees` đổi sang **PageResponse**
+    (`page,size,status,departmentId,q`).
+  - Ghi lịch sử job info (phòng ban/vị trí/quản lý/trạng thái/luồng hợp đồng) khi
+    thay đổi; đổi tên phòng ban → đồng bộ `department_name` của nhân viên + outbox.
+  - Gateway thêm route `identity-api` (`Path=/api/v1/**` → identity, sau attendance).
+  - FE: trang Phòng ban, Hợp đồng, Sơ đồ tổ chức (`Tree`), Hồ sơ nhân viên 3 tab
+    (Thông tin/Hợp đồng/Lịch sử); danh sách NV tìm kiếm + lọc phòng ban + phân trang.
+  - Verify: `scripts/verify-identity.sh` (39/39), `scripts/verify-gateway-routes.sh`.

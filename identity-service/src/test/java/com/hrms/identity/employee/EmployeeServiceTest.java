@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,9 +20,14 @@ import com.hrms.common.kafka.KafkaTopics;
 import com.hrms.common.outbox.OutboxEvent;
 import com.hrms.common.outbox.OutboxPayloadConverter;
 import com.hrms.common.outbox.OutboxRepository;
+import com.hrms.common.web.PageResponse;
+import com.hrms.identity.department.Department;
+import com.hrms.identity.department.DepartmentRepository;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
+import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
+import com.hrms.identity.history.JobHistoryService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +50,12 @@ class EmployeeServiceTest {
   @Mock
   private EmployeeMapper mapper;
 
+  @Mock
+  private DepartmentRepository departmentRepository;
+
+  @Mock
+  private JobHistoryService jobHistoryService;
+
   @InjectMocks
   private EmployeeService service;
 
@@ -52,8 +65,8 @@ class EmployeeServiceTest {
   @Test
   void create_savesEmployeeAndWritesOutbox() {
     EmployeeCreateRequest request =
-        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", "a@hrms.vn", "Engineering",
-            "Backend", null, null);
+        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", "a@hrms.vn", null, "Backend",
+            null, null, null, null, null, null, null);
     Employee entity = new Employee();
     entity.setEmployeeCode("NV0001");
     entity.setFullName("Nguyễn Văn A");
@@ -89,7 +102,8 @@ class EmployeeServiceTest {
   @Test
   void create_duplicateCode_throwsConflict() {
     EmployeeCreateRequest request =
-        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", null, null, null, null, null);
+        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", null, null, null, null, null,
+            null, null, null, null, null);
     when(employeeRepository.existsByEmployeeCode("NV0001")).thenReturn(true);
 
     assertThrows(ConflictException.class, () -> service.create(request, actorId));
@@ -98,15 +112,40 @@ class EmployeeServiceTest {
   }
 
   @Test
-  void list_withStatus_filters() {
+  void create_unknownDepartment_throwsResourceNotFound() {
+    UUID departmentId = UUID.randomUUID();
+    EmployeeCreateRequest request =
+        new EmployeeCreateRequest("NV0002", "Test", null, departmentId, null, null, null,
+            null, null, null, null, null);
+    Employee entity = new Employee();
+    entity.setEmployeeCode("NV0002");
+
+    when(employeeRepository.existsByEmployeeCode("NV0002")).thenReturn(false);
+    when(mapper.toEntity(request)).thenReturn(entity);
+    when(departmentRepository.findById(departmentId)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> service.create(request, actorId));
+    verify(employeeRepository, never()).save(any());
+  }
+
+  @Test
+  void search_returnsPageResponse() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
-    when(employeeRepository.findByStatusOrderByCreatedAtDesc(EmployeeStatus.ACTIVE))
-        .thenReturn(List.of(employee));
+    EmployeeResponse response = new EmployeeResponse(employeeId, "NV0001", "Nguyễn Văn A",
+        null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null, null, null,
+        null, null, null, 0L);
+    when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""),
+        any())).thenReturn(List.of(employee));
+    when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq("")))
+        .thenReturn(1L);
+    when(mapper.toResponse(employee)).thenReturn(response);
 
-    var result = service.list(EmployeeStatus.ACTIVE);
+    PageResponse<EmployeeResponse> result =
+        service.search(0, 20, EmployeeStatus.ACTIVE, null, null);
 
-    assertEquals(1, result.size());
-    verify(employeeRepository).findByStatusOrderByCreatedAtDesc(EmployeeStatus.ACTIVE);
+    assertEquals(1, result.items().size());
+    assertEquals(1L, result.total());
+    assertEquals("NV0001", result.items().get(0).employeeCode());
   }
 
   @Test
@@ -117,7 +156,8 @@ class EmployeeServiceTest {
 
   @Test
   void update_noFields_throwsBusinessRule() {
-    EmployeeUpdateRequest patch = new EmployeeUpdateRequest(null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = new EmployeeUpdateRequest(null, null, null, null, null,
+        null, null, null, null, null, null, null, null);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
@@ -125,7 +165,8 @@ class EmployeeServiceTest {
   @Test
   void update_statusTerminatedViaPatch_rejected() {
     EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, null, null, null, null, "TERMINATED");
+        new EmployeeUpdateRequest(null, null, null, null, null, null, null, "TERMINATED",
+            null, null, null, null, null);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
@@ -139,7 +180,8 @@ class EmployeeServiceTest {
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, "new@hrms.vn", null, null, null, null);
+        new EmployeeUpdateRequest(null, "new@hrms.vn", null, null, null, null, null, null,
+            null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     assertEquals("new@hrms.vn", employee.getEmail());
@@ -155,13 +197,69 @@ class EmployeeServiceTest {
   }
 
   @Test
+  void update_positionChange_recordsJobHistory() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    employee.setPosition("Backend");
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    EmployeeUpdateRequest patch =
+        new EmployeeUpdateRequest(null, null, null, null, "Senior Backend", null, null,
+            null, null, null, null, null, null);
+    service.update(employeeId, patch, actorId);
+
+    assertEquals("Senior Backend", employee.getPosition());
+    verify(jobHistoryService).record(eq(employeeId), eq("position"), eq("Backend"),
+        eq("Senior Backend"), eq(actorId));
+  }
+
+  @Test
+  void update_departmentChange_resolvesNameAndRecordsHistory() {
+    UUID departmentId = UUID.randomUUID();
+    Department department = new Department();
+    department.setId(departmentId);
+    department.setName("HR");
+
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    employee.setDepartmentId(UUID.randomUUID());
+    employee.setDepartmentName("Engineering");
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(departmentRepository.findById(departmentId)).thenReturn(Optional.of(department));
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    EmployeeUpdateRequest patch =
+        new EmployeeUpdateRequest(null, null, departmentId, null, null, null, null, null,
+            null, null, null, null, null);
+    service.update(employeeId, patch, actorId);
+
+    assertEquals(departmentId, employee.getDepartmentId());
+    assertEquals("HR", employee.getDepartmentName());
+    verify(jobHistoryService).record(eq(employeeId), eq("department"), eq("Engineering"),
+        eq("HR"), eq(actorId));
+  }
+
+  @Test
+  void update_managerCannotBeSelf_throwsBusinessRule() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+
+    EmployeeUpdateRequest patch =
+        new EmployeeUpdateRequest(null, null, null, null, null, employeeId, null, null,
+            null, null, null, null, null);
+    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
+    verify(employeeRepository, never()).save(any());
+  }
+
+  @Test
   void update_nothingChanged_writesNoOutbox() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     employee.setFullName("Nguyễn Văn A");
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
     EmployeeUpdateRequest patch = new EmployeeUpdateRequest("Nguyễn Văn A", null, null, null,
-        null, null);
+        null, null, null, null, null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     verify(outboxRepository, never()).save(any());
@@ -188,6 +286,8 @@ class EmployeeServiceTest {
     assertNotNull(payload.terminatedAt());
     assertEquals("Tự nguyện", payload.reason());
     assertFalse(payload.changedFields().contains("status"));
+    verify(jobHistoryService).record(eq(employeeId), eq("status"), eq("ACTIVE"),
+        eq("TERMINATED"), eq(actorId));
   }
 
   @Test

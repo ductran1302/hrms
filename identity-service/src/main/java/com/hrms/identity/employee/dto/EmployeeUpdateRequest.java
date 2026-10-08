@@ -2,15 +2,25 @@ package com.hrms.identity.employee.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * PATCH toàn phần (field null = không đổi). Không cho sửa {@code employeeCode};
- * {@code status} chỉ nhận ACTIVE/PROBATION — nghỉ việc qua DELETE.
+ * {@code status} chỉ nhận ACTIVE/PROBATION/INACTIVE — nghỉ việc qua DELETE.
+ * {@code clearDepartment}/{@code clearManager} = true để gỡ liên kết (vì null = không đổi).
  */
 public record EmployeeUpdateRequest(
     @Size(max = 200) String fullName,
     @Email @Size(max = 200) String email,
-    @Size(max = 100) String departmentName,
+    UUID departmentId,
+    Boolean clearDepartment,
     @Size(max = 100) String position,
-    @Size(max = 64) String managerId,
-    String status) {}
+    UUID managerId,
+    Boolean clearManager,
+    String status,
+    LocalDate birthDate,
+    @Size(max = 10) String gender,
+    @Size(max = 20) String phone,
+    @Size(max = 20) String nationalId,
+    @Size(max = 300) String address) {}

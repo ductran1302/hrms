@@ -10,7 +10,9 @@ JAR=/tmp/pkce-cookies.txt
 fail=1
 
 VERIFIER=$(head -c 64 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
-CHALLENGE=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.argv[1]).digest("base64url"))' "$VERIFIER")
+# truyền qua env — argv có thể bắt đầu bằng '-' làm node hiểu nhầm là option
+export VERIFIER
+CHALLENGE=$(node -e 'const c=require("crypto");process.stdout.write(c.createHash("sha256").update(process.env.VERIFIER).digest("base64url"))')
 [ ${#CHALLENGE} -ge 43 ] || { echo "FAIL tao challenge"; exit 1; }
 
 # 1. authorize (chưa đăng nhập → 200 login form)

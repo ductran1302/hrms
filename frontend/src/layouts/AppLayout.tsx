@@ -1,4 +1,12 @@
-import { ClockCircleOutlined, LogoutOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  ApartmentOutlined,
+  ClockCircleOutlined,
+  ClusterOutlined,
+  FileTextOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -16,6 +24,21 @@ export default function AppLayout() {
       key: '/nhan-su',
       icon: <TeamOutlined />,
       label: 'Nhân sự',
+    },
+    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+      key: '/phong-ban',
+      icon: <ApartmentOutlined />,
+      label: 'Phòng ban',
+    },
+    auth.hasRole('HR_ADMIN') && {
+      key: '/hop-dong',
+      icon: <FileTextOutlined />,
+      label: 'Hợp đồng',
+    },
+    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+      key: '/to-chuc',
+      icon: <ClusterOutlined />,
+      label: 'Sơ đồ tổ chức',
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/cham-cong',
@@ -43,7 +66,7 @@ export default function AppLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[`/${location.pathname.split('/')[1]}`]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

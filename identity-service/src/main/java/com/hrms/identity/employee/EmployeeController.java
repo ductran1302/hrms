@@ -1,8 +1,11 @@
 package com.hrms.identity.employee;
 
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
+import com.hrms.identity.history.JobHistoryService;
+import com.hrms.identity.history.dto.JobHistoryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmployeeController {
 
   private final EmployeeService employeeService;
+  private final JobHistoryService jobHistoryService;
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
@@ -47,10 +51,14 @@ public class EmployeeController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
-  @Operation(summary = "Danh sách nhân viên (lọc theo status tùy chọn)")
-  public List<EmployeeResponse> list(
-      @RequestParam(name = "status", required = false) EmployeeStatus status) {
-    return employeeService.list(status);
+  @Operation(summary = "Danh sách nhân viên phân trang (tìm kiếm + lọc status/phòng ban)")
+  public PageResponse<EmployeeResponse> search(
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
+      @RequestParam(name = "status", required = false) EmployeeStatus status,
+      @RequestParam(name = "departmentId", required = false) UUID departmentId,
+      @RequestParam(name = "q", required = false) String q) {
+    return employeeService.search(page, Math.max(size, 1), status, departmentId, q);
   }
 
   @GetMapping("/{id}")
@@ -60,9 +68,17 @@ public class EmployeeController {
     return employeeService.get(id);
   }
 
+  @GetMapping("/{id}/history")
+  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @Operation(summary = "Lịch sử thay đổi job info của nhân viên (mới nhất trước)")
+  public List<JobHistoryResponse> history(@PathVariable UUID id) {
+    employeeService.get(id);
+    return jobHistoryService.listByEmployee(id);
+  }
+
   @PatchMapping("/{id}")
   @PreAuthorize("hasRole('HR_ADMIN')")
-  @Operation(summary = "Cập nhật một phần (null = không đổi)")
+  @Operation(summary = "Cập nhật một phần (null = không đổi; clearDepartment/clearManager = gỡ liên kết)")
   public EmployeeResponse update(@PathVariable UUID id,
       @Valid @RequestBody EmployeeUpdateRequest request, @AuthenticationPrincipal Jwt jwt) {
     return employeeService.update(id, request, jwt.getSubject());
