@@ -274,7 +274,9 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-swagger.sh
 
 React 18 + Vite + TypeScript, UI **AntD v5 + ProComponents**, đăng nhập qua Keycloak
 (client `hrms-spa`, PKCE S256, `onLoad: login-required` → tự redirect tới trang login).
-API gọi thẳng gateway `http://localhost:8085` (CORS đã allow origin `http://localhost:5173`).
+API gọi thẳng gateway `http://localhost:8085` (CORS allow origin `http://localhost:5173`
+và `http://localhost:3000` — browser gửi `Origin` cho mọi POST/PUT/PATCH/DELETE nên thiếu
+origin sẽ bị CORS reject 403 ngay cả khi request same-origin qua proxy).
 
 ```powershell
 # cài deps (chỉ lần đầu — npm 12 chặn postinstall của esbuild, phải approve)
@@ -340,7 +342,9 @@ docker compose -f docker-compose.app.yml up -d --build
 
 Flow: browser → nginx (:3000, serve SPA + `/api/**` proxy → gateway) → gateway →
 `identity:8080` / `attendance:8080` (in-network). Bundle build với `VITE_API_BASE=""`
-→ API relative, **không cần CORS**. Keycloak realm đã có redirect `http://localhost:3000/*`.
+→ API relative, **không cần CORS**. Keycloak realm đã có redirect `http://localhost:3000/*`
+và `post.logout.redirect.uris="*"` (post-logout redirect về SPA — nếu để trống hoặc
+không khớp sẽ nhận 400 `Invalid redirect uri` khi logout).
 
 ```powershell
 docker compose -f docker-compose.app.yml down            # dừng app stack (giữ hạ tầng)

@@ -65,7 +65,7 @@
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/* http://localhost:3000/*",
+          "post.logout.redirect.uris": "*",
         "access.token.lifespan": "900",
         "refresh.token.max.reuse": "0",
         "client.session.idle.timeouts.reset": "true"
