@@ -62,6 +62,7 @@ public class OrgChartService {
         employee.getPosition(),
         employee.getDepartmentName(),
         employee.getStatus().name(),
+        employee.getPhotoUrl(),
         children);
   }
 }

@@ -6,9 +6,10 @@ import java.util.UUID;
 /** Nút sơ đồ tổ chức — cây theo quan hệ quản lý (manager). */
 public record OrgChartNode(
     UUID id,
-    String code,
+    String employeeCode,
     String fullName,
     String position,
     String departmentName,
     String status,
+    String photoUrl,
     List<OrgChartNode> children) {}

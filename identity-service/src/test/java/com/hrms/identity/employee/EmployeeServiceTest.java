@@ -133,7 +133,7 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     EmployeeResponse response = new EmployeeResponse(employeeId, "NV0001", "Nguyễn Văn A",
         null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null, null, null,
-        null, null, null, 0L);
+        null, null, null, null, 0L);
     when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""),
         any())).thenReturn(List.of(employee));
     when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq("")))

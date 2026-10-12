@@ -21,6 +21,7 @@ public record EmployeeResponse(
     String phone,
     String nationalId,
     String address,
+    String photoUrl,
     Instant createdAt,
     Instant updatedAt,
     Long version) {}

@@ -4,3 +4,169 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* ==== Org chart — cây nhánh top-down (css tree) ==== */
+.org-chart-scroll {
+  overflow: auto;
+  background: #fff;
+  padding: 32px 24px;
+  border-radius: 8px;
+}
+
+.org-tree,
+.org-tree ul {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: max-content;
+  min-width: 100%;
+}
+
+.org-tree ul {
+  padding-top: 20px;
+  position: relative;
+}
+
+/* đường dọc từ thẻ cha xuống thanh ngang của hàng con */
+.org-tree ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 20px;
+  border-left: 1px solid #bfbfbf;
+}
+
+.org-tree li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 20px 16px 0;
+}
+
+/* thanh ngang (2 nửa) + cột stub xuống thẻ con */
+.org-tree li::before,
+.org-tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 20px;
+  border-top: 1px solid #bfbfbf;
+}
+
+.org-tree li::before {
+  right: 50%;
+}
+
+.org-tree li::after {
+  left: 50%;
+  border-left: 1px solid #bfbfbf;
+}
+
+/* con đầu: bỏ nửa trái; con cuối: bỏ nửa phải (thay bằng border-right) */
+.org-tree li:first-child::before,
+.org-tree li:last-child::after {
+  border: 0;
+}
+
+.org-tree li:first-child::after {
+  border-top-left-radius: 6px;
+}
+
+.org-tree li:last-child::before {
+  border-right: 1px solid #bfbfbf;
+  border-top-right-radius: 6px;
+}
+
+.org-tree li:only-child::before,
+.org-tree li:only-child::after {
+  display: none;
+}
+
+.org-tree li:only-child {
+  padding-top: 0;
+}
+
+/* gốc cây: không có connector phía trên */
+.org-tree > li {
+  padding-top: 0;
+}
+
+.org-tree > li::before,
+.org-tree > li::after {
+  display: none;
+}
+
+.org-card {
+  position: relative;
+  min-width: 180px;
+  max-width: 220px;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.org-card--parent {
+  cursor: pointer;
+}
+
+.org-card--parent:hover {
+  border-color: #1677ff;
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.15);
+}
+
+.org-card-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.org-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.org-card-sub {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 2px;
+}
+
+.org-card-sub .ant-tag {
+  margin-inline-end: 0;
+}
+
+.org-card-pos {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+  margin-top: 6px;
+}
+
+.org-card-dept {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-top: 2px;
+}
+
+.org-toggle {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #bfbfbf;
+  background: #fff;
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(0, 0, 0, 0.65);
+}

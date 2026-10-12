@@ -23,6 +23,7 @@ export interface Employee {
   phone: string | null;
   nationalId: string | null;
   address: string | null;
+  photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -165,6 +166,7 @@ export interface OrgChartNode {
   position: string | null;
   departmentName: string | null;
   status: string;
+  photoUrl: string | null;
   children: OrgChartNode[];
 }
 

@@ -151,6 +151,6 @@ class EmployeeControllerTest {
     return new EmployeeResponse(
         UUID.randomUUID(), "NV0001", "Nguyễn Văn A", "a@hrms.vn",
         null, "Engineering", "Backend", null,
-        EmployeeStatus.ACTIVE, null, null, null, null, null, null, null, null, 0L);
+        EmployeeStatus.ACTIVE, null, null, null, null, null, null, null, null, null, 0L);
   }
 }

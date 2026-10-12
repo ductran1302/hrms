@@ -66,4 +66,8 @@ public class Employee extends BaseEntity {
 
   @Column(name = "address", length = 300)
   private String address;
+
+  /** Ảnh đại diện (URL) — chỉ đọc, chỉnh sửa hồ sơ sẽ thêm sau (V3). */
+  @Column(name = "photo_url")
+  private String photoUrl;
 }

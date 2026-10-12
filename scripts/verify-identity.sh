@@ -81,7 +81,7 @@ check "GET search q=ma NV" 200 "$(code_of "$R")"
 check_has "search tim thay trong items" "$(has "$R" "$EMP_CODE")" yes
 R=$(req GET "$HR" "/api/v1/employees?departmentId=$DEPT_ID")
 check "GET search theo departmentId" 200 "$(code_of "$R")"
-R=$(req POST "$HR" /api/v1/employees '{"employeeCode":"NV0001","fullName":"Trùng Mã"}')
+R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"$EMP_CODE\",\"fullName\":\"Trùng Mã\"}")
 check "POST trung ma" 409 "$(code_of "$R")"
 
 echo "== 4. PATCH nang cao (history + clear)"
