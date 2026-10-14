@@ -273,5 +273,91 @@ check "cleanup NV hd1" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$EMP_HD2?reason=cleanup")
 check "cleanup NV hd2" 204 "$(code_of "$R")"
 
+echo "== 12. NGAY LE (holiday calendars + holidays + assign + attendance projection)"
+R=$(req GET "$HR" "/api/v1/holiday-calendars")
+check "GET holiday-calendars (HR)" 200 "$(code_of "$R")"
+check_has "co lich VN (seed)" "$(has "$R" '"code":"VN"')" yes
+R=$(req GET "$EMP" "/api/v1/holiday-calendars")
+check "GET holiday-calendars (EMPLOYEE)" 200 "$(code_of "$R")"
+# a. CRUD lich
+CAL_CODE="LC$SUF"
+R=$(req POST "$HR" "/api/v1/holiday-calendars" "{\"code\":\"$CAL_CODE\",\"name\":\"Lich verify $SUF\",\"country\":\"VN\",\"description\":\"verify section 12\"}")
+check "POST tao lich" 201 "$(code_of "$R")"
+CAL=$(id_of "$R"); echo "holidayCalendarId=$CAL"
+R=$(req POST "$HR" "/api/v1/holiday-calendars" "{\"code\":\"$CAL_CODE\",\"name\":\"Trung ma\",\"country\":\"VN\"}")
+check "POST lich trung code" 409 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/holiday-calendars/$CAL" "{\"name\":\"Lich verify $SUF renamed\"}")
+check "PATCH doi ten lich" 200 "$(code_of "$R")"
+check_has "ten lich da doi" "$(has "$R" 'renamed')" yes
+# b. CRUD ngay le
+HOL_NAME="Le verify $SUF"
+R=$(req POST "$HR" "/api/v1/holiday-calendars/$CAL/holidays" "{\"name\":\"$HOL_NAME\",\"dateFrom\":\"2026-11-02\",\"dateTo\":\"2026-11-04\",\"type\":\"COMPANY\",\"halfDay\":true,\"note\":\"nhieu ngay\"}")
+check "POST tao ngay le (nhieu ngay + halfDay)" 201 "$(code_of "$R")"
+HOL=$(id_of "$R")
+R=$(req GET "$HR" "/api/v1/holiday-calendars/$CAL/holidays?year=2026")
+check "GET holidays theo lich + nam" 200 "$(code_of "$R")"
+check_has "danh sach co ngay le verify" "$(has "$R" "$HOL_NAME")" yes
+R=$(req GET "$HR" "/api/v1/holidays?calendarCode=$CAL_CODE&year=2026")
+check "GET /holidays tim kiem" 200 "$(code_of "$R")"
+check_has "search tim thay" "$(has "$R" "$HOL_NAME")" yes
+R=$(req POST "$HR" "/api/v1/holiday-calendars/$CAL/holidays" "{\"name\":\"$HOL_NAME\",\"dateFrom\":\"2026-11-02\",\"dateTo\":\"2026-11-02\",\"type\":\"COMPANY\"}")
+check "POST ngay le trung ten + ngay bat dau" 409 "$(code_of "$R")"
+R=$(req POST "$HR" "/api/v1/holiday-calendars/$CAL/holidays" '{"name":"Sai nam","dateFrom":"2026-12-30","dateTo":"2027-01-02","type":"OTHER"}')
+check "POST ngay le khac nam" 422 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/holidays/$HOL" '{"halfDay":false,"note":"sua note"}')
+check "PATCH sua ngay le" 200 "$(code_of "$R")"
+check_has "halfDay=false sau PATCH" "$(has "$R" '"halfDay":false')" yes
+# c. my-holidays fallback VN + today
+R=$(req GET "$HR" "/api/v1/holidays/my?year=2017")
+check "GET my-holidays (HR, nam khong co le)" 200 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/holidays/my?year=2026")
+check "GET my-holidays (HR)" 200 "$(code_of "$R")"
+check_has "fallback lich VN (calendarCode=VN)" "$(has "$R" '"calendarCode":"VN"')" yes
+R=$(req GET "$HR" "/api/v1/holidays/today")
+check "GET holidays/today" 200 "$(code_of "$R")"
+# d. RBAC: EMPLOYEE khong duoc ghi
+R=$(req POST "$EMP" "/api/v1/holiday-calendars" '{"code":"XXE","name":"x","country":"VN"}')
+check "POST lich (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req POST "$EMP" "/api/v1/holiday-calendars/$CAL/holidays" '{"name":"x","dateFrom":"2026-11-03","dateTo":"2026-11-03","type":"OTHER"}')
+check "POST ngay le (EMPLOYEE)" 403 "$(code_of "$R")"
+# e. xoa lich khi con ngay le bi chan
+R=$(req DELETE "$HR" "/api/v1/holiday-calendars/$CAL")
+check "DELETE lich con ngay le" 409 "$(code_of "$R")"
+# f. gan lich cho NV + my-holidays dung lich (nv2xx — khong trung Keycloak user NVxx)
+LE_CODE="nv2$SUF"
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$LE_CODE\",\"fullName\":\"NV Le $SUF\",\"email\":\"le$SUF@hrms.vn\"}")
+check "POST tao NV cho verify ngay le" 201 "$(code_of "$R")"
+LE_ID=$(id_of "$R")
+R=$(req PATCH "$HR" "/api/v1/employees/$LE_ID/calendar" "{\"calendarId\":\"$CAL\"}")
+check "PATCH gan lich nghi le" 200 "$(code_of "$R")"
+check_has "response co calendarId" "$(has "$R" "$CAL")" yes
+R=$(req GET "$HR" "/api/v1/employees/$LE_ID")
+check_has "GET NV co calendarId" "$(has "$R" "$CAL")" yes
+LE_TOK=$(token "$LE_CODE" 'hrms@123')
+check "token NV moi" 0 "$([ -n "$LE_TOK" ] && echo 0 || echo missing)"
+R=$(req GET "$LE_TOK" "/api/v1/holidays/my?year=2026")
+check "GET my-holidays (NV gan lich)" 200 "$(code_of "$R")"
+check_has "my-holidays dung lich da gan" "$(has "$R" "$HOL_NAME")" yes
+# g. attendance projection nhan event holiday.changed (outbox poll ~1-2s)
+# NOTE: verify chay trong hrms-dev — localhost:8080 la dev identity (khong qua gateway);
+# goi attendance service truc tiep qua DNS container.
+ATT=http://attendance:8080
+sleep 3
+R=$(curl -s -H "Authorization: Bearer $HR" "$ATT/api/v1/attendance/holidays?calendarCode=$CAL_CODE&year=2026" -w '\nHTTP %{http_code}\n')
+check "GET attendance holidays (projection)" 200 "$(code_of "$R")"
+check_has "attendance co ngay le verify" "$(has "$R" "$HOL_NAME")" yes
+# h. cleanup: xoa ngay le -> xoa lich -> bo gán -> xoa NV
+R=$(req DELETE "$HR" "/api/v1/holidays/$HOL")
+check "DELETE ngay le" 204 "$(code_of "$R")"
+sleep 3
+R=$(curl -s -H "Authorization: Bearer $HR" "$ATT/api/v1/attendance/holidays?calendarCode=$CAL_CODE&year=2026" -w '\nHTTP %{http_code}\n')
+check_has "attendance xoa sau DELETED event" "$(has "$R" "$HOL_NAME")" no
+R=$(req PATCH "$HR" "/api/v1/employees/$LE_ID/calendar" '{"calendarId":null}')
+check "PATCH bo gan lich (null)" 200 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/holiday-calendars/$CAL")
+check "DELETE lich trong" 204 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/employees/$LE_ID?reason=cleanup")
+check "cleanup NV ngay le" 204 "$(code_of "$R")"
+
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

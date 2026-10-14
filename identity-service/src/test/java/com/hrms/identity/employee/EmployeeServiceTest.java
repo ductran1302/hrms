@@ -29,6 +29,8 @@ import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
+import com.hrms.identity.holiday.HolidayCalendar;
+import com.hrms.identity.holiday.HolidayCalendarRepository;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +62,9 @@ class EmployeeServiceTest {
 
   @Mock
   private KeycloakAdminClient keycloakAdminClient;
+
+  @Mock
+  private HolidayCalendarRepository holidayCalendarRepository;
 
   @InjectMocks
   private EmployeeService service;
@@ -211,7 +216,7 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     EmployeeResponse response = new EmployeeResponse(employeeId, "NV0001", "Nguyễn Văn A",
         null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, 0L);
+        null, null, null, null, null, null, null, null, null, null, 0L);
     when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
         any())).thenReturn(List.of(employee));
     when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq("")))
@@ -376,6 +381,45 @@ class EmployeeServiceTest {
 
     assertThrows(BusinessRuleException.class,
         () -> service.terminate(employeeId, actorId, null));
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
+  void assignCalendar_savesAndWritesHistory() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    UUID calendarId = UUID.randomUUID();
+    HolidayCalendar calendar = new HolidayCalendar();
+    calendar.setId(calendarId);
+    calendar.setCode("ONSITE");
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(holidayCalendarRepository.findById(calendarId)).thenReturn(Optional.of(calendar));
+    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
+        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
+        null, null, null, null, null, null, null, null, null, calendarId, null, null, 0L));
+
+    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
+
+    assertEquals(calendarId, response.calendarId());
+    verify(jobHistoryService).record(eq(employeeId), eq("calendar"), isNull(),
+        eq("ONSITE"), eq(actorId));
+    verify(outboxRepository).save(any(OutboxEvent.class));
+  }
+
+  @Test
+  void assignCalendar_sameCalendar_noop() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    UUID calendarId = UUID.randomUUID();
+    employee.setCalendarId(calendarId);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
+        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
+        null, null, null, null, null, null, null, null, null, calendarId, null, null, 0L));
+
+    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
+
+    assertEquals(calendarId, response.calendarId());
+    verify(employeeRepository, never()).save(any());
     verify(outboxRepository, never()).save(any());
   }
 

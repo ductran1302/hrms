@@ -51,6 +51,8 @@
     "statusPlaceholder": "Chọn trạng thái",
     "statusDefault": "Mặc định: Đang làm",
     "hiredAt": "Ngày vào làm",
+    "calendarId": "Lịch nghỉ lễ",
+    "calendarPlaceholder": "Chọn lịch (để trống = mặc định VN)",
     "birthDate": "Ngày sinh",
     "gender": "Giới tính",
     "selectPlaceholder": "—",

@@ -18,8 +18,9 @@ import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listDepartments } from '../api/departments';
 import { createEmployee, searchEmployees, terminateEmployee, updateEmployee } from '../api/employees';
+import { assignEmployeeCalendar, listCalendars } from '../api/holidays';
 import { listJobTitles } from '../api/jobtitles';
-import type { Department, Employee, EmployeeUpdate } from '../api/types';
+import type { Department, Employee, EmployeeUpdate, HolidayCalendar } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { generateEmployeeCode } from '../utils/employeeCode';
 
@@ -49,6 +50,7 @@ interface FormValues {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
+  calendarId?: string;
 }
 
 export default function EmployeePage() {
@@ -69,6 +71,7 @@ export default function EmployeePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managerOptions, setManagerOptions] = useState<Employee[]>([]);
   const [jobTitleOptions, setJobTitleOptions] = useState<string[]>([]);
+  const [calendars, setCalendars] = useState<HolidayCalendar[]>([]);
   const [terminateTarget, setTerminateTarget] = useState<Employee | null>(null);
   const [terminateReason, setTerminateReason] = useState('');
   const suggestedCodeRef = useRef('');
@@ -82,6 +85,9 @@ export default function EmployeePage() {
     listJobTitles()
       .then((titles) => setJobTitleOptions(titles.map((jt) => jt.name)))
       .catch(() => setJobTitleOptions([]));
+    listCalendars()
+      .then((data) => setCalendars(data.filter((c) => c.status === 'ACTIVE')))
+      .catch(() => setCalendars([]));
     searchEmployees({ size: 500 })
       .then((page) => {
         const unique = new Set<string>();
@@ -125,6 +131,7 @@ export default function EmployeePage() {
       emergencyContactName: record.emergencyContactName ?? undefined,
       emergencyContactPhone: record.emergencyContactPhone ?? undefined,
       emergencyContactRelation: record.emergencyContactRelation ?? undefined,
+      calendarId: record.calendarId ?? undefined,
     });
     setModalOpen(true);
     void searchEmployees({ size: 500 })
@@ -169,15 +176,21 @@ export default function EmployeePage() {
         if ((values.emergencyContactRelation ?? null) !== editing.emergencyContactRelation) {
           patch.emergencyContactRelation = values.emergencyContactRelation;
         }
-        if (Object.keys(patch).length === 0) {
+        const calendarChanged = (values.calendarId ?? null) !== editing.calendarId;
+        if (Object.keys(patch).length === 0 && !calendarChanged) {
           message.info(t('employee.noChanges'));
           setModalOpen(false);
           return;
         }
-        await updateEmployee(editing.id, patch);
+        if (Object.keys(patch).length > 0) {
+          await updateEmployee(editing.id, patch);
+        }
+        if (calendarChanged) {
+          await assignEmployeeCalendar(editing.id, values.calendarId ?? null);
+        }
         message.success(t('employee.updated', { name: values.fullName }));
       } else {
-        await createEmployee({
+        const created = await createEmployee({
           employeeCode: values.employeeCode,
           fullName: values.fullName,
           email: values.email,
@@ -191,6 +204,9 @@ export default function EmployeePage() {
           nationalId: values.nationalId,
           address: values.address,
         });
+        if (values.calendarId) {
+          await assignEmployeeCalendar(created.id, values.calendarId);
+        }
         message.success(t('employee.created', { code: values.employeeCode }));
       }
       setModalOpen(false);
@@ -471,6 +487,15 @@ export default function EmployeePage() {
           </Form.Item>
           <Form.Item name="hiredAt" label={t('employee.form.hiredAt')}>
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+          </Form.Item>
+          <Form.Item name="calendarId" label={t('employee.form.calendarId')}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('employee.form.calendarPlaceholder')}
+              options={calendars.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` }))}
+            />
           </Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <Form.Item name="birthDate" label={t('employee.form.birthDate')}>

@@ -13,6 +13,9 @@
   "loading": "Đang tải...",
   "empty": "Không có dữ liệu",
   "unknownError": "Lỗi không xác định",
+  "saved": "Đã lưu",
+  "deleted": "Đã xóa",
+  "required": "Bắt buộc",
   "status": {
     "ACTIVE": "Đang làm",
     "PROBATION": "Thử việc",

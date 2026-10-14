@@ -1,0 +1,27 @@
+{
+  "type": "record",
+  "name": "HolidayEvent",
+  "namespace": "com.hrms.common.avro.holiday",
+  "doc": "Event thay đổi ngày lễ — identity publish, attendance投影 thành bảng holidays local.",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string", "default": "holiday.changed"},
+    {"name": "occurredAt", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "action", "type": {
+      "type": "enum",
+      "name": "HolidayAction",
+      "symbols": ["CREATED", "UPDATED", "DELETED"],
+      "default": "CREATED"
+    }},
+    {"name": "holidayId", "type": "string"},
+    {"name": "calendarId", "type": "string"},
+    {"name": "calendarCode", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "dateFrom", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "dateTo", "type": {"type": "int", "logicalType": "date"}},
+    {"name": "year", "type": "int"},
+    {"name": "holidayType", "type": "string"},
+    {"name": "isHalfDay", "type": "boolean", "default": false},
+    {"name": "note", "type": ["null", "string"], "default": null}
+  ]
+}

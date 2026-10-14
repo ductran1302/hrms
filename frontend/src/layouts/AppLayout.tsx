@@ -6,6 +6,7 @@ import {
   GlobalOutlined,
   LogoutOutlined,
   TeamOutlined,
+  ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd';
@@ -48,6 +49,11 @@ export default function AppLayout() {
       key: '/cham-cong',
       icon: <ClockCircleOutlined />,
       label: t('menu.attendance'),
+    },
+    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+      key: '/ngay-le',
+      icon: <ThunderboltOutlined />,
+      label: t('menu.holidays'),
     },
   ].filter(Boolean) as { key: string; icon: ReactNode; label: string }[];
 

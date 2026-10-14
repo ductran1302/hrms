@@ -27,6 +27,7 @@ public record EmployeeResponse(
     String emergencyContactPhone,
     String emergencyContactRelation,
     String photoUrl,
+    UUID calendarId,
     Instant createdAt,
     Instant updatedAt,
     Long version) {}

@@ -5,6 +5,7 @@ import AttendancePage from './pages/AttendancePage';
 import EmployeePage from './pages/EmployeePage';
 import EmployeeProfile from './pages/EmployeeProfile';
 import HopDongPage from './pages/HopDongPage';
+import LePage from './pages/LePage';
 import OrgChartPage from './pages/OrgChartPage';
 import PhongBanPage from './pages/PhongBanPage';
 
@@ -68,6 +69,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <AttendancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="ngay-le"
+            element={
+              <ProtectedRoute roles={STAFF_ROLES}>
+                <LePage />
               </ProtectedRoute>
             }
           />

@@ -12,6 +12,11 @@ import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.jobtitle.JobTitle;
 import com.hrms.identity.jobtitle.JobTitleRepository;
+import com.hrms.identity.holiday.HolidayCalendar;
+import com.hrms.identity.holiday.HolidayCalendarRepository;
+import com.hrms.identity.holiday.HolidayCalendarStatus;
+import com.hrms.identity.holiday.HolidayService;
+import com.hrms.identity.holiday.dto.HolidayCreateRequest;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -59,6 +64,8 @@ public class DataSeeder implements ApplicationRunner {
   private final DepartmentService departmentService;
   private final EmployeeService employeeService;
   private final KeycloakAdminClient keycloakAdminClient;
+  private final HolidayCalendarRepository holidayCalendarRepository;
+  private final HolidayService holidayService;
 
   @Value("${hrms.seed.enabled:true}")
   private boolean enabled;
@@ -75,6 +82,7 @@ public class DataSeeder implements ApplicationRunner {
     runSeed("danh mục chức vụ", this::seedJobTitles);
     runSeed("phòng IT", this::seedItDepartment);
     runSeed("cây nhân sự mẫu", this::seedOrgEmployees);
+    runSeed("lịch nghỉ lễ", this::seedHolidayCalendars);
   }
 
   private void runSeed(String what, Runnable seed) {
@@ -472,6 +480,59 @@ public class DataSeeder implements ApplicationRunner {
     } catch (Exception ex) {
       log.warn("Chưa tạo được tài khoản Keycloak cho {}: {} (sẽ thử lại lần boot sau)",
           employee.getEmployeeCode(), ex.getMessage());
+    }
+  }
+
+  /**
+   * Lịch nghỉ lễ mẫu: VN (lịch mặc định — nhân viên chưa gán calendar dùng code VN)
+   * + ONSITE (company-wide, gán cho NV onsite). Ngày lễ VN 2026 seed thô — HR chỉnh sau.
+   */
+  private void seedHolidayCalendars() {
+    HolidayCalendar vn = ensureCalendar("VN", "Lịch nghỉ lễ Việt Nam", "VN",
+        "Ngày lễ quốc gia theo luật lao động Việt Nam");
+    HolidayCalendar onsite = ensureCalendar("ONSITE", "Lịch nghỉ lễ công ty (ONSITE)", "VN",
+        "Ngày lễ riêng của công ty — áp dụng cho nhân sự onsite");
+    ensureHoliday(vn, new HolidayCreateRequest("Tết Dương lịch",
+        LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 1), "NATIONAL", false, null));
+    ensureHoliday(vn, new HolidayCreateRequest("Tết Nguyên đán",
+        LocalDate.of(2026, 2, 16), LocalDate.of(2026, 2, 18), "NATIONAL", false,
+        "Nghỉ chính thức 3 ngày (chưa kể ngày bù)"));
+    ensureHoliday(vn, new HolidayCreateRequest("Giỗ Tổ Hùng Vương",
+        LocalDate.of(2026, 4, 13), LocalDate.of(2026, 4, 13), "NATIONAL", false, null));
+    ensureHoliday(vn, new HolidayCreateRequest("Giải phóng miền Nam / Quốc tế lao động",
+        LocalDate.of(2026, 4, 30), LocalDate.of(2026, 5, 1), "NATIONAL", false, null));
+    ensureHoliday(vn, new HolidayCreateRequest("Quốc khánh Việt Nam",
+        LocalDate.of(2026, 9, 2), LocalDate.of(2026, 9, 2), "NATIONAL", false,
+        "2/9/2026 thứ tư — nghỉ bù 1/9 hoặc 3/9 do HR quyết định"));
+    ensureHoliday(onsite, new HolidayCreateRequest("Ngày thành lập công ty",
+        LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 1), "COMPANY", false, null));
+    ensureHoliday(onsite, new HolidayCreateRequest("Team building cuối năm",
+        LocalDate.of(2026, 12, 18), LocalDate.of(2026, 12, 18), "COMPANY", true,
+        "Chiều — half-day"));
+  }
+
+  private HolidayCalendar ensureCalendar(String code, String name, String country,
+      String description) {
+    return holidayCalendarRepository.findByCode(code).orElseGet(() -> {
+      HolidayCalendar calendar = new HolidayCalendar();
+      calendar.setCode(code);
+      calendar.setName(name);
+      calendar.setCountry(country);
+      calendar.setDescription(description);
+      calendar.setStatus(HolidayCalendarStatus.ACTIVE);
+      HolidayCalendar saved = holidayCalendarRepository.save(calendar);
+      log.info("Seed lịch nghỉ lễ: {}", code);
+      return saved;
+    });
+  }
+
+  /** Tạo qua service (không insert thẳng) để outbox → Kafka → attendance sync. */
+  private void ensureHoliday(HolidayCalendar calendar, HolidayCreateRequest request) {
+    try {
+      holidayService.create(calendar.getId(), request, ACTOR);
+      log.info("Seed ngày lễ: {} ({})", request.name(), request.dateFrom());
+    } catch (com.hrms.common.exception.ConflictException ex) {
+      // đã seed rồi — idempotent
     }
   }
 

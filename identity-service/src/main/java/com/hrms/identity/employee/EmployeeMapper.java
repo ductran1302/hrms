@@ -12,6 +12,7 @@ public interface EmployeeMapper {
 
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "status", ignore = true)
+  @Mapping(target = "calendarId", ignore = true)
   @Mapping(target = "departmentName", ignore = true)
   @Mapping(target = "photoUrl", ignore = true)
   @Mapping(target = "educationLevel", ignore = true)

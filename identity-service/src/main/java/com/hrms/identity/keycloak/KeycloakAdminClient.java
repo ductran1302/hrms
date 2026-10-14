@@ -101,7 +101,42 @@ public class KeycloakAdminClient {
       throw new BusinessRuleException(
           "Keycloak từ chối tạo tài khoản '" + username + "' (HTTP " + ex.getStatusCode() + ")");
     }
+    // KC bỏ qua realmRoles trong CreateUserRepresentation khi gọi REST thô —
+    // phải gán qua endpoint role-mappings/realm riêng.
+    assignRealmRole(username, "EMPLOYEE");
     log.info("Đã tạo tài khoản Keycloak '{}' (role EMPLOYEE)", username);
+  }
+
+  /** Gán realm role cho user đã tồn tại (idempotent — đã có role thì KC trả 204/409 bỏ qua). */
+  private void assignRealmRole(String username, String roleName) {
+    try {
+      withRetry("gán role " + roleName + " cho " + username, () -> {
+        User[] matches = restClient.get()
+            .uri("/admin/realms/{realm}/users?username={username}&exact=true", realm, username)
+            .header("Authorization", "Bearer " + adminToken())
+            .retrieve()
+            .body(User[].class);
+        if (matches == null || matches.length == 0) {
+          throw new BusinessRuleException("KC không tìm thấy user để gán role: " + username);
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> role = restClient.get()
+            .uri("/admin/realms/{realm}/roles/{roleName}", realm, roleName)
+            .header("Authorization", "Bearer " + adminToken())
+            .retrieve()
+            .body(Map.class);
+        return restClient.post()
+            .uri("/admin/realms/{realm}/users/{id}/role-mappings/realm", realm, matches[0].getId())
+            .contentType(MediaType.APPLICATION_JSON)
+            .header("Authorization", "Bearer " + adminToken())
+            .body(List.of(role))
+            .retrieve()
+            .toBodilessEntity();
+      });
+    } catch (Exception ex) {
+      // Không chặn tạo nhân viên nếu gán role lỗi — sẽ thử lại ở lần tạo user sau / manual
+      log.warn("Chưa gán được role {} cho '{}': {}", roleName, username, ex.getMessage());
+    }
   }
 
   /** Bật/tắt tài khoản (nghỉ việc → disabled). Không ném lỗi nếu user không tìm thấy. */

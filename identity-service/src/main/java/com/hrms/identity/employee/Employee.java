@@ -87,4 +87,8 @@ public class Employee extends BaseEntity {
   /** Ảnh đại diện (URL) — chỉ đọc, chỉnh sửa hồ sơ sẽ thêm sau (V3). */
   @Column(name = "photo_url")
   private String photoUrl;
+
+  /** FK → holiday_calendars.id (V8) — null = dùng lịch mặc định theo country. */
+  @Column(name = "calendar_id")
+  private UUID calendarId;
 }

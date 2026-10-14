@@ -4,7 +4,8 @@
     "departments": "Phòng ban",
     "contracts": "Hợp đồng",
     "orgchart": "Sơ đồ tổ chức",
-    "attendance": "Chấm công"
+    "attendance": "Chấm công",
+    "holidays": "Ngày lễ"
   },
   "logout": "Đăng xuất",
   "language": "Ngôn ngữ",

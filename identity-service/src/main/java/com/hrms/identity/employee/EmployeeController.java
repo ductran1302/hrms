@@ -85,6 +85,15 @@ public class EmployeeController {
     return employeeService.update(id, request, jwt.getSubject());
   }
 
+  @PatchMapping("/{id}/calendar")
+  @PreAuthorize("hasRole('HR_ADMIN')")
+  @Operation(summary = "Gán/bỏ gán lịch nghỉ lễ (calendarId null = fallback mặc định VN)")
+  public EmployeeResponse assignCalendar(@PathVariable UUID id,
+      @RequestBody com.hrms.identity.employee.dto.EmployeeCalendarAssignRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return employeeService.assignCalendar(id, request.calendarId(), jwt.getSubject());
+  }
+
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @PreAuthorize("hasRole('HR_ADMIN')")

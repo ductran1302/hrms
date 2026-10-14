@@ -6,6 +6,7 @@ import commonVi from './locales/vi/common.json';
 import contractVi from './locales/vi/contract.json';
 import departmentVi from './locales/vi/department.json';
 import employeeVi from './locales/vi/employee.json';
+import holidayVi from './locales/vi/holiday.json';
 import layoutVi from './locales/vi/layout.json';
 import orgchartVi from './locales/vi/orgchart.json';
 import profileVi from './locales/vi/profile.json';
@@ -15,6 +16,7 @@ import commonEn from './locales/en/common.json';
 import contractEn from './locales/en/contract.json';
 import departmentEn from './locales/en/department.json';
 import employeeEn from './locales/en/employee.json';
+import holidayEn from './locales/en/holiday.json';
 import layoutEn from './locales/en/layout.json';
 import orgchartEn from './locales/en/orgchart.json';
 import profileEn from './locales/en/profile.json';
@@ -28,6 +30,7 @@ const vi = {
   ...layoutVi,
   ...authVi,
   employee: employeeVi,
+  holiday: holidayVi,
   profile: profileVi,
   contract: contractVi,
   department: departmentVi,
@@ -40,6 +43,7 @@ const en = {
   ...layoutEn,
   ...authEn,
   employee: employeeEn,
+  holiday: holidayEn,
   profile: profileEn,
   contract: contractEn,
   department: departmentEn,

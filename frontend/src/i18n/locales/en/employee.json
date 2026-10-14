@@ -51,6 +51,8 @@
     "statusPlaceholder": "Select status",
     "statusDefault": "Default: Active",
     "hiredAt": "Hired date",
+    "calendarId": "Holiday calendar",
+    "calendarPlaceholder": "Select calendar (blank = default VN)",
     "birthDate": "Date of birth",
     "gender": "Gender",
     "selectPlaceholder": "—",

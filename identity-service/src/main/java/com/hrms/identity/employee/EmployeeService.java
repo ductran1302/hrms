@@ -16,6 +16,7 @@ import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
+import com.hrms.identity.holiday.HolidayCalendarRepository;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public class EmployeeService {
   private final DepartmentRepository departmentRepository;
   private final JobHistoryService jobHistoryService;
   private final KeycloakAdminClient keycloakAdminClient;
+  private final HolidayCalendarRepository holidayCalendarRepository;
 
   @Transactional
   public EmployeeResponse create(EmployeeCreateRequest request, String actorId) {
@@ -281,6 +283,36 @@ public class EmployeeService {
       log.warn("Không tắt được tài khoản Keycloak '{}': {}", employee.getEmployeeCode(),
           ex.getMessage());
     }
+  }
+
+  /**
+   * Gán/bỏ gán lịch nghỉ lễ (V8). calendarId = null → fallback lịch mặc định theo country
+   * khi tự query /holidays/my. Ghi job history để truy vết lịch sử thay đổi.
+   */
+  @Transactional
+  public EmployeeResponse assignCalendar(UUID id, UUID calendarId, String actorId) {
+    Employee employee = find(id);
+    UUID oldCalendarId = employee.getCalendarId();
+    if (Objects.equals(oldCalendarId, calendarId)) {
+      return mapper.toResponse(employee);
+    }
+    String oldCode = calendarCode(oldCalendarId);
+    String newCode = calendarCode(calendarId);
+    employee.setCalendarId(calendarId);
+    employeeRepository.save(employee);
+    jobHistoryService.record(id, "calendar", oldCode, newCode, actorId);
+    writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId,
+        List.of("calendarId"), null, null);
+    return mapper.toResponse(employee);
+  }
+
+  private String calendarCode(UUID calendarId) {
+    if (calendarId == null) {
+      return null;
+    }
+    return holidayCalendarRepository.findById(calendarId)
+        .orElseThrow(() -> new ResourceNotFoundException("HolidayCalendar", calendarId))
+        .getCode();
   }
 
   private void applyDepartment(Employee employee, UUID departmentId) {

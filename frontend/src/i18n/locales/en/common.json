@@ -13,6 +13,9 @@
   "loading": "Loading...",
   "empty": "No data",
   "unknownError": "Unknown error",
+  "saved": "Saved",
+  "deleted": "Deleted",
+  "required": "Required",
   "status": {
     "ACTIVE": "Active",
     "PROBATION": "Probation",

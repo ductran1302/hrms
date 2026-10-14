@@ -16,6 +16,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
   boolean existsByEmployeeCodeAndIdNot(String employeeCode, UUID id);
 
+  long countByCalendarId(UUID calendarId);
+
   List<Employee> findAllByOrderByCreatedAtDesc();
 
   List<Employee> findByStatusOrderByCreatedAtDesc(EmployeeStatus status);

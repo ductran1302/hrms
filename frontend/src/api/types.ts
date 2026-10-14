@@ -33,6 +33,7 @@ export interface Employee {
   emergencyContactPhone: string | null;
   emergencyContactRelation: string | null;
   photoUrl: string | null;
+  calendarId: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -236,6 +237,61 @@ export interface AttendanceEmployee {
   status: string;
   hiredAt: string | null;
   terminatedAt: string | null;
+}
+
+export type HolidayTypeValue = 'NATIONAL' | 'COMPANY' | 'OTHER';
+
+export interface HolidayCalendar {
+  id: string;
+  code: string;
+  name: string;
+  country: string;
+  description: string | null;
+  status: string;
+}
+
+export interface HolidayCalendarCreate {
+  code: string;
+  name: string;
+  country: string;
+  description?: string;
+}
+
+export interface HolidayCalendarUpdate {
+  name?: string;
+  description?: string;
+  status?: string;
+}
+
+export interface Holiday {
+  id: string;
+  calendarId: string;
+  calendarCode: string;
+  name: string;
+  dateFrom: string;
+  dateTo: string;
+  year: number;
+  type: HolidayTypeValue;
+  halfDay: boolean;
+  note: string | null;
+}
+
+export interface HolidayCreate {
+  name: string;
+  dateFrom: string;
+  dateTo: string;
+  type: HolidayTypeValue;
+  halfDay?: boolean;
+  note?: string;
+}
+
+export interface HolidayUpdate {
+  name?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  type?: HolidayTypeValue;
+  halfDay?: boolean;
+  note?: string;
 }
 
 export interface ApiError {

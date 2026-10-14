@@ -3,8 +3,11 @@ package com.hrms.identity.event;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
 import com.hrms.common.avro.employee.EmployeeUpdatedEvent;
+import com.hrms.common.avro.holiday.HolidayAction;
+import com.hrms.common.avro.holiday.HolidayEvent;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.kafka.EmployeeEventTypes;
+import com.hrms.common.kafka.HolidayEventTypes;
 import com.hrms.common.outbox.OutboxEvent;
 import com.hrms.common.outbox.OutboxMessageConverter;
 import com.hrms.common.outbox.OutboxPayloadConverter;
@@ -14,24 +17,33 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Component;
 
 /**
- * Convert payload JSON trong outbox → Avro record. {@code eventId} = id dòng outbox —
- * retry sau lỗi gửi vẫn giữ nguyên eventId nên consumer idempotent chặn được trùng lặp.
+ * Convert payload JSON trong outbox → Avro record. Một bean duy nhất cho cả identity
+ * (OutboxPublisher inject đúng 1 OutboxMessageConverter) — employee.* + holiday.*.
+ * {@code eventId} = id dòng outbox — retry sau lỗi gửi vẫn giữ nguyên eventId
+ * nên consumer idempotent chặn được trùng lặp.
  */
 @Component
-public class EmployeeOutboxConverter implements OutboxMessageConverter {
+public class IdentityOutboxConverter implements OutboxMessageConverter {
 
   @Override
   public ProducerRecord<String, SpecificRecord> convert(OutboxEvent event) {
-    EmployeeEventPayload payload =
-        OutboxPayloadConverter.fromJson(event.getPayload(), EmployeeEventPayload.class);
     SpecificRecord record = switch (event.getEventType()) {
-      case EmployeeEventTypes.CREATED -> toCreated(event, payload);
-      case EmployeeEventTypes.UPDATED -> toUpdated(event, payload);
-      case EmployeeEventTypes.TERMINATED -> toTerminated(event, payload);
+      case EmployeeEventTypes.CREATED ->
+          toCreated(event, payload(event, EmployeeEventPayload.class));
+      case EmployeeEventTypes.UPDATED ->
+          toUpdated(event, payload(event, EmployeeEventPayload.class));
+      case EmployeeEventTypes.TERMINATED ->
+          toTerminated(event, payload(event, EmployeeEventPayload.class));
+      case HolidayEventTypes.CHANGED ->
+          toHoliday(event, payload(event, HolidayEventPayload.class));
       default -> throw new BusinessRuleException(
           "Không biết cách convert event type: " + event.getEventType());
     };
     return new ProducerRecord<>(event.getTopic(), event.getPartitionKey(), record);
+  }
+
+  private static <T> T payload(OutboxEvent event, Class<T> type) {
+    return OutboxPayloadConverter.fromJson(event.getPayload(), type);
   }
 
   private EmployeeCreatedEvent toCreated(OutboxEvent event, EmployeeEventPayload p) {
@@ -118,6 +130,25 @@ public class EmployeeOutboxConverter implements OutboxMessageConverter {
       builder.setActorId(p.actorId());
     }
     return builder.build();
+  }
+
+  private HolidayEvent toHoliday(OutboxEvent event, HolidayEventPayload p) {
+    return HolidayEvent.newBuilder()
+        .setEventId(event.getId().toString())
+        .setEventType(HolidayEventTypes.CHANGED)
+        .setOccurredAt(occurredAt(event))
+        .setAction(HolidayAction.valueOf(p.action()))
+        .setHolidayId(p.holidayId())
+        .setCalendarId(p.calendarId())
+        .setCalendarCode(p.calendarCode())
+        .setName(p.name())
+        .setDateFrom(p.dateFrom())
+        .setDateTo(p.dateTo())
+        .setYear(p.year())
+        .setHolidayType(p.holidayType())
+        .setIsHalfDay(p.halfDay())
+        .setNote(p.note())
+        .build();
   }
 
   private static Instant occurredAt(OutboxEvent event) {

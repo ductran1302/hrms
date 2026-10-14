@@ -4,7 +4,8 @@
     "departments": "Departments",
     "contracts": "Contracts",
     "orgchart": "Org chart",
-    "attendance": "Attendance"
+    "attendance": "Attendance",
+    "holidays": "Holidays"
   },
   "logout": "Log out",
   "language": "Language",
