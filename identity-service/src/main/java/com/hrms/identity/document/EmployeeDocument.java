@@ -25,6 +25,10 @@ public class EmployeeDocument extends BaseEntity {
   @Column(name = "employee_id", nullable = false)
   private UUID employeeId;
 
+  /** Hợp đồng mà tài liệu này là phụ lục — null = tài liệu chung của nhân viên. */
+  @Column(name = "contract_id")
+  private UUID contractId;
+
   /** Tên hiển thị của loại — lưu string để mở rộng không cần đổi enum/DB. */
   @Column(name = "doc_type", nullable = false, length = 50)
   private String docType;

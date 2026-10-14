@@ -94,6 +94,7 @@ export type EmployeeDocumentTypeValue =
 export interface EmployeeDocument {
   id: string;
   employeeId: string;
+  contractId?: string | null;
   docType: EmployeeDocumentTypeValue;
   fileName: string;
   contentType: string | null;
@@ -145,7 +146,15 @@ export type ContractTypeValue =
   | 'INTERN'
   | 'OTHER';
 
-export type ContractStatusValue = 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
+export type ContractStatusValue = 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
+
+/** Trạng thái hiệu lực tính theo ngày — tách khỏi status nghiệp vụ. */
+export type ContractEffectiveStatusValue =
+  | 'NOT_YET_EFFECTIVE'
+  | 'IN_EFFECT'
+  | 'ENDED'
+  | 'EXPIRED'
+  | 'TERMINATED';
 
 export interface Contract {
   id: string;
@@ -161,6 +170,8 @@ export interface Contract {
   signDate: string | null;
   note: string | null;
   status: ContractStatusValue;
+  effectiveStatus?: ContractEffectiveStatusValue;
+  replacesContractId?: string | null;
 }
 
 export interface ContractCreate {

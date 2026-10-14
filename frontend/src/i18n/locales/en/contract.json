@@ -22,6 +22,31 @@
   "selectEmployee": "Select employee",
   "selectStartDate": "Select start date",
   "salaryNotNegative": "Salary must not be negative",
+  "filter": {
+    "status": "Status"
+  },
+  "extend": "Extend",
+  "extendTitle": "Extend contract",
+  "extendNewEndDate": "New end date",
+  "extendInvalidDate": "Pick a new end date",
+  "extended": "Contract extended",
+  "replace": "Replace",
+  "replaceTitle": "Replace contract",
+  "replaceNote": "Replaces contract {{start}} → {{end}} — old contract is kept in history",
+  "replaced": "Contract replaced — old contract TERMINATED, new one linked in history",
+  "attachments": "Contract attachments",
+  "uploadAttachment": "Upload file",
+  "attachmentsEmpty": "No attachments yet",
+  "attachmentUploaded": "Attachment uploaded",
+  "attachmentDeleted": "Attachment deleted",
+  "deleteAttachmentConfirm": "Delete this attachment?",
+  "download": "Download",
+  "expiringBanner": "{{n}} contract(s) expiring soon (≤30 days)",
+  "expiringSoon": "Expiring ({{n}} days)",
+  "effective": {
+    "NOT_YET_EFFECTIVE": "Not yet effective",
+    "ENDED": "Past end date"
+  },
   "type": {
     "PROBATION": "Probation",
     "FULL_TIME": "Full-time",
@@ -30,6 +55,7 @@
     "OTHER": "Other"
   },
   "status": {
+    "PENDING": "Pending",
     "ACTIVE": "Active",
     "EXPIRED": "Expired",
     "TERMINATED": "Terminated"

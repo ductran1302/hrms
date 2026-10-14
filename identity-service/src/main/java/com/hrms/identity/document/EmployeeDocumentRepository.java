@@ -9,5 +9,8 @@ public interface EmployeeDocumentRepository extends JpaRepository<EmployeeDocume
 
   List<EmployeeDocument> findByEmployeeIdOrderByUploadedAtDesc(UUID employeeId);
 
+  List<EmployeeDocument> findByEmployeeIdAndContractIdOrderByUploadedAtDesc(UUID employeeId,
+      UUID contractId);
+
   Optional<EmployeeDocument> findByIdAndEmployeeId(UUID id, UUID employeeId);
 }

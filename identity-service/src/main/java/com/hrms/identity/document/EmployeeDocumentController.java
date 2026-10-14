@@ -42,20 +42,23 @@ public class EmployeeDocumentController {
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasRole('HR_ADMIN')")
-  @Operation(summary = "Upload tài liệu (multipart: file, docType?, note?)")
+  @Operation(summary = "Upload tài liệu (multipart: file, docType?, note?, contractId? — "
+      + "kèm contractId = phụ lục hợp đồng, docType mặc định CONTRACT)")
   public EmployeeDocumentResponse upload(@PathVariable UUID employeeId,
       @RequestParam("file") MultipartFile file,
       @RequestParam(name = "docType", required = false) String docType,
       @RequestParam(name = "note", required = false) String note,
+      @RequestParam(name = "contractId", required = false) UUID contractId,
       @AuthenticationPrincipal Jwt jwt) {
-    return documentService.upload(employeeId, file, docType, note, jwt.getSubject());
+    return documentService.upload(employeeId, file, docType, note, jwt.getSubject(), contractId);
   }
 
   @GetMapping
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
-  @Operation(summary = "Danh sách tài liệu của nhân viên (mới nhất trước)")
-  public List<EmployeeDocumentResponse> list(@PathVariable UUID employeeId) {
-    return documentService.list(employeeId);
+  @Operation(summary = "Danh sách tài liệu của nhân viên (mới nhất trước; contractId? = lọc theo hợp đồng)")
+  public List<EmployeeDocumentResponse> list(@PathVariable UUID employeeId,
+      @RequestParam(name = "contractId", required = false) UUID contractId) {
+    return documentService.list(employeeId, contractId);
   }
 
   @GetMapping("/{documentId}")

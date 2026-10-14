@@ -57,7 +57,8 @@ class EmployeeDocumentControllerTest {
 
   @Test
   void list_withManager_returns200() throws Exception {
-    when(documentService.list(eq(employeeId))).thenReturn(List.of(sampleResponse()));
+    when(documentService.list(eq(employeeId), org.mockito.ArgumentMatchers.isNull()))
+        .thenReturn(List.of(sampleResponse()));
 
     mockMvc.perform(get("/api/v1/employees/{id}/documents", employeeId)
             .with(jwt().authorities(MANAGER)))
@@ -76,7 +77,7 @@ class EmployeeDocumentControllerTest {
   @Test
   void upload_withHrAdmin_returns201() throws Exception {
     when(documentService.upload(eq(employeeId), any(), eq("CV"), eq("Hồ sơ ứng tuyển"),
-        eq("user-1"))).thenReturn(sampleResponse());
+        eq("user-1"), org.mockito.ArgumentMatchers.isNull())).thenReturn(sampleResponse());
 
     mockMvc.perform(multipart("/api/v1/employees/{id}/documents", employeeId)
             .file(FILE)
@@ -95,7 +96,7 @@ class EmployeeDocumentControllerTest {
   }
 
   private EmployeeDocumentResponse sampleResponse() {
-    return new EmployeeDocumentResponse(documentId, employeeId, "CV", "cv.pdf",
+    return new EmployeeDocumentResponse(documentId, employeeId, null, "CV", "cv.pdf",
         "application/pdf", 9L, "Hồ sơ ứng tuyển", "user-1", Instant.now());
   }
 }

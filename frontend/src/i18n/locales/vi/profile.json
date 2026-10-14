@@ -57,6 +57,7 @@
     "OTHER": "Khác"
   },
   "contractStatus": {
+    "PENDING": "Chờ hiệu lực",
     "ACTIVE": "Hiệu lực",
     "EXPIRED": "Hết hạn",
     "TERMINATED": "Chấm dứt"
@@ -69,7 +70,8 @@
     "contract": {
       "type": "Loại hợp đồng",
       "salary": "Lương",
-      "status": "Trạng thái hợp đồng"
+      "status": "Trạng thái hợp đồng",
+      "endDate": "Ngày hết hạn HĐ"
     }
   },
   "history": {

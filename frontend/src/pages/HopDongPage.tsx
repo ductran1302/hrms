@@ -1,24 +1,42 @@
+import { UploadOutlined } from '@ant-design/icons';
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import {
   App as AntApp,
   Button,
   DatePicker,
+  Divider,
   Form,
   Input,
   InputNumber,
+  List,
   Modal,
   Popconfirm,
   Select,
   Tag,
   Typography,
+  Upload,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
-import { createContract, listContracts, terminateContract, updateContract } from '../api/contracts';
+import {
+  createContract,
+  extendContract,
+  listContracts,
+  replaceContract,
+  terminateContract,
+  updateContract,
+} from '../api/contracts';
+import { deleteDocument, downloadDocument, listDocuments, uploadDocument } from '../api/documents';
 import { searchEmployees } from '../api/employees';
-import type { Contract, ContractStatusValue, ContractTypeValue, Employee } from '../api/types';
+import type {
+  Contract,
+  ContractStatusValue,
+  ContractTypeValue,
+  Employee,
+  EmployeeDocument,
+} from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
 const TYPE_KEYS: Record<ContractTypeValue, string> = {
@@ -30,10 +48,13 @@ const TYPE_KEYS: Record<ContractTypeValue, string> = {
 };
 
 const STATUS_META: Record<ContractStatusValue, { key: string; color: string }> = {
+  PENDING: { key: 'contract.status.PENDING', color: 'blue' },
   ACTIVE: { key: 'contract.status.ACTIVE', color: 'green' },
   EXPIRED: { key: 'contract.status.EXPIRED', color: 'orange' },
   TERMINATED: { key: 'contract.status.TERMINATED', color: 'red' },
 };
+
+const EXPIRING_WINDOW_DAYS = 30;
 
 interface FormValues {
   employeeId?: string;
@@ -56,11 +77,23 @@ export default function HopDongPage() {
   const auth = useAuth();
   const actionRef = useRef<ActionType>(null);
   const [form] = Form.useForm<FormValues>();
+  /** create | edit | replace — replace = chấm dứt HĐ cũ + ký HĐ mới linked. */
+  const [mode, setMode] = useState<'create' | 'edit' | 'replace'>('create');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Contract | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<Contract | null>(null);
   const [saving, setSaving] = useState(false);
   const [employeeFilter, setEmployeeFilter] = useState<string | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<ContractStatusValue | undefined>(undefined);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [expiringCount, setExpiringCount] = useState<number | null>(null);
+
+  const [extendTarget, setExtendTarget] = useState<Contract | null>(null);
+  const [extendEndDate, setExtendEndDate] = useState<Dayjs | null>(null);
+  const [extendNote, setExtendNote] = useState('');
+
+  const [docs, setDocs] = useState<EmployeeDocument[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const canWrite = auth.hasRole('HR_ADMIN');
 
@@ -68,17 +101,39 @@ export default function HopDongPage() {
     searchEmployees({ size: 500 })
       .then((page) => setEmployees(page.items))
       .catch(() => setEmployees([]));
+    listContracts()
+      .then((all) => {
+        const today = dayjs();
+        const count = all.filter(
+          (c) =>
+            c.effectiveStatus === 'IN_EFFECT' &&
+            c.endDate &&
+            dayjs(c.endDate).diff(today, 'day') <= EXPIRING_WINDOW_DAYS,
+        ).length;
+        setExpiringCount(count);
+      })
+      .catch(() => setExpiringCount(null));
   }, []);
 
+  const loadDocs = (contract: Contract) => {
+    listDocuments(contract.employeeId, contract.id)
+      .then(setDocs)
+      .catch(() => setDocs([]));
+  };
+
   const openCreate = () => {
+    setMode('create');
     setEditing(null);
+    setReplaceTarget(null);
     form.resetFields();
     form.setFieldsValue({ contractType: 'FULL_TIME', startDate: dayjs() });
     setModalOpen(true);
   };
 
   const openEdit = (record: Contract) => {
+    setMode('edit');
     setEditing(record);
+    setReplaceTarget(null);
     form.setFieldsValue({
       contractType: record.contractType,
       startDate: dayjs(record.startDate),
@@ -89,6 +144,25 @@ export default function HopDongPage() {
       note: record.note ?? undefined,
       status: record.status,
     });
+    loadDocs(record);
+    setModalOpen(true);
+  };
+
+  const openReplace = (record: Contract) => {
+    setMode('replace');
+    setEditing(null);
+    setReplaceTarget(record);
+    form.resetFields();
+    form.setFieldsValue({
+      contractType: record.contractType,
+      startDate: dayjs(),
+      position: record.position ?? undefined,
+      signDate: dayjs(),
+      note: t('contract.replaceNote', {
+        start: dayjs(record.startDate).format('DD/MM/YYYY'),
+        end: record.endDate ? dayjs(record.endDate).format('DD/MM/YYYY') : '—',
+      }),
+    });
     setModalOpen(true);
   };
 
@@ -96,33 +170,28 @@ export default function HopDongPage() {
     const values = await form.validateFields();
     setSaving(true);
     try {
-      if (editing) {
-        await updateContract(editing.id, {
-          contractType: values.contractType,
-          startDate: values.startDate.format('YYYY-MM-DD'),
-          endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
-          position: values.position,
-          salary: values.salary,
-          signDate: values.signDate ? values.signDate.format('YYYY-MM-DD') : undefined,
-          note: values.note,
-          status: values.status,
-        });
+      const payload = {
+        contractType: values.contractType,
+        startDate: values.startDate.format('YYYY-MM-DD'),
+        endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
+        position: values.position,
+        salary: values.salary,
+        signDate: values.signDate ? values.signDate.format('YYYY-MM-DD') : undefined,
+        note: values.note,
+      };
+      if (mode === 'edit' && editing) {
+        await updateContract(editing.id, { ...payload, status: values.status });
         message.success(t('contract.updated'));
+      } else if (mode === 'replace' && replaceTarget) {
+        await replaceContract(replaceTarget.id, payload);
+        message.success(t('contract.replaced'));
       } else {
         if (!values.employeeId) {
           message.error(t('contract.selectEmployee'));
           setSaving(false);
           return;
         }
-        await createContract(values.employeeId, {
-          contractType: values.contractType,
-          startDate: values.startDate.format('YYYY-MM-DD'),
-          endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
-          position: values.position,
-          salary: values.salary,
-          signDate: values.signDate ? values.signDate.format('YYYY-MM-DD') : undefined,
-          note: values.note,
-        });
+        await createContract(values.employeeId, payload);
         message.success(t('contract.created'));
       }
       setModalOpen(false);
@@ -134,14 +203,98 @@ export default function HopDongPage() {
     }
   };
 
+  const submitExtend = async () => {
+    if (!extendTarget || !extendEndDate) {
+      message.error(t('contract.extendInvalidDate'));
+      return;
+    }
+    setSaving(true);
+    try {
+      await extendContract(extendTarget.id, {
+        endDate: extendEndDate.format('YYYY-MM-DD'),
+        note: extendNote.trim() || undefined,
+      });
+      message.success(t('contract.extended'));
+      setExtendTarget(null);
+      setExtendNote('');
+      actionRef.current?.reload();
+    } catch (error) {
+      message.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const terminate = async (record: Contract) => {
     try {
-      await terminateContract(record.id);
+      await terminateContract(record.id, t('contract.terminate'));
       message.success(t('contract.terminated'));
       actionRef.current?.reload();
     } catch (error) {
       message.error(errorMessage(error));
     }
+  };
+
+  const doUpload = async (file: File) => {
+    if (!editing) return;
+    setUploading(true);
+    try {
+      await uploadDocument(editing.employeeId, file, 'CONTRACT', undefined, editing.id);
+      message.success(t('contract.attachmentUploaded'));
+      loadDocs(editing);
+    } catch (error) {
+      message.error(errorMessage(error));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeDoc = async (doc: EmployeeDocument) => {
+    if (!editing) return;
+    try {
+      await deleteDocument(editing.employeeId, doc.id);
+      message.success(t('contract.attachmentDeleted'));
+      loadDocs(editing);
+    } catch (error) {
+      message.error(errorMessage(error));
+    }
+  };
+
+  const statusCell = (record: Contract): ReactNode => {
+    const meta = STATUS_META[record.status];
+    const tags: ReactNode[] = [
+      <Tag key="biz" color={meta.color}>
+        {t(meta.key)}
+      </Tag>,
+    ];
+    if (record.effectiveStatus === 'NOT_YET_EFFECTIVE' && record.status === 'ACTIVE') {
+      tags.push(
+        <Tag key="eff" color="blue">
+          {t('contract.effective.NOT_YET_EFFECTIVE')}
+        </Tag>,
+      );
+    }
+    if (record.effectiveStatus === 'ENDED') {
+      tags.push(
+        <Tag key="eff" color="orange">
+          {t('contract.effective.ENDED')}
+        </Tag>,
+      );
+    }
+    if (
+      record.effectiveStatus === 'IN_EFFECT' &&
+      record.endDate &&
+      dayjs(record.endDate).diff(dayjs(), 'day') <= EXPIRING_WINDOW_DAYS
+    ) {
+      tags.push(
+        <Tag key="soon" color="warning">
+          {t('contract.expiringSoon', {
+            n: dayjs(record.endDate).diff(dayjs(), 'day'),
+          })}
+        </Tag>,
+      );
+    }
+    return tags;
   };
 
   const columns: ProColumns<Contract>[] = [
@@ -187,15 +340,13 @@ export default function HopDongPage() {
     {
       title: t('contract.statusTitle'),
       dataIndex: 'status',
-      width: 110,
-      render: (_, record) => (
-        <Tag color={STATUS_META[record.status].color}>{t(STATUS_META[record.status].key)}</Tag>
-      ),
+      width: 200,
+      render: (_, record) => statusCell(record),
     },
     {
       title: t('actions'),
       valueType: 'option',
-      width: 140,
+      width: 200,
       render: (_, record) => {
         const actions: ReactNode[] = [];
         if (canWrite) {
@@ -204,7 +355,28 @@ export default function HopDongPage() {
               {t('edit')}
             </Button>,
           );
+          if (record.status === 'PENDING' || record.status === 'ACTIVE') {
+            actions.push(
+              <Button
+                key="extend"
+                type="link"
+                size="small"
+                onClick={() => {
+                  setExtendEndDate(null);
+                  setExtendNote('');
+                  setExtendTarget(record);
+                }}
+              >
+                {t('contract.extend')}
+              </Button>,
+            );
+          }
           if (record.status !== 'TERMINATED') {
+            actions.push(
+              <Button key="replace" type="link" size="small" onClick={() => openReplace(record)}>
+                {t('contract.replace')}
+              </Button>,
+            );
             actions.push(
               <Popconfirm
                 key="terminate"
@@ -229,11 +401,30 @@ export default function HopDongPage() {
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
-        headerTitle={t('contract.title')}
+        headerTitle={
+          expiringCount != null && expiringCount > 0
+            ? `${t('contract.title')} — ${t('contract.expiringBanner', { n: expiringCount })}`
+            : t('contract.title')
+        }
         search={false}
         pagination={{ showSizeChanger: true, defaultPageSize: 20 }}
         options={{ density: false, setting: false }}
         toolBarRender={() => [
+          <Select
+            key="status"
+            allowClear
+            placeholder={t('contract.filter.status')}
+            style={{ width: 150 }}
+            value={statusFilter}
+            onChange={(value) => {
+              setStatusFilter(value);
+              actionRef.current?.reload();
+            }}
+            options={Object.entries(STATUS_META).map(([value, meta]) => ({
+              value,
+              label: t(meta.key),
+            }))}
+          />,
           <Select
             key="emp"
             allowClear
@@ -261,6 +452,7 @@ export default function HopDongPage() {
           try {
             const data = await listContracts({
               employeeId: employeeFilter,
+              status: statusFilter,
             });
             const size = params.pageSize ?? 20;
             const current = params.current ?? 1;
@@ -278,17 +470,23 @@ export default function HopDongPage() {
       />
 
       <Modal
-        title={editing ? t('contract.editTitle') : t('contract.add')}
+        title={
+          mode === 'edit'
+            ? t('contract.editTitle')
+            : mode === 'replace'
+              ? t('contract.replaceTitle')
+              : t('contract.add')
+        }
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={submit}
         okText={t('save')}
         confirmLoading={saving}
         destroyOnClose
-        width={620}
+        width={680}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          {!editing && (
+          {!editing && mode !== 'replace' && (
             <Form.Item
               name="employeeId"
               label={t('contract.employee')}
@@ -302,6 +500,11 @@ export default function HopDongPage() {
                   .filter((e) => e.status !== 'TERMINATED')
                   .map((e) => ({ value: e.id, label: `${e.employeeCode} — ${e.fullName}` }))}
               />
+            </Form.Item>
+          )}
+          {mode === 'replace' && replaceTarget && (
+            <Form.Item label={t('contract.employee')}>
+              <Input disabled value={`${replaceTarget.employeeCode} — ${replaceTarget.employeeName}`} />
             </Form.Item>
           )}
           <Form.Item
@@ -341,7 +544,7 @@ export default function HopDongPage() {
           >
             <InputNumber style={{ width: '100%' }} min={0} step={100000} />
           </Form.Item>
-          {editing && (
+          {mode === 'edit' && (
             <Form.Item name="status" label={t('contract.statusTitle')}>
               <Select
                 options={Object.entries(STATUS_META).map(([value, meta]) => ({
@@ -353,6 +556,98 @@ export default function HopDongPage() {
           )}
           <Form.Item name="note" label={t('contract.note')} rules={[{ max: 500 }]}>
             <Input.TextArea rows={2} />
+          </Form.Item>
+
+          {mode === 'edit' && editing && (
+            <>
+              <Divider orientation="left" plain style={{ marginTop: 0 }}>
+                {t('contract.attachments')}
+              </Divider>
+              <Upload
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  void doUpload(file);
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />} loading={uploading}>
+                  {t('contract.uploadAttachment')}
+                </Button>
+              </Upload>
+              <List
+                size="small"
+                style={{ marginTop: 12 }}
+                dataSource={docs}
+                locale={{ emptyText: t('contract.attachmentsEmpty') }}
+                renderItem={(doc) => (
+                  <List.Item
+                    actions={[
+                      <Button
+                        key="dl"
+                        type="link"
+                        size="small"
+                        onClick={() =>
+                          void downloadDocument(editing.employeeId, doc.id, doc.fileName)
+                        }
+                      >
+                        {t('contract.download')}
+                      </Button>,
+                      canWrite ? (
+                        <Popconfirm
+                          key="del"
+                          title={t('contract.deleteAttachmentConfirm')}
+                          onConfirm={() => removeDoc(doc)}
+                        >
+                          <Button type="link" size="small" danger>
+                            {t('delete')}
+                          </Button>
+                        </Popconfirm>
+                      ) : null,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={doc.fileName}
+                      description={`${doc.docType} — ${dayjs(doc.uploadedAt).format('DD/MM/YYYY HH:mm')}`}
+                    />
+                  </List.Item>
+                )}
+              />
+            </>
+          )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={t('contract.extendTitle')}
+        open={extendTarget !== null}
+        onOk={() => void submitExtend()}
+        onCancel={() => setExtendTarget(null)}
+        confirmLoading={saving}
+        okText={t('contract.extend')}
+      >
+        <p>
+          {extendTarget
+            ? `${extendTarget.employeeCode} — ${extendTarget.employeeName} (${t(
+                TYPE_KEYS[extendTarget.contractType],
+              )})`
+            : ''}
+        </p>
+        <Form layout="vertical">
+          <Form.Item label={t('contract.extendNewEndDate')} required>
+            <DatePicker
+              style={{ width: '100%' }}
+              format="DD/MM/YYYY"
+              value={extendEndDate}
+              onChange={(value) => setExtendEndDate(value)}
+            />
+          </Form.Item>
+          <Form.Item label={t('contract.note')}>
+            <Input.TextArea
+              rows={2}
+              maxLength={500}
+              value={extendNote}
+              onChange={(e) => setExtendNote(e.target.value)}
+            />
           </Form.Item>
         </Form>
       </Modal>

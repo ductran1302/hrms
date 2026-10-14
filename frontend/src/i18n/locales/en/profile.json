@@ -57,6 +57,7 @@
     "OTHER": "Other"
   },
   "contractStatus": {
+    "PENDING": "Pending",
     "ACTIVE": "In effect",
     "EXPIRED": "Expired",
     "TERMINATED": "Terminated"
@@ -69,7 +70,8 @@
     "contract": {
       "type": "Contract type",
       "salary": "Salary",
-      "status": "Contract status"
+      "status": "Contract status",
+      "endDate": "Contract end date"
     }
   },
   "history": {

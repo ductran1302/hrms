@@ -200,5 +200,78 @@ R=$(req GET "$MGR" "/api/v1/org-chart")
 check_has "org-chart co Chairman (root)" "$(has "$R" '"fullName":"Nguyễn Hoàng Minh"')" yes
 check_has "org-chart co CTO" "$(has "$R" '"fullName":"Hoàng Đức Trí"')" yes
 
+echo "== 11. Hop dong: PENDING / gia han / thay the / phu luc / canh bao het han"
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd1$$\",\"fullName\":\"NV Hop Dong 1\"}")
+check "POST tao NV hd1" 201 "$(code_of "$R")"
+EMP_HD=$(id_of "$R")
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd2$$\",\"fullName\":\"NV Hop Dong 2\"}")
+EMP_HD2=$(id_of "$R")
+# a. startDate tuong lai -> PENDING (chu hieu luc) — tach trang thai nghiep vu hieu luc theo ngay
+R=$(req POST "$HR" "/api/v1/employees/$EMP_HD/contracts" '{"contractType":"FULL_TIME","startDate":"2030-01-01","endDate":"2031-12-31","salary":10000000}')
+check "POST HĐ startDate tương lai" 201 "$(code_of "$R")"
+HD1=$(id_of "$R"); echo "HD1=$HD1"
+check_has "trang thai nghiep vu PENDING" "$(has "$R" '"status":"PENDING"')" yes
+check_has "hieu luc theo ngay NOT_YET_EFFECTIVE" "$(has "$R" '"effectiveStatus":"NOT_YET_EFFECTIVE"')" yes
+# b. hop dong thu 2 cung nhan vien -> 409 (chan chong lan)
+R=$(req POST "$HR" "/api/v1/employees/$EMP_HD/contracts" '{"contractType":"PROBATION","startDate":"2031-03-01"}')
+check "POST HĐ thứ 2 (chồng lấn)" 409 "$(code_of "$R")"
+# c. gia han
+R=$(req POST "$HR" "/api/v1/contracts/$HD1/extend" '{"endDate":"2032-12-31","note":"Gia hạn theo thỏa thuận"}')
+check "POST gia hạn" 200 "$(code_of "$R")"
+check_has "endDate sau gia hạn" "$(has "$R" '"endDate":"2032-12-31"')" yes
+R=$(req POST "$HR" "/api/v1/contracts/$HD1/extend" '{"endDate":"2031-06-01"}')
+check "POST gia hạn endDate nhỏ hơn hiện tại" 422 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/employees/$EMP_HD/history")
+check_has "history ghi contract.endDate" "$(has "$R" '"field":"contract.endDate"')" yes
+# d. thay the: cham dut cu (giu lich su) + tao moi linked
+R=$(req POST "$HR" "/api/v1/contracts/$HD1/replace" '{"contractType":"FULL_TIME","startDate":"2033-01-01","endDate":"2034-12-31"}')
+check "POST thay thế HĐ" 201 "$(code_of "$R")"
+HD2=$(id_of "$R")
+case "$R" in *"replacesContractId\":\"$HD1"*) check "HĐ mới liên kết thay thế" yes yes;; *) check "HĐ mới liên kết thay thế" "${R:0:80}" "replacesContractId=$HD1";; esac
+check_has "HĐ mới PENDING (tương lai)" "$(has "$R" '"status":"PENDING"')" yes
+R=$(req GET "$HR" "/api/v1/contracts?employeeId=$EMP_HD")
+check_has "HĐ cũ còn nguyên (giữ lịch sử, TERMINATED)" "$(has "$R" '"status":"TERMINATED"')" yes
+# e. phu luc hop dong: upload kem contractId + loc theo hop dong
+printf 'hrms contract file' > /tmp/vc.txt
+CODE=$(curl -s -o /tmp/vc.json -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/vc.txt;type=text/plain' -F 'contractId='"$HD2" \
+  "$API/api/v1/employees/$EMP_HD/documents")
+check "POST upload phụ lục HĐ" 201 "$CODE"
+case "$(cat /tmp/vc.json)" in *"contractId\":\"$HD2"*) check "phụ lục gắn contractId" yes yes;; *) check "phụ lục gắn contractId" "$(head -c 120 /tmp/vc.json)" "contractId=$HD2";; esac
+CODE=$(curl -s -o /tmp/vcl.json -w '%{http_code}' -H "Authorization: Bearer $HR" \
+  "$API/api/v1/employees/$EMP_HD/documents?contractId=$HD2")
+check "GET list theo contractId" 200 "$CODE"
+check_has "list có phụ lục của HĐ" "$(has "$(cat /tmp/vcl.json)" 'vc.txt')" yes
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/vc.txt;type=text/plain' -F 'contractId='"$HD2" \
+  "$API/api/v1/employees/$EMP_HD2/documents")
+check "upload phụ lục HĐ sai nhân viên" 422 "$CODE"
+# f. ngay ket thuc trong hop dong khong bat buoc (hop dong xac dinh han)
+R=$(req POST "$HR" "/api/v1/employees/$EMP_HD2/contracts" '{"contractType":"FULL_TIME","startDate":"2026-01-01"}')
+check "POST HĐ không giới hạn ngày hết hạn" 201 "$(code_of "$R")"
+check_has "endDate=null được chấp nhận" "$(has "$R" '"endDate":null')" yes
+HD3=$(id_of "$R")
+# g. canh bao het han: HĐ ACTIVE keo den trong 30 ngay
+R=$(req PATCH "$HR" "/api/v1/contracts/$HD3/terminate" '')
+check "terminate HĐ không giới hạn" 200 "$(code_of "$R")"
+R=$(req POST "$HR" "/api/v1/employees/$EMP_HD2/contracts" '{"contractType":"FULL_TIME","startDate":"2026-01-01","endDate":"2026-10-28"}')
+HD4=$(id_of "$R"); echo "HD4=$HD4"
+check_has "HĐ gần hạn IN_EFFECT" "$(has "$R" '"effectiveStatus":"IN_EFFECT"')" yes
+R=$(req GET "$HR" "/api/v1/contracts/expiring-soon?days=30")
+check "GET expiring-soon (HR)" 200 "$(code_of "$R")"
+check_has "expiring-soon có HĐ sắp hết hạn" "$(has "$R" "$HD4")" yes
+R=$(req GET "$EMP" "/api/v1/contracts/expiring-soon")
+check "GET expiring-soon (EMPLOYEE)" 403 "$(code_of "$R")"
+# h. chấm dứt có lý do lưu vào history
+R=$(req PATCH "$HR" "/api/v1/contracts/$HD4/terminate" '')
+check "terminate HĐ sắp hạn" 200 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/employees/$EMP_HD2/history")
+check_has "history HĐ có mục contract.status" "$(has "$R" '"field":"contract.status"')" yes
+# i. cleanup
+R=$(req DELETE "$HR" "/api/v1/employees/$EMP_HD?reason=cleanup")
+check "cleanup NV hd1" 204 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/employees/$EMP_HD2?reason=cleanup")
+check "cleanup NV hd2" 204 "$(code_of "$R")"
+
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

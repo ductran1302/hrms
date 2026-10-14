@@ -1,6 +1,7 @@
 package com.hrms.identity.contract;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,7 +12,10 @@ public interface ContractRepository extends JpaRepository<Contract, UUID> {
 
   boolean existsByEmployee_IdAndStatus(UUID employeeId, ContractStatus status);
 
-  boolean existsByEmployee_IdAndStatusAndIdNot(UUID employeeId, ContractStatus status, UUID id);
+  boolean existsByEmployee_IdAndStatusIn(UUID employeeId, Collection<ContractStatus> statuses);
+
+  boolean existsByEmployee_IdAndStatusInAndIdNot(UUID employeeId,
+      Collection<ContractStatus> statuses, UUID id);
 
   List<Contract> findByEmployee_IdOrderByStartDateDesc(UUID employeeId);
 
@@ -25,4 +29,7 @@ public interface ContractRepository extends JpaRepository<Contract, UUID> {
       @Param("status") ContractStatus status);
 
   List<Contract> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
+
+  List<Contract> findByStatusAndEndDateBetween(ContractStatus status, LocalDate from,
+      LocalDate to);
 }

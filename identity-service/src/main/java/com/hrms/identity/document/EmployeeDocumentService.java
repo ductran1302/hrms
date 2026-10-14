@@ -2,6 +2,8 @@ package com.hrms.identity.document;
 
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.identity.contract.Contract;
+import com.hrms.identity.contract.ContractRepository;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
 import com.hrms.identity.employee.Employee;
 import com.hrms.identity.employee.EmployeeRepository;
@@ -34,13 +36,14 @@ public class EmployeeDocumentService {
 
   private final EmployeeDocumentRepository documentRepository;
   private final EmployeeRepository employeeRepository;
+  private final ContractRepository contractRepository;
 
   @Value("${hrms.storage.documents-dir:data/documents}")
   private String documentsDir;
 
   @Transactional
   public EmployeeDocumentResponse upload(UUID employeeId, MultipartFile file, String docType,
-      String note, String actorId) {
+      String note, String actorId, UUID contractId) {
     Employee employee = employeeRepository.findById(employeeId)
         .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId));
     if (file == null || file.isEmpty()) {
@@ -49,7 +52,19 @@ public class EmployeeDocumentService {
     if (file.getSize() > MAX_FILE_SIZE_BYTES) {
       throw new BusinessRuleException("File vượt quá giới hạn 10MB");
     }
-    String type = validateDocType(docType);
+    // Phụ lục hợp đồng: hợp đồng phải tồn tại và thuộc đúng nhân viên.
+    if (contractId != null) {
+      Contract contract = contractRepository.findById(contractId)
+          .orElseThrow(() -> new ResourceNotFoundException("Contract", contractId));
+      if (!employee.getId().equals(contract.getEmployeeId())) {
+        throw new BusinessRuleException("Hợp đồng không thuộc nhân viên này");
+      }
+    }
+    // Upload kèm hợp đồng mà không khai báo loại → mặc định CONTRACT.
+    String type = validateDocType(
+        (docType == null || docType.isBlank()) && contractId != null
+            ? EmployeeDocumentType.CONTRACT.name()
+            : docType);
 
     String relativePath = employeeId + "/" + UUID.randomUUID() + safeExtension(
         file.getOriginalFilename());
@@ -63,6 +78,7 @@ public class EmployeeDocumentService {
 
     EmployeeDocument document = new EmployeeDocument();
     document.setEmployeeId(employee.getId());
+    document.setContractId(contractId);
     document.setDocType(type);
     document.setFileName(originalName(file));
     document.setContentType(file.getContentType());
@@ -72,14 +88,19 @@ public class EmployeeDocumentService {
     document.setUploadedBy(actorId);
     document.setUploadedAt(Instant.now());
     documentRepository.save(document);
-    log.info("Uploaded document {} for employee {} by {}", document.getId(), employeeId, actorId);
+    log.info("Uploaded document {} for employee {} (contract={}) by {}", document.getId(),
+        employeeId, contractId, actorId);
     return toResponse(document);
   }
 
   @Transactional(readOnly = true)
-  public List<EmployeeDocumentResponse> list(UUID employeeId) {
+  public List<EmployeeDocumentResponse> list(UUID employeeId, UUID contractId) {
     ensureEmployeeExists(employeeId);
-    return documentRepository.findByEmployeeIdOrderByUploadedAtDesc(employeeId).stream()
+    List<EmployeeDocument> documents = contractId == null
+        ? documentRepository.findByEmployeeIdOrderByUploadedAtDesc(employeeId)
+        : documentRepository.findByEmployeeIdAndContractIdOrderByUploadedAtDesc(employeeId,
+            contractId);
+    return documents.stream()
         .map(EmployeeDocumentService::toResponse)
         .toList();
   }
@@ -148,6 +169,7 @@ public class EmployeeDocumentService {
     return new EmployeeDocumentResponse(
         document.getId(),
         document.getEmployeeId(),
+        document.getContractId(),
         document.getDocType(),
         document.getFileName(),
         document.getContentType(),

@@ -1,6 +1,7 @@
 package com.hrms.identity.contract;
 
 import com.hrms.identity.contract.dto.ContractCreateRequest;
+import com.hrms.identity.contract.dto.ContractExtendRequest;
 import com.hrms.identity.contract.dto.ContractResponse;
 import com.hrms.identity.contract.dto.ContractUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,7 +33,8 @@ public class ContractController {
   @PostMapping("/employees/{employeeId}/contracts")
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize("hasRole('HR_ADMIN')")
-  @Operation(summary = "Tạo hợp đồng cho nhân viên (rule: 1 hợp đồng ACTIVE/nhân viên)")
+  @Operation(summary = "Tạo hợp đồng (rule: 1 hợp đồng hiệu lực/chờ hiệu lực/nhân viên; "
+      + "startDate tương lai → PENDING)")
   public ContractResponse create(@PathVariable UUID employeeId,
       @Valid @RequestBody ContractCreateRequest request) {
     return contractService.create(employeeId, request);
@@ -47,26 +49,52 @@ public class ContractController {
     return contractService.search(employeeId, parseStatus(status));
   }
 
+  @GetMapping("/contracts/expiring-soon")
+  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @Operation(summary = "Cảnh báo hợp đồng ACTIVE sắp hết hạn trong N ngày (mặc định 30)")
+  public List<ContractResponse> expiringSoon(
+      @RequestParam(name = "days", defaultValue = "30") int days) {
+    return contractService.expiringSoon(days);
+  }
+
   @GetMapping("/employees/{employeeId}/contracts")
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
-  @Operation(summary = "Hợp đồng của 1 nhân viên (salary chỉ hiện với HR_ADMIN)")
+  @Operation(summary = "Hợp đồng của 1 nhân viên (lịch sử — hợp đồng cũ được giữ lại)")
   public List<ContractResponse> listByEmployee(@PathVariable UUID employeeId) {
     return contractService.listByEmployee(employeeId);
   }
 
   @PatchMapping("/contracts/{id}")
   @PreAuthorize("hasRole('HR_ADMIN')")
-  @Operation(summary = "Cập nhật hợp đồng")
+  @Operation(summary = "Cập nhật hợp đồng (đổi endDate ghi lịch sử contract.endDate)")
   public ContractResponse update(@PathVariable UUID id,
       @Valid @RequestBody ContractUpdateRequest request) {
     return contractService.update(id, request);
   }
 
+  @PostMapping("/contracts/{id}/extend")
+  @PreAuthorize("hasRole('HR_ADMIN')")
+  @Operation(summary = "Gia hạn hợp đồng (PENDING/ACTIVE; ngày mới phải sau ngày hết hạn cũ)")
+  public ContractResponse extend(@PathVariable UUID id,
+      @Valid @RequestBody ContractExtendRequest request) {
+    return contractService.extend(id, request);
+  }
+
+  @PostMapping("/contracts/{id}/replace")
+  @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("hasRole('HR_ADMIN')")
+  @Operation(summary = "Thay thế hợp đồng: chấm dứt cũ (giữ lịch sử) + tạo mới linked")
+  public ContractResponse replace(@PathVariable UUID id,
+      @Valid @RequestBody ContractCreateRequest request) {
+    return contractService.replace(id, request);
+  }
+
   @PatchMapping("/contracts/{id}/terminate")
   @PreAuthorize("hasRole('HR_ADMIN')")
-  @Operation(summary = "Chấm dứt hợp đồng")
-  public ContractResponse terminate(@PathVariable UUID id) {
-    return contractService.terminate(id);
+  @Operation(summary = "Chấm dứt hợp đồng (lý do lưu vào lịch sử)")
+  public ContractResponse terminate(@PathVariable UUID id,
+      @RequestParam(name = "reason", required = false) String reason) {
+    return contractService.terminate(id, reason);
   }
 
   private ContractStatus parseStatus(String raw) {

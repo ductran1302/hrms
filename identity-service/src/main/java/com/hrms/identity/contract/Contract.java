@@ -54,6 +54,10 @@ public class Contract extends BaseEntity {
   @Column(name = "status", nullable = false, length = 20)
   private ContractStatus status;
 
+  /** Hợp đồng mà hợp đồng này thay thế (null nếu không phải hợp đồng ký thay). */
+  @Column(name = "replaces_contract_id")
+  private UUID replacesContractId;
+
   public UUID getEmployeeId() {
     return employee == null ? null : employee.getId();
   }

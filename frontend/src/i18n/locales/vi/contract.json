@@ -22,6 +22,31 @@
   "selectEmployee": "Chọn nhân viên",
   "selectStartDate": "Chọn ngày bắt đầu",
   "salaryNotNegative": "Lương không âm",
+  "filter": {
+    "status": "Trạng thái"
+  },
+  "extend": "Gia hạn",
+  "extendTitle": "Gia hạn hợp đồng",
+  "extendNewEndDate": "Ngày hết hạn mới",
+  "extendInvalidDate": "Chọn ngày hết hạn mới",
+  "extended": "Đã gia hạn hợp đồng",
+  "replace": "Thay thế",
+  "replaceTitle": "Thay thế hợp đồng",
+  "replaceNote": "Thay thế hợp đồng {{start}} → {{end}} — hợp đồng cũ được giữ trong lịch sử",
+  "replaced": "Đã thay thế hợp đồng — HĐ cũ chuyển CHẤM DỨT, HĐ mới liên kết lịch sử",
+  "attachments": "Phụ lục hợp đồng",
+  "uploadAttachment": "Tải file lên",
+  "attachmentsEmpty": "Chưa có phụ lục",
+  "attachmentUploaded": "Đã tải lên phụ lục",
+  "attachmentDeleted": "Đã xóa phụ lục",
+  "deleteAttachmentConfirm": "Xóa phụ lục này?",
+  "download": "Tải",
+  "expiringBanner": "{{n}} hợp đồng sắp hết hạn (≤30 ngày)",
+  "expiringSoon": "Sắp hết hạn ({{n}} ngày)",
+  "effective": {
+    "NOT_YET_EFFECTIVE": "Chưa hiệu lực",
+    "ENDED": "Quá hạn"
+  },
   "type": {
     "PROBATION": "Thử việc",
     "FULL_TIME": "Chính thức",
@@ -30,6 +55,7 @@
     "OTHER": "Khác"
   },
   "status": {
+    "PENDING": "Chờ hiệu lực",
     "ACTIVE": "Hiệu lực",
     "EXPIRED": "Hết hạn",
     "TERMINATED": "Chấm dứt"

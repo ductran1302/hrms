@@ -6,6 +6,7 @@ import java.util.UUID;
 public record EmployeeDocumentResponse(
     UUID id,
     UUID employeeId,
+    UUID contractId,
     String docType,
     String fileName,
     String contentType,

@@ -1,9 +1,14 @@
 import client from './client';
 import type { EmployeeDocument } from './types';
 
-export function listDocuments(employeeId: string): Promise<EmployeeDocument[]> {
+export function listDocuments(
+  employeeId: string,
+  contractId?: string,
+): Promise<EmployeeDocument[]> {
   return client
-    .get<EmployeeDocument[]>(`/api/v1/employees/${employeeId}/documents`)
+    .get<EmployeeDocument[]>(`/api/v1/employees/${employeeId}/documents`, {
+      params: contractId ? { contractId } : undefined,
+    })
     .then((r) => r.data);
 }
 
@@ -12,11 +17,13 @@ export function uploadDocument(
   file: File,
   docType?: string,
   note?: string,
+  contractId?: string,
 ): Promise<EmployeeDocument> {
   const form = new FormData();
   form.append('file', file);
   if (docType) form.append('docType', docType);
   if (note) form.append('note', note);
+  if (contractId) form.append('contractId', contractId);
   return client
     .post<EmployeeDocument>(`/api/v1/employees/${employeeId}/documents`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },

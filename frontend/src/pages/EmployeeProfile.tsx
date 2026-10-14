@@ -70,6 +70,7 @@ export default function EmployeeProfile() {
     'contract.type': t('profile.field.contract.type'),
     'contract.salary': t('profile.field.contract.salary'),
     'contract.status': t('profile.field.contract.status'),
+    'contract.endDate': t('profile.field.contract.endDate'),
   };
 
   const canReadDocs = auth.hasRole('HR_ADMIN') || auth.hasRole('MANAGER');
@@ -328,17 +329,17 @@ export default function EmployeeProfile() {
         {
           title: t('profile.contract.status'),
           dataIndex: 'status',
-          render: (value: Contract['status']) => (
-            <Tag
-              color={value === 'ACTIVE' ? 'green' : value === 'EXPIRED' ? 'orange' : 'red'}
-            >
-              {value === 'ACTIVE'
-                ? t('profile.contractStatus.ACTIVE')
+          render: (value: Contract['status']) => {
+            const meta =
+              value === 'ACTIVE'
+                ? { color: 'green', key: 'profile.contractStatus.ACTIVE' }
                 : value === 'EXPIRED'
-                  ? t('profile.contractStatus.EXPIRED')
-                  : t('profile.contractStatus.TERMINATED')}
-            </Tag>
-          ),
+                  ? { color: 'orange', key: 'profile.contractStatus.EXPIRED' }
+                  : value === 'PENDING'
+                    ? { color: 'blue', key: 'profile.contractStatus.PENDING' }
+                    : { color: 'red', key: 'profile.contractStatus.TERMINATED' };
+            return <Tag color={meta.color}>{t(meta.key)}</Tag>;
+          },
         },
       ]}
       locale={{ emptyText: t('profile.contract.empty') }}
