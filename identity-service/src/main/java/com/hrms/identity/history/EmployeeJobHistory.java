@@ -39,4 +39,8 @@ public class EmployeeJobHistory extends BaseEntity {
 
   @Column(name = "actor_id", length = 64)
   private String actorId;
+
+  /** Lý do thay đổi (chỉ ghi cho terminate) — mô tả đầy đủ nằm ở history, không chỉ outbox. */
+  @Column(name = "reason", length = 500)
+  private String reason;
 }

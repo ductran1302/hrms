@@ -68,7 +68,7 @@ class EmployeeControllerTest {
 
   @Test
   void list_withHrAdmin_returns200PageResponse() throws Exception {
-    when(employeeService.search(anyInt(), anyInt(), isNull(), isNull(), isNull()))
+    when(employeeService.search(anyInt(), anyInt(), isNull(), isNull(), isNull(), isNull()))
         .thenReturn(PageResponse.of(List.of(sampleResponse()), 0, 20, 1));
 
     mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(HR_ADMIN)))
@@ -81,7 +81,7 @@ class EmployeeControllerTest {
   void list_withEmployeeRole_returns403() throws Exception {
     mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(EMPLOYEE)))
         .andExpect(status().isForbidden());
-    verify(employeeService, never()).search(anyInt(), anyInt(), any(), any(), any());
+    verify(employeeService, never()).search(anyInt(), anyInt(), any(), any(), any(), any());
   }
 
   @Test
@@ -151,6 +151,7 @@ class EmployeeControllerTest {
     return new EmployeeResponse(
         UUID.randomUUID(), "NV0001", "Nguyễn Văn A", "a@hrms.vn",
         null, "Engineering", "Backend", null,
-        EmployeeStatus.ACTIVE, null, null, null, null, null, null, null, null, null, 0L);
+        EmployeeStatus.ACTIVE, null, null, null, null, null, null, null, null, null, null,
+        null, null, null, null, 0L);
   }
 }

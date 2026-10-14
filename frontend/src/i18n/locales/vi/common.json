@@ -1,0 +1,27 @@
+{
+  "save": "Lưu",
+  "cancel": "Hủy",
+  "delete": "Xóa",
+  "edit": "Sửa",
+  "close": "Đóng",
+  "back": "Quay lại",
+  "confirm": "Xác nhận",
+  "refresh": "Làm mới",
+  "search": "Tìm kiếm",
+  "actions": "Thao tác",
+  "all": "Tất cả",
+  "loading": "Đang tải...",
+  "empty": "Không có dữ liệu",
+  "unknownError": "Lỗi không xác định",
+  "status": {
+    "ACTIVE": "Đang làm",
+    "PROBATION": "Thử việc",
+    "ON_LEAVE": "Tạm nghỉ",
+    "TERMINATED": "Đã nghỉ"
+  },
+  "gender": {
+    "MALE": "Nam",
+    "FEMALE": "Nữ",
+    "OTHER": "Khác"
+  }
+}

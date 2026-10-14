@@ -14,6 +14,7 @@ export function searchEmployees(params: EmployeeQuery = {}): Promise<PageRespons
   if (params.size !== undefined) query.size = params.size;
   if (params.status) query.status = params.status;
   if (params.departmentId) query.departmentId = params.departmentId;
+  if (params.position) query.position = params.position;
   if (params.q) query.q = params.q;
   return client.get<PageResponse<Employee>>('/api/v1/employees', { params: query }).then((r) => r.data);
 }

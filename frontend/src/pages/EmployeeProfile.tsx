@@ -1,52 +1,84 @@
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
   Card,
   Descriptions,
   Empty,
+  Popconfirm,
+  Select,
   Skeleton,
   Table,
   Tabs,
   Tag,
   Timeline,
   Typography,
+  Upload,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listContracts } from '../api/contracts';
+import { deleteDocument, downloadDocument, listDocuments, uploadDocument } from '../api/documents';
 import { getEmployee, getEmployeeHistory, searchEmployees } from '../api/employees';
-import type { Contract, Employee, JobHistoryItem } from '../api/types';
+import type { Contract, Employee, EmployeeDocument, JobHistoryItem } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 
-const STATUS_META: Record<Employee['status'], { label: string; color: string }> = {
-  ACTIVE: { label: 'Đang làm', color: 'green' },
-  PROBATION: { label: 'Thử việc', color: 'orange' },
-  TERMINATED: { label: 'Đã nghỉ', color: 'red' },
-};
-
-const GENDER_LABEL: Record<string, string> = { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác' };
-
-const FIELD_LABEL: Record<string, string> = {
-  department: 'Phòng ban',
-  position: 'Chức danh',
-  manager: 'Quản lý trực tiếp',
-  status: 'Trạng thái',
-  'contract.type': 'Loại hợp đồng',
-  'contract.salary': 'Lương',
-  'contract.status': 'Trạng thái hợp đồng',
+const STATUS_COLOR: Record<Employee['status'], string> = {
+  ACTIVE: 'green',
+  PROBATION: 'orange',
+  ON_LEAVE: 'blue',
+  TERMINATED: 'red',
 };
 
 export default function EmployeeProfile() {
+  const { t } = useTranslation();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const auth = useAuth();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [history, setHistory] = useState<JobHistoryItem[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [peers, setPeers] = useState<Employee[]>([]);
+  const [docs, setDocs] = useState<EmployeeDocument[]>([]);
+  const [docType, setDocType] = useState<string>('CV');
   const [loading, setLoading] = useState(true);
+
+  const DOC_TYPE_LABEL: Record<string, string> = {
+    CV: t('profile.docType.CV'),
+    CERTIFICATE: t('profile.docType.CERTIFICATE'),
+    ID_CARD: t('profile.docType.ID_CARD'),
+    CONTRACT: t('profile.docType.CONTRACT'),
+    MEDICAL: t('profile.docType.MEDICAL'),
+    OTHER: t('profile.docType.OTHER'),
+  };
+
+  const GENDER_LABEL: Record<string, string> = {
+    MALE: t('gender.MALE'),
+    FEMALE: t('gender.FEMALE'),
+    OTHER: t('gender.OTHER'),
+  };
+
+  const FIELD_LABEL: Record<string, string> = {
+    department: t('profile.field.department'),
+    position: t('profile.field.position'),
+    manager: t('profile.field.manager'),
+    status: t('profile.field.status'),
+    'contract.type': t('profile.field.contract.type'),
+    'contract.salary': t('profile.field.contract.salary'),
+    'contract.status': t('profile.field.contract.status'),
+  };
+
+  const canReadDocs = auth.hasRole('HR_ADMIN') || auth.hasRole('MANAGER');
+  const canWriteDocs = auth.hasRole('HR_ADMIN');
+
+  const loadDocs = useCallback(() => {
+    if (!canReadDocs) return Promise.resolve();
+    return listDocuments(id).then(setDocs).catch(() => setDocs([]));
+  }, [id, canReadDocs]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,12 +91,15 @@ export default function EmployeeProfile() {
       setEmployee(emp);
       setHistory(hist);
       setContracts(cons);
+      if (canReadDocs) {
+        listDocuments(id).then(setDocs).catch(() => setDocs([]));
+      }
     } catch (error) {
       message.error(errorMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [id, message]);
+  }, [id, message, canReadDocs]);
 
   useEffect(() => {
     void load();
@@ -76,6 +111,113 @@ export default function EmployeeProfile() {
       .catch(() => setPeers([]));
   }, []);
 
+  const documentsTab = (
+    <div style={{ marginTop: 8 }}>
+      {canWriteDocs && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <Select
+            value={docType}
+            onChange={setDocType}
+            style={{ width: 170 }}
+            options={Object.entries(DOC_TYPE_LABEL).map(([value, label]) => ({
+              value,
+              label,
+            }))}
+          />
+          <Upload
+            showUploadList={false}
+            beforeUpload={(file) => {
+              uploadDocument(id, file, docType)
+                .then(() => {
+                  message.success(t('profile.uploaded'));
+                  void loadDocs();
+                })
+                .catch((error) => message.error(errorMessage(error)));
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />} type="primary">
+              {t('profile.upload')}
+            </Button>
+          </Upload>
+        </div>
+      )}
+      <Table<EmployeeDocument>
+        rowKey="id"
+        dataSource={docs}
+        pagination={false}
+        columns={[
+          {
+            title: t('profile.docs.fileName'),
+            dataIndex: 'fileName',
+            render: (value: string, record) => (
+              <Typography.Link
+                onClick={() =>
+                  void downloadDocument(id, record.id, value).catch((error) =>
+                    message.error(errorMessage(error)),
+                  )
+                }
+              >
+                {value}
+              </Typography.Link>
+            ),
+          },
+          {
+            title: t('profile.docs.type'),
+            dataIndex: 'docType',
+            render: (value: string) => DOC_TYPE_LABEL[value] ?? value,
+          },
+          {
+            title: t('profile.docs.size'),
+            dataIndex: 'fileSize',
+            width: 110,
+            render: (value: number) => `${Math.max(1, Math.round(value / 1024))} KB`,
+          },
+          {
+            title: t('profile.docs.note'),
+            dataIndex: 'note',
+            ellipsis: true,
+            render: (v: string | null) => v ?? '—',
+          },
+          {
+            title: t('profile.docs.uploadedAt'),
+            dataIndex: 'uploadedAt',
+            width: 150,
+            render: (value: string) => dayjs(value).format('DD/MM/YYYY HH:mm'),
+          },
+          ...(canWriteDocs
+            ? [
+                {
+                  title: t('actions'),
+                  key: 'action',
+                  width: 90,
+                  render: (_: unknown, record: EmployeeDocument) => (
+                    <Popconfirm
+                      title={t('profile.docs.deleteTitle')}
+                      description={t('profile.docs.deleteDesc')}
+                      onConfirm={() =>
+                        deleteDocument(id, record.id)
+                          .then(() => {
+                            message.success(t('profile.docs.deleted'));
+                            void loadDocs();
+                          })
+                          .catch((error) => message.error(errorMessage(error)))
+                      }
+                    >
+                      <Button type="link" size="small" danger>
+                        {t('delete')}
+                      </Button>
+                    </Popconfirm>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+        locale={{ emptyText: t('profile.docs.empty') }}
+      />
+    </div>
+  );
+
   if (loading) {
     return (
       <Card>
@@ -84,35 +226,55 @@ export default function EmployeeProfile() {
     );
   }
   if (!employee) {
-    return <Empty description="Không tìm thấy nhân viên" />;
+    return <Empty description={t('profile.notFound')} />;
   }
 
   const infoTab = (
     <Descriptions bordered column={2} size="middle" style={{ marginTop: 8 }}>
-      <Descriptions.Item label="Mã nhân viên">{employee.employeeCode}</Descriptions.Item>
-      <Descriptions.Item label="Họ và tên">{employee.fullName}</Descriptions.Item>
-      <Descriptions.Item label="Email">{employee.email ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="SĐT">{employee.phone ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="Ngày sinh">
+      <Descriptions.Item label={t('profile.info.employeeCode')}>
+        {employee.employeeCode}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.fullName')}>{employee.fullName}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.email')}>{employee.email ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.phone')}>{employee.phone ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.birthDate')}>
         {employee.birthDate ? dayjs(employee.birthDate).format('DD/MM/YYYY') : '—'}
       </Descriptions.Item>
-      <Descriptions.Item label="Giới tính">
+      <Descriptions.Item label={t('profile.info.gender')}>
         {employee.gender ? GENDER_LABEL[employee.gender] ?? employee.gender : '—'}
       </Descriptions.Item>
-      <Descriptions.Item label="Số CCCD">{employee.nationalId ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="Địa chỉ">{employee.address ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="Phòng ban">{employee.departmentName ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="Chức danh">{employee.position ?? '—'}</Descriptions.Item>
-      <Descriptions.Item label="Quản lý trực tiếp">
+      <Descriptions.Item label={t('profile.info.nationalId')}>
+        {employee.nationalId ?? '—'}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.address')}>{employee.address ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.education')}>
+        {employee.educationLevel ?? '—'}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.emergencyContact')}>
+        {employee.emergencyContactName
+          ? `${employee.emergencyContactName} — ${employee.emergencyContactPhone ?? '—'}` +
+            (employee.emergencyContactRelation
+              ? ` (${employee.emergencyContactRelation})`
+              : '')
+          : '—'}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.skills')} span={2}>
+        {employee.skills ?? '—'}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.department')}>
+        {employee.departmentName ?? '—'}
+      </Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.position')}>{employee.position ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.manager')}>
         {employee.managerId
           ? peers.find((p) => p.id === employee.managerId)?.fullName ?? employee.managerId
           : '—'}
       </Descriptions.Item>
-      <Descriptions.Item label="Ngày vào làm">
+      <Descriptions.Item label={t('profile.info.hiredAt')}>
         {employee.hiredAt ? dayjs(employee.hiredAt).format('DD/MM/YYYY') : '—'}
       </Descriptions.Item>
-      <Descriptions.Item label="Trạng thái">
-        <Tag color={STATUS_META[employee.status].color}>{STATUS_META[employee.status].label}</Tag>
+      <Descriptions.Item label={t('profile.info.status')}>
+        <Tag color={STATUS_COLOR[employee.status]}>{t('status.' + employee.status)}</Tag>
       </Descriptions.Item>
     </Descriptions>
   );
@@ -125,58 +287,66 @@ export default function EmployeeProfile() {
       pagination={false}
       columns={[
         {
-          title: 'Loại HĐ',
+          title: t('profile.contract.type'),
           dataIndex: 'contractType',
           render: (value: string) =>
             ({
-              PROBATION: 'Thử việc',
-              FULL_TIME: 'Chính thức',
-              PART_TIME: 'Bán thời gian',
-              INTERN: 'Thực tập',
-              OTHER: 'Khác',
+              PROBATION: t('profile.contractType.PROBATION'),
+              FULL_TIME: t('profile.contractType.FULL_TIME'),
+              PART_TIME: t('profile.contractType.PART_TIME'),
+              INTERN: t('profile.contractType.INTERN'),
+              OTHER: t('profile.contractType.OTHER'),
             })[value] ?? value,
         },
         {
-          title: 'Từ ngày',
+          title: t('profile.contract.startDate'),
           dataIndex: 'startDate',
           render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
         },
         {
-          title: 'Đến ngày',
+          title: t('profile.contract.endDate'),
           dataIndex: 'endDate',
           render: (value: string | null) => (value ? dayjs(value).format('DD/MM/YYYY') : '—'),
         },
-        { title: 'Chức danh', dataIndex: 'position', render: (v: string | null) => v ?? '—' },
         {
-          title: 'Lương (VND)',
+          title: t('profile.contract.position'),
+          dataIndex: 'position',
+          render: (v: string | null) => v ?? '—',
+        },
+        {
+          title: t('profile.contract.salary'),
           dataIndex: 'salary',
           render: (value: number | null) =>
             value == null ? (
               <Typography.Text type="secondary" italic>
-                Ẩn (HR_ADMIN)
+                {t('profile.contract.salaryHidden')}
               </Typography.Text>
             ) : (
               new Intl.NumberFormat('vi-VN').format(value)
             ),
         },
         {
-          title: 'Trạng thái',
+          title: t('profile.contract.status'),
           dataIndex: 'status',
           render: (value: Contract['status']) => (
             <Tag
               color={value === 'ACTIVE' ? 'green' : value === 'EXPIRED' ? 'orange' : 'red'}
             >
-              {value === 'ACTIVE' ? 'Hiệu lực' : value === 'EXPIRED' ? 'Hết hạn' : 'Chấm dứt'}
+              {value === 'ACTIVE'
+                ? t('profile.contractStatus.ACTIVE')
+                : value === 'EXPIRED'
+                  ? t('profile.contractStatus.EXPIRED')
+                  : t('profile.contractStatus.TERMINATED')}
             </Tag>
           ),
         },
       ]}
-      locale={{ emptyText: 'Chưa có hợp đồng' }}
+      locale={{ emptyText: t('profile.contract.empty') }}
     />
   );
 
   const historyTab = history.length === 0 ? (
-    <Empty description="Chưa có thay đổi nào được ghi lại" style={{ marginTop: 24 }} />
+    <Empty description={t('profile.history.empty')} style={{ marginTop: 24 }} />
   ) : (
     <Timeline
       style={{ marginTop: 16 }}
@@ -196,8 +366,15 @@ export default function EmployeeProfile() {
             </div>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {dayjs(item.effectiveDate).format('DD/MM/YYYY HH:mm')}
-              {item.actorId ? ` — bởi ${item.actorId}` : ''}
+              {item.actorId ? ` — ${t('profile.history.by', { id: item.actorId })}` : ''}
             </Typography.Text>
+            {item.reason ? (
+              <div>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {t('profile.history.reason')}: {item.reason}
+                </Typography.Text>
+              </div>
+            ) : null}
           </div>
         ),
       }))}
@@ -220,14 +397,33 @@ export default function EmployeeProfile() {
           </Typography.Text>
         </span>
       }
-      extra={<Tag color={STATUS_META[employee.status].color}>{STATUS_META[employee.status].label}</Tag>}
+      extra={
+        <Tag color={STATUS_COLOR[employee.status]}>{t('status.' + employee.status)}</Tag>
+      }
     >
       <Tabs
         defaultActiveKey="info"
         items={[
-          { key: 'info', label: 'Thông tin', children: infoTab },
-          { key: 'contract', label: `Hợp đồng (${contracts.length})`, children: contractTab },
-          { key: 'history', label: `Lịch sử (${history.length})`, children: historyTab },
+          { key: 'info', label: t('profile.tabs.info'), children: infoTab },
+          {
+            key: 'contract',
+            label: t('profile.tabs.contracts', { n: contracts.length }),
+            children: contractTab,
+          },
+          ...(canReadDocs
+            ? [
+                {
+                  key: 'documents',
+                  label: t('profile.tabs.documents', { n: docs.length }),
+                  children: documentsTab,
+                },
+              ]
+            : []),
+          {
+            key: 'history',
+            label: t('profile.tabs.history', { n: history.length }),
+            children: historyTab,
+          },
         ]}
       />
     </Card>

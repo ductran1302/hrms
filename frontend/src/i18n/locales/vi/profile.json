@@ -1,0 +1,86 @@
+﻿{
+  "notFound": "Không tìm thấy nhân viên",
+  "upload": "Tải lên",
+  "uploaded": "Đã tải lên tài liệu",
+  "info": {
+    "employeeCode": "Mã nhân viên",
+    "fullName": "Họ và tên",
+    "email": "Email",
+    "phone": "SĐT",
+    "birthDate": "Ngày sinh",
+    "gender": "Giới tính",
+    "nationalId": "Số CCCD",
+    "address": "Địa chỉ",
+    "education": "Trình độ học vấn",
+    "emergencyContact": "Liên hệ khẩn cấp",
+    "skills": "Kỹ năng",
+    "department": "Phòng ban",
+    "position": "Chức danh",
+    "manager": "Quản lý trực tiếp",
+    "hiredAt": "Ngày vào làm",
+    "status": "Trạng thái"
+  },
+  "docType": {
+    "CV": "Sơ yếu lý lịch",
+    "CERTIFICATE": "Bằng cấp",
+    "ID_CARD": "CCCD/CMND",
+    "CONTRACT": "Hợp đồng",
+    "MEDICAL": "Sức khỏe",
+    "OTHER": "Khác"
+  },
+  "docs": {
+    "fileName": "Tên file",
+    "type": "Loại",
+    "size": "Dung lượng",
+    "note": "Ghi chú",
+    "uploadedAt": "Ngày tải lên",
+    "deleteTitle": "Xóa tài liệu này?",
+    "deleteDesc": "File trên đĩa cũng sẽ bị xóa.",
+    "deleted": "Đã xóa tài liệu",
+    "empty": "Chưa có tài liệu đính kèm"
+  },
+  "contract": {
+    "type": "Loại HĐ",
+    "startDate": "Từ ngày",
+    "endDate": "Đến ngày",
+    "position": "Chức danh",
+    "salary": "Lương (VND)",
+    "salaryHidden": "Ẩn (HR_ADMIN)",
+    "status": "Trạng thái",
+    "empty": "Chưa có hợp đồng"
+  },
+  "contractType": {
+    "PROBATION": "Thử việc",
+    "FULL_TIME": "Chính thức",
+    "PART_TIME": "Bán thời gian",
+    "INTERN": "Thực tập",
+    "OTHER": "Khác"
+  },
+  "contractStatus": {
+    "ACTIVE": "Hiệu lực",
+    "EXPIRED": "Hết hạn",
+    "TERMINATED": "Chấm dứt"
+  },
+  "field": {
+    "department": "Phòng ban",
+    "position": "Chức danh",
+    "manager": "Quản lý trực tiếp",
+    "status": "Trạng thái",
+    "contract": {
+      "type": "Loại hợp đồng",
+      "salary": "Lương",
+      "status": "Trạng thái hợp đồng"
+    }
+  },
+  "history": {
+    "empty": "Chưa có thay đổi nào được ghi lại",
+    "by": "bởi {{id}}",
+    "reason": "Lý do"
+  },
+  "tabs": {
+    "info": "Thông tin",
+    "contracts": "Hợp đồng ({{n}})",
+    "documents": "Tài liệu ({{n}})",
+    "history": "Lịch sử ({{n}})"
+  }
+}

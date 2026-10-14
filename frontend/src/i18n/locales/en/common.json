@@ -1,0 +1,27 @@
+{
+  "save": "Save",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "edit": "Edit",
+  "close": "Close",
+  "back": "Back",
+  "confirm": "Confirm",
+  "refresh": "Refresh",
+  "search": "Search",
+  "actions": "Actions",
+  "all": "All",
+  "loading": "Loading...",
+  "empty": "No data",
+  "unknownError": "Unknown error",
+  "status": {
+    "ACTIVE": "Active",
+    "PROBATION": "Probation",
+    "ON_LEAVE": "On leave",
+    "TERMINATED": "Terminated"
+  },
+  "gender": {
+    "MALE": "Male",
+    "FEMALE": "Female",
+    "OTHER": "Other"
+  }
+}

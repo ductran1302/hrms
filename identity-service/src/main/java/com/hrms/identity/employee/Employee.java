@@ -67,6 +67,23 @@ public class Employee extends BaseEntity {
   @Column(name = "address", length = 300)
   private String address;
 
+  // ---- Thông tin bổ sung (Bước 11 — hồ sơ nhân sự) ----
+
+  @Column(name = "education_level", length = 50)
+  private String educationLevel;
+
+  @Column(name = "skills")
+  private String skills;
+
+  @Column(name = "emergency_contact_name", length = 100)
+  private String emergencyContactName;
+
+  @Column(name = "emergency_contact_phone", length = 20)
+  private String emergencyContactPhone;
+
+  @Column(name = "emergency_contact_relation", length = 50)
+  private String emergencyContactRelation;
+
   /** Ảnh đại diện (URL) — chỉ đọc, chỉnh sửa hồ sơ sẽ thêm sau (V3). */
   @Column(name = "photo_url")
   private String photoUrl;

@@ -10,4 +10,5 @@ public record JobHistoryResponse(
     String field,
     String oldValue,
     String newValue,
-    String actorId) {}
+    String actorId,
+    String reason) {}

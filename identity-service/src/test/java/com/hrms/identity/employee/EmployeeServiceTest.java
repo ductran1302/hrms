@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
+import com.hrms.identity.keycloak.KeycloakAdminClient;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,6 +58,9 @@ class EmployeeServiceTest {
   @Mock
   private JobHistoryService jobHistoryService;
 
+  @Mock
+  private KeycloakAdminClient keycloakAdminClient;
+
   @InjectMocks
   private EmployeeService service;
 
@@ -70,6 +75,7 @@ class EmployeeServiceTest {
     Employee entity = new Employee();
     entity.setEmployeeCode("NV0001");
     entity.setFullName("Nguyễn Văn A");
+    entity.setEmail("a@hrms.vn");
 
     when(employeeRepository.existsByEmployeeCode("NV0001")).thenReturn(false);
     when(mapper.toEntity(request)).thenReturn(entity);
@@ -97,6 +103,78 @@ class EmployeeServiceTest {
     assertEquals("NV0001", payload.employeeCode());
     assertEquals("ACTIVE", payload.status());
     assertEquals(actorId, payload.actorId());
+    verify(keycloakAdminClient).createUser(eq("NV0001"), eq("Nguyễn Văn A"), eq("a@hrms.vn"));
+  }
+
+  @Test
+  void create_blankCode_generatesFromFullName() {
+    EmployeeCreateRequest request =
+        new EmployeeCreateRequest(null, "Nguyễn Trung Hiếu", null, null, null, null, null,
+            null, null, null, null, null);
+    Employee entity = new Employee();
+    entity.setFullName("Nguyễn Trung Hiếu");
+
+    when(employeeRepository.existsByEmployeeCode("nthieu")).thenReturn(false);
+    when(keycloakAdminClient.userExists("nthieu")).thenReturn(false);
+    when(mapper.toEntity(request)).thenReturn(entity);
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> {
+      Employee saved = inv.getArgument(0);
+      saved.setId(employeeId);
+      return saved;
+    });
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    service.create(request, actorId);
+
+    assertEquals("nthieu", entity.getEmployeeCode());
+    verify(keycloakAdminClient).createUser(eq("nthieu"), eq("Nguyễn Trung Hiếu"), isNull());
+  }
+
+  @Test
+  void create_blankCode_appendsSuffixWhenTaken() {
+    EmployeeCreateRequest request =
+        new EmployeeCreateRequest("", "Nguyễn Trung Hiếu", null, null, null, null, null,
+            null, null, null, null, null);
+    Employee entity = new Employee();
+    entity.setFullName("Nguyễn Trung Hiếu");
+
+    when(employeeRepository.existsByEmployeeCode("nthieu")).thenReturn(true);
+    when(employeeRepository.existsByEmployeeCode("nthieu1")).thenReturn(false);
+    when(keycloakAdminClient.userExists("nthieu1")).thenReturn(false);
+    when(mapper.toEntity(request)).thenReturn(entity);
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> {
+      Employee saved = inv.getArgument(0);
+      saved.setId(employeeId);
+      return saved;
+    });
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    service.create(request, actorId);
+
+    assertEquals("nthieu1", entity.getEmployeeCode());
+    verify(keycloakAdminClient).createUser(eq("nthieu1"), any(), any());
+  }
+
+  @Test
+  void create_keycloakUsernameTaken_throwsConflictAndSkipsOutbox() {
+    EmployeeCreateRequest request =
+        new EmployeeCreateRequest("hr", "Hồ Ráng", null, null, null, null, null, null, null,
+            null, null, null);
+    Employee entity = new Employee();
+    entity.setFullName("Hồ Ráng");
+
+    when(employeeRepository.existsByEmployeeCode("hr")).thenReturn(false);
+    when(mapper.toEntity(request)).thenReturn(entity);
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> {
+      Employee saved = inv.getArgument(0);
+      saved.setId(employeeId);
+      return saved;
+    });
+    doThrow(new ConflictException("Tên đăng nhập đã tồn tại trong Keycloak: hr"))
+        .when(keycloakAdminClient).createUser(eq("hr"), any(), any());
+
+    assertThrows(ConflictException.class, () -> service.create(request, actorId));
+    verify(outboxRepository, never()).save(any());
   }
 
   @Test
@@ -133,15 +211,15 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     EmployeeResponse response = new EmployeeResponse(employeeId, "NV0001", "Nguyễn Văn A",
         null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null, null, null,
-        null, null, null, null, 0L);
-    when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""),
+        null, null, null, null, null, null, null, null, null, 0L);
+    when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
         any())).thenReturn(List.of(employee));
-    when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq("")))
+    when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq("")))
         .thenReturn(1L);
     when(mapper.toResponse(employee)).thenReturn(response);
 
     PageResponse<EmployeeResponse> result =
-        service.search(0, 20, EmployeeStatus.ACTIVE, null, null);
+        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null);
 
     assertEquals(1, result.items().size());
     assertEquals(1L, result.total());
@@ -157,7 +235,7 @@ class EmployeeServiceTest {
   @Test
   void update_noFields_throwsBusinessRule() {
     EmployeeUpdateRequest patch = new EmployeeUpdateRequest(null, null, null, null, null,
-        null, null, null, null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, null, null, null);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
@@ -166,7 +244,7 @@ class EmployeeServiceTest {
   void update_statusTerminatedViaPatch_rejected() {
     EmployeeUpdateRequest patch =
         new EmployeeUpdateRequest(null, null, null, null, null, null, null, "TERMINATED",
-            null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
@@ -181,7 +259,7 @@ class EmployeeServiceTest {
 
     EmployeeUpdateRequest patch =
         new EmployeeUpdateRequest(null, "new@hrms.vn", null, null, null, null, null, null,
-            null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     assertEquals("new@hrms.vn", employee.getEmail());
@@ -206,7 +284,7 @@ class EmployeeServiceTest {
 
     EmployeeUpdateRequest patch =
         new EmployeeUpdateRequest(null, null, null, null, "Senior Backend", null, null,
-            null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     assertEquals("Senior Backend", employee.getPosition());
@@ -231,7 +309,7 @@ class EmployeeServiceTest {
 
     EmployeeUpdateRequest patch =
         new EmployeeUpdateRequest(null, null, departmentId, null, null, null, null, null,
-            null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     assertEquals(departmentId, employee.getDepartmentId());
@@ -247,7 +325,7 @@ class EmployeeServiceTest {
 
     EmployeeUpdateRequest patch =
         new EmployeeUpdateRequest(null, null, null, null, null, employeeId, null, null,
-            null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).save(any());
   }
@@ -259,7 +337,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
     EmployeeUpdateRequest patch = new EmployeeUpdateRequest("Nguyễn Văn A", null, null, null,
-        null, null, null, null, null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     service.update(employeeId, patch, actorId);
 
     verify(outboxRepository, never()).save(any());
@@ -287,7 +365,8 @@ class EmployeeServiceTest {
     assertEquals("Tự nguyện", payload.reason());
     assertFalse(payload.changedFields().contains("status"));
     verify(jobHistoryService).record(eq(employeeId), eq("status"), eq("ACTIVE"),
-        eq("TERMINATED"), eq(actorId));
+        eq("TERMINATED"), eq(actorId), eq("Tự nguyện"));
+    verify(keycloakAdminClient).setUserEnabled("NV0001", false);
   }
 
   @Test

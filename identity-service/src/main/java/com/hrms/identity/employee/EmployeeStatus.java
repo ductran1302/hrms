@@ -4,5 +4,6 @@ package com.hrms.identity.employee;
 public enum EmployeeStatus {
   ACTIVE,
   PROBATION,
+  ON_LEAVE,
   TERMINATED
 }

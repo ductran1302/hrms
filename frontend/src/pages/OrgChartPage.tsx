@@ -1,14 +1,16 @@
 import { UserOutlined } from '@ant-design/icons';
 import { App, Avatar, Spin, Tag } from 'antd';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
 import { getOrgChart } from '../api/orgchart';
 import type { OrgChartNode } from '../api/types';
 
-const STATUS_META: Record<string, { text: string; color: string }> = {
-  ACTIVE: { text: 'Đang làm', color: 'green' },
-  PROBATION: { text: 'Thử việc', color: 'orange' },
-  TERMINATED: { text: 'Đã nghỉ', color: 'red' },
+const STATUS_META: Record<string, { key: string; color: string }> = {
+  ACTIVE: { key: 'status.ACTIVE', color: 'green' },
+  PROBATION: { key: 'status.PROBATION', color: 'orange' },
+  ON_LEAVE: { key: 'status.ON_LEAVE', color: 'blue' },
+  TERMINATED: { key: 'status.TERMINATED', color: 'red' },
 };
 
 interface TreeProps {
@@ -17,15 +19,22 @@ interface TreeProps {
 }
 
 function OrgLi({ node, collapsed, onToggle }: { node: OrgChartNode } & TreeProps) {
+  const { t } = useTranslation();
   const hasChildren = node.children.length > 0;
   const isCollapsed = collapsed.has(node.id);
-  const status = STATUS_META[node.status] ?? { text: node.status, color: 'default' };
+  const status = STATUS_META[node.status] ?? { key: null, color: 'default' };
   return (
     <li>
       <div
         className={`org-card${hasChildren ? ' org-card--parent' : ''}`}
         onClick={hasChildren ? () => onToggle(node.id) : undefined}
-        title={hasChildren ? (isCollapsed ? 'Mở rộng nhánh' : 'Thu gọn nhánh') : undefined}
+        title={
+          hasChildren
+            ? isCollapsed
+              ? t('orgchart.expandBranch')
+              : t('orgchart.collapseBranch')
+            : undefined
+        }
       >
         <div className="org-card-avatar">
           {node.photoUrl ? (
@@ -42,7 +51,7 @@ function OrgLi({ node, collapsed, onToggle }: { node: OrgChartNode } & TreeProps
         <div className="org-card-sub">
           {node.employeeCode}
           <Tag color={status.color} style={{ marginLeft: 6 }}>
-            {status.text}
+            {status.key ? t(status.key) : node.status}
           </Tag>
         </div>
         {node.position && <div className="org-card-pos">{node.position}</div>}
@@ -61,6 +70,7 @@ function OrgLi({ node, collapsed, onToggle }: { node: OrgChartNode } & TreeProps
 }
 
 export default function OrgChartPage() {
+  const { t } = useTranslation();
   const { message } = App.useApp();
   const [roots, setRoots] = useState<OrgChartNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +94,7 @@ export default function OrgChartPage() {
   if (loading) return <Spin style={{ display: 'block', margin: '64px auto' }} />;
 
   if (roots.length === 0) {
-    return <div>Chưa có dữ liệu sơ đồ tổ chức — gán quản lý trực tiếp cho nhân viên.</div>;
+    return <div>{t('orgchart.empty')}</div>;
   }
 
   return (

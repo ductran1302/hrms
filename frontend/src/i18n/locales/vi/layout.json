@@ -1,0 +1,12 @@
+{
+  "menu": {
+    "employees": "Nhân sự",
+    "departments": "Phòng ban",
+    "contracts": "Hợp đồng",
+    "orgchart": "Sơ đồ tổ chức",
+    "attendance": "Chấm công"
+  },
+  "logout": "Đăng xuất",
+  "language": "Ngôn ngữ",
+  "brand": "HRMS"
+}

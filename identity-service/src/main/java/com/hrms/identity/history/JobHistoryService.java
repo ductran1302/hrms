@@ -21,6 +21,12 @@ public class JobHistoryService {
   @Transactional
   public void record(UUID employeeId, String field, String oldValue, String newValue,
       String actorId) {
+    record(employeeId, field, oldValue, newValue, actorId, null);
+  }
+
+  @Transactional
+  public void record(UUID employeeId, String field, String oldValue, String newValue,
+      String actorId, String reason) {
     if (Objects.equals(oldValue, newValue)) {
       return;
     }
@@ -31,6 +37,7 @@ public class JobHistoryService {
     entry.setOldValue(truncate(oldValue));
     entry.setNewValue(truncate(newValue));
     entry.setActorId(actorId);
+    entry.setReason(truncate(reason));
     historyRepository.save(entry);
   }
 
@@ -44,7 +51,8 @@ public class JobHistoryService {
             entry.getField(),
             entry.getOldValue(),
             entry.getNewValue(),
-            entry.getActorId()))
+            entry.getActorId(),
+            entry.getReason()))
         .toList();
   }
 

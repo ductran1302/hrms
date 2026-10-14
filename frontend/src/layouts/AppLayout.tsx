@@ -3,14 +3,17 @@ import {
   ClockCircleOutlined,
   ClusterOutlined,
   FileTextOutlined,
+  GlobalOutlined,
   LogoutOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { LANGUAGES, setLanguage } from '../i18n';
 
 const { Header, Sider, Content } = Layout;
 
@@ -18,32 +21,33 @@ export default function AppLayout() {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation();
 
   const menuItems = [
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/nhan-su',
       icon: <TeamOutlined />,
-      label: 'Nhân sự',
+      label: t('menu.employees'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/phong-ban',
       icon: <ApartmentOutlined />,
-      label: 'Phòng ban',
+      label: t('menu.departments'),
     },
     auth.hasRole('HR_ADMIN') && {
       key: '/hop-dong',
       icon: <FileTextOutlined />,
-      label: 'Hợp đồng',
+      label: t('menu.contracts'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/to-chuc',
       icon: <ClusterOutlined />,
-      label: 'Sơ đồ tổ chức',
+      label: t('menu.orgchart'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/cham-cong',
       icon: <ClockCircleOutlined />,
-      label: 'Chấm công',
+      label: t('menu.attendance'),
     },
   ].filter(Boolean) as { key: string; icon: ReactNode; label: string }[];
 
@@ -61,7 +65,7 @@ export default function AppLayout() {
             letterSpacing: 1,
           }}
         >
-          HRMS
+          {t('brand')}
         </div>
         <Menu
           theme="dark"
@@ -85,11 +89,23 @@ export default function AppLayout() {
         >
           <Dropdown
             menu={{
+              items: Object.entries(LANGUAGES).map(([key, label]) => ({ key, label })),
+              selectedKeys: [i18n.language],
+              onClick: ({ key }) => setLanguage(key === 'en' ? 'en' : 'vi'),
+            }}
+          >
+            <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <GlobalOutlined />
+              <Typography.Text>{LANGUAGES[i18n.language] ?? LANGUAGES.vi}</Typography.Text>
+            </span>
+          </Dropdown>
+          <Dropdown
+            menu={{
               items: [
                 {
                   key: 'logout',
                   icon: <LogoutOutlined />,
-                  label: 'Đăng xuất',
+                  label: t('logout'),
                   onClick: auth.logout,
                 },
               ],

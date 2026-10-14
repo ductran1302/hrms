@@ -1,0 +1,11 @@
+﻿{
+  "title": "Chấm công — dữ liệu projection từ Kafka",
+  "employeeCode": "Mã NV",
+  "fullName": "Họ và tên",
+  "email": "Email",
+  "department": "Phòng ban",
+  "position": "Chức danh",
+  "statusTitle": "Trạng thái",
+  "hiredAt": "Ngày vào làm",
+  "terminatedAt": "Ngày nghỉ"
+}

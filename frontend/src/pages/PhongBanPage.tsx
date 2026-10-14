@@ -1,6 +1,7 @@
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { App as AntApp, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
 import {
   createDepartment,
@@ -20,6 +21,7 @@ interface FormValues {
 }
 
 export default function PhongBanPage() {
+  const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const auth = useAuth();
   const actionRef = useRef<ActionType>(null);
@@ -71,10 +73,10 @@ export default function PhongBanPage() {
           parentId: values.parentId,
           managerId: values.managerId,
         });
-        message.success(`Đã cập nhật ${values.name}`);
+        message.success(t('department.updated', { name: values.name }));
       } else {
         await createDepartment(values);
-        message.success(`Đã tạo phòng ban ${values.code}`);
+        message.success(t('department.created', { code: values.code }));
       }
       setModalOpen(false);
       reloadMeta();
@@ -89,7 +91,7 @@ export default function PhongBanPage() {
   const deactivate = async (record: Department) => {
     try {
       await deactivateDepartment(record.id);
-      message.success(`Đã vô hiệu ${record.name}`);
+      message.success(t('department.deactivated', { name: record.name }));
       reloadMeta();
       actionRef.current?.reload();
     } catch (error) {
@@ -101,35 +103,40 @@ export default function PhongBanPage() {
     id ? departments.find((d) => d.id === id)?.name ?? '—' : '—';
 
   const columns: ProColumns<Department>[] = [
-    { title: 'Mã phòng', dataIndex: 'code', width: 110 },
-    { title: 'Tên phòng ban', dataIndex: 'name', width: 220, ellipsis: true },
+    { title: t('department.code'), dataIndex: 'code', width: 110 },
+    { title: t('department.name'), dataIndex: 'name', width: 220, ellipsis: true },
     {
-      title: 'Phòng cha',
+      title: t('department.parent'),
       dataIndex: 'parentId',
       width: 160,
       ellipsis: true,
       render: (_, record) => deptName(record.parentId),
     },
-    { title: 'Trưởng phòng', dataIndex: 'managerName', width: 170, ellipsis: true },
     {
-      title: 'Nhân viên',
+      title: t('department.manager'),
+      dataIndex: 'managerName',
+      width: 170,
+      ellipsis: true,
+    },
+    {
+      title: t('department.employeeCount'),
       dataIndex: 'employeeCount',
       width: 100,
       align: 'right',
     },
     {
-      title: 'Trạng thái',
+      title: t('department.statusTitle'),
       dataIndex: 'status',
       width: 110,
       render: (_, record) =>
         record.status === 'ACTIVE' ? (
-          <Tag color="green">Hoạt động</Tag>
+          <Tag color="green">{t('department.active')}</Tag>
         ) : (
-          <Tag color="red">Vô hiệu</Tag>
+          <Tag color="red">{t('department.inactive')}</Tag>
         ),
     },
     {
-      title: 'Thao tác',
+      title: t('actions'),
       valueType: 'option',
       width: 150,
       render: (_, record) => {
@@ -137,19 +144,19 @@ export default function PhongBanPage() {
         if (canWrite) {
           actions.push(
             <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              Sửa
+              {t('edit')}
             </Button>,
           );
           if (record.status === 'ACTIVE') {
             actions.push(
               <Popconfirm
                 key="off"
-                title="Vô hiệu phòng ban?"
-                description="Chặn khi còn phòng ban con. Nhân viên không bị ảnh hưởng."
+                title={t('department.deactivateConfirm')}
+                description={t('department.deactivateDesc')}
                 onConfirm={() => deactivate(record)}
               >
                 <Button type="link" size="small" danger>
-                  Vô hiệu
+                  {t('department.deactivate')}
                 </Button>
               </Popconfirm>,
             );
@@ -166,14 +173,14 @@ export default function PhongBanPage() {
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
-        headerTitle="Phòng ban"
+        headerTitle={t('department.title')}
         search={false}
         pagination={false}
         options={{ density: false, setting: false }}
         toolBarRender={() => [
           canWrite ? (
             <Button key="create" type="primary" onClick={openCreate}>
-              Thêm phòng ban
+              {t('department.add')}
             </Button>
           ) : null,
         ]}
@@ -189,33 +196,33 @@ export default function PhongBanPage() {
       />
 
       <Modal
-        title={editing ? `Sửa phòng ban — ${editing.code}` : 'Thêm phòng ban'}
+        title={editing ? t('department.editTitle', { code: editing.code }) : t('department.add')}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={submit}
-        okText="Lưu"
+        okText={t('save')}
         confirmLoading={saving}
         destroyOnClose
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item
             name="code"
-            label="Mã phòng"
-            rules={[{ required: true, message: 'Nhập mã phòng' }, { max: 20 }]}
+            label={t('department.code')}
+            rules={[{ required: true, message: t('department.codeRequired') }, { max: 20 }]}
           >
-            <Input placeholder="ENG" />
+            <Input placeholder={t('department.codePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="name"
-            label="Tên phòng ban"
-            rules={[{ required: true, message: 'Nhập tên phòng ban' }, { max: 100 }]}
+            label={t('department.name')}
+            rules={[{ required: true, message: t('department.nameRequired') }, { max: 100 }]}
           >
-            <Input placeholder="Kỹ thuật" />
+            <Input placeholder={t('department.namePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="parentId"
-            label="Phòng cha"
-            extra={editing ? 'Bỏ trống = cấp cao nhất (root)' : undefined}
+            label={t('department.parent')}
+            extra={editing ? t('department.parentExtra') : undefined}
           >
             <Select
               allowClear
@@ -227,7 +234,7 @@ export default function PhongBanPage() {
                 .map((d) => ({ value: d.id, label: d.name }))}
             />
           </Form.Item>
-          <Form.Item name="managerId" label="Trưởng phòng">
+          <Form.Item name="managerId" label={t('department.manager')}>
             <Select
               allowClear
               showSearch

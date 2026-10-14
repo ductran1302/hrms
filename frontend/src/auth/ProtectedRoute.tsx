@@ -1,5 +1,6 @@
 import { Button, Result, Spin } from 'antd';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from './AuthContext';
 
 interface Props {
@@ -9,11 +10,12 @@ interface Props {
 
 export default function ProtectedRoute({ roles, children }: Props) {
   const auth = useAuth();
+  const { t } = useTranslation();
 
   if (!auth.initialized) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" tip="Đang đăng nhập..." />
+        <Spin size="large" tip={t('loggingIn')} />
       </div>
     );
   }
@@ -22,11 +24,13 @@ export default function ProtectedRoute({ roles, children }: Props) {
     return (
       <Result
         status="error"
-        title="Không kết nối được Keycloak"
-        subTitle={`Kiểm tra Keycloak (${import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8081'}) và thử lại.`}
+        title={t('keycloakError')}
+        subTitle={t('keycloakErrorDesc', {
+          url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8081',
+        })}
         extra={
           <Button type="primary" onClick={auth.login}>
-            Thử lại
+            {t('retry')}
           </Button>
         }
       />
@@ -40,10 +44,10 @@ export default function ProtectedRoute({ roles, children }: Props) {
       <Result
         status="403"
         title="403"
-        subTitle="Bạn không có quyền xem trang này (cần role HR_ADMIN hoặc MANAGER)."
+        subTitle={t('forbiddenDesc')}
         extra={
           <Button type="primary" onClick={() => window.location.assign('/')}>
-            Về trang chủ
+            {t('home')}
           </Button>
         }
       />

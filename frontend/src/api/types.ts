@@ -5,7 +5,11 @@ export interface PageResponse<T> {
   total: number;
 }
 
-export type EmployeeStatusValue = 'ACTIVE' | 'PROBATION' | 'TERMINATED';
+export type EmployeeStatusValue =
+  | 'ACTIVE'
+  | 'PROBATION'
+  | 'ON_LEAVE'
+  | 'TERMINATED';
 
 export interface Employee {
   id: string;
@@ -23,6 +27,11 @@ export interface Employee {
   phone: string | null;
   nationalId: string | null;
   address: string | null;
+  educationLevel: string | null;
+  skills: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelation: string | null;
   photoUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +67,11 @@ export interface EmployeeUpdate {
   phone?: string;
   nationalId?: string;
   address?: string;
+  educationLevel?: string;
+  skills?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
 }
 
 export interface EmployeeQuery {
@@ -65,7 +79,28 @@ export interface EmployeeQuery {
   size?: number;
   status?: string;
   departmentId?: string;
+  position?: string;
   q?: string;
+}
+
+export type EmployeeDocumentTypeValue =
+  | 'CV'
+  | 'CERTIFICATE'
+  | 'ID_CARD'
+  | 'CONTRACT'
+  | 'MEDICAL'
+  | 'OTHER';
+
+export interface EmployeeDocument {
+  id: string;
+  employeeId: string;
+  docType: EmployeeDocumentTypeValue;
+  fileName: string;
+  contentType: string | null;
+  fileSize: number;
+  note: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string;
 }
 
 export interface Department {
@@ -157,6 +192,15 @@ export interface JobHistoryItem {
   oldValue: string | null;
   newValue: string | null;
   actorId: string | null;
+  reason?: string | null;
+}
+
+export interface JobTitle {
+  code: string;
+  name: string;
+  nameEn: string | null;
+  category: string | null;
+  sortOrder: number;
 }
 
 export interface OrgChartNode {

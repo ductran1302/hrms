@@ -28,6 +28,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       select e from Employee e
       where (:status is null or e.status = :status)
         and (:departmentId is null or e.departmentId = :departmentId)
+        and (:position = ''
+             or lower(coalesce(e.position, '')) like lower(concat('%', :position, '%')))
         and (:q = ''
              or lower(e.employeeCode) like lower(concat('%', :q, '%'))
              or lower(e.fullName) like lower(concat('%', :q, '%'))
@@ -35,6 +37,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       """)
   List<Employee> search(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
+      @Param("position") String position,
       @Param("q") String q,
       Pageable pageable);
 
@@ -42,6 +45,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       select count(e) from Employee e
       where (:status is null or e.status = :status)
         and (:departmentId is null or e.departmentId = :departmentId)
+        and (:position = ''
+             or lower(coalesce(e.position, '')) like lower(concat('%', :position, '%')))
         and (:q = ''
              or lower(e.employeeCode) like lower(concat('%', :q, '%'))
              or lower(e.fullName) like lower(concat('%', :q, '%'))
@@ -49,5 +54,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       """)
   long countSearch(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
+      @Param("position") String position,
       @Param("q") String q);
 }

@@ -1,0 +1,86 @@
+﻿{
+  "notFound": "Employee not found",
+  "upload": "Upload",
+  "uploaded": "Document uploaded",
+  "info": {
+    "employeeCode": "Employee code",
+    "fullName": "Full name",
+    "email": "Email",
+    "phone": "Phone",
+    "birthDate": "Date of birth",
+    "gender": "Gender",
+    "nationalId": "National ID",
+    "address": "Address",
+    "education": "Education",
+    "emergencyContact": "Emergency contact",
+    "skills": "Skills",
+    "department": "Department",
+    "position": "Position",
+    "manager": "Direct manager",
+    "hiredAt": "Hired date",
+    "status": "Status"
+  },
+  "docType": {
+    "CV": "CV",
+    "CERTIFICATE": "Certificate",
+    "ID_CARD": "ID card",
+    "CONTRACT": "Contract",
+    "MEDICAL": "Medical record",
+    "OTHER": "Other"
+  },
+  "docs": {
+    "fileName": "File name",
+    "type": "Type",
+    "size": "Size",
+    "note": "Note",
+    "uploadedAt": "Uploaded at",
+    "deleteTitle": "Delete this document?",
+    "deleteDesc": "The file on disk will also be deleted.",
+    "deleted": "Document deleted",
+    "empty": "No attached documents yet"
+  },
+  "contract": {
+    "type": "Contract type",
+    "startDate": "From date",
+    "endDate": "To date",
+    "position": "Position",
+    "salary": "Salary (VND)",
+    "salaryHidden": "Hidden (HR_ADMIN)",
+    "status": "Status",
+    "empty": "No contracts yet"
+  },
+  "contractType": {
+    "PROBATION": "Probation",
+    "FULL_TIME": "Full-time",
+    "PART_TIME": "Part-time",
+    "INTERN": "Internship",
+    "OTHER": "Other"
+  },
+  "contractStatus": {
+    "ACTIVE": "In effect",
+    "EXPIRED": "Expired",
+    "TERMINATED": "Terminated"
+  },
+  "field": {
+    "department": "Department",
+    "position": "Position",
+    "manager": "Direct manager",
+    "status": "Status",
+    "contract": {
+      "type": "Contract type",
+      "salary": "Salary",
+      "status": "Contract status"
+    }
+  },
+  "history": {
+    "empty": "No changes recorded yet",
+    "by": "by {{id}}",
+    "reason": "Reason"
+  },
+  "tabs": {
+    "info": "Information",
+    "contracts": "Contracts ({{n}})",
+    "documents": "Documents ({{n}})",
+    "history": "History ({{n}})"
+  }
+}

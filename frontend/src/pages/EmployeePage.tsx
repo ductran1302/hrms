@@ -1,28 +1,33 @@
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import {
   App as AntApp,
+  AutoComplete,
   Button,
   DatePicker,
+  Divider,
   Form,
   Input,
   Modal,
-  Popconfirm,
   Select,
   Tag,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listDepartments } from '../api/departments';
 import { createEmployee, searchEmployees, terminateEmployee, updateEmployee } from '../api/employees';
+import { listJobTitles } from '../api/jobtitles';
 import type { Department, Employee, EmployeeUpdate } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { generateEmployeeCode } from '../utils/employeeCode';
 
-const STATUS_META: Record<Employee['status'], { label: string; color: string }> = {
-  ACTIVE: { label: 'Đang làm', color: 'green' },
-  PROBATION: { label: 'Thử việc', color: 'orange' },
-  TERMINATED: { label: 'Đã nghỉ', color: 'red' },
+const STATUS_COLOR: Record<Employee['status'], string> = {
+  ACTIVE: 'green',
+  PROBATION: 'orange',
+  ON_LEAVE: 'blue',
+  TERMINATED: 'red',
 };
 
 interface FormValues {
@@ -39,9 +44,15 @@ interface FormValues {
   phone?: string;
   nationalId?: string;
   address?: string;
+  educationLevel?: string;
+  skills?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
 }
 
 export default function EmployeePage() {
+  const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const auth = useAuth();
   const navigate = useNavigate();
@@ -52,9 +63,15 @@ export default function EmployeePage() {
   const [saving, setSaving] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [deptFilter, setDeptFilter] = useState<string | undefined>(undefined);
+  const [positionFilter, setPositionFilter] = useState<string | undefined>(undefined);
+  const [positionOptions, setPositionOptions] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managerOptions, setManagerOptions] = useState<Employee[]>([]);
+  const [jobTitleOptions, setJobTitleOptions] = useState<string[]>([]);
+  const [terminateTarget, setTerminateTarget] = useState<Employee | null>(null);
+  const [terminateReason, setTerminateReason] = useState('');
+  const suggestedCodeRef = useRef('');
 
   const canWrite = auth.hasRole('HR_ADMIN');
 
@@ -62,11 +79,24 @@ export default function EmployeePage() {
     listDepartments()
       .then((data) => setDepartments(data.filter((d) => d.status === 'ACTIVE')))
       .catch(() => setDepartments([]));
+    listJobTitles()
+      .then((titles) => setJobTitleOptions(titles.map((jt) => jt.name)))
+      .catch(() => setJobTitleOptions([]));
+    searchEmployees({ size: 500 })
+      .then((page) => {
+        const unique = new Set<string>();
+        page.items.forEach((e) => {
+          if (e.position) unique.add(e.position);
+        });
+        setPositionOptions([...unique].sort());
+      })
+      .catch(() => setPositionOptions([]));
   }, []);
 
   const openCreate = () => {
     setEditing(null);
     form.resetFields();
+    suggestedCodeRef.current = '';
     form.setFieldsValue({ hiredAt: dayjs() });
     setModalOpen(true);
     void searchEmployees({ size: 500 })
@@ -90,6 +120,11 @@ export default function EmployeePage() {
       phone: record.phone ?? undefined,
       nationalId: record.nationalId ?? undefined,
       address: record.address ?? undefined,
+      educationLevel: record.educationLevel ?? undefined,
+      skills: record.skills ?? undefined,
+      emergencyContactName: record.emergencyContactName ?? undefined,
+      emergencyContactPhone: record.emergencyContactPhone ?? undefined,
+      emergencyContactRelation: record.emergencyContactRelation ?? undefined,
     });
     setModalOpen(true);
     void searchEmployees({ size: 500 })
@@ -121,13 +156,26 @@ export default function EmployeePage() {
         if ((values.phone ?? null) !== editing.phone) patch.phone = values.phone;
         if ((values.nationalId ?? null) !== editing.nationalId) patch.nationalId = values.nationalId;
         if ((values.address ?? null) !== editing.address) patch.address = values.address;
+        if ((values.educationLevel ?? null) !== editing.educationLevel) {
+          patch.educationLevel = values.educationLevel;
+        }
+        if ((values.skills ?? null) !== editing.skills) patch.skills = values.skills;
+        if ((values.emergencyContactName ?? null) !== editing.emergencyContactName) {
+          patch.emergencyContactName = values.emergencyContactName;
+        }
+        if ((values.emergencyContactPhone ?? null) !== editing.emergencyContactPhone) {
+          patch.emergencyContactPhone = values.emergencyContactPhone;
+        }
+        if ((values.emergencyContactRelation ?? null) !== editing.emergencyContactRelation) {
+          patch.emergencyContactRelation = values.emergencyContactRelation;
+        }
         if (Object.keys(patch).length === 0) {
-          message.info('Không có thay đổi nào');
+          message.info(t('employee.noChanges'));
           setModalOpen(false);
           return;
         }
         await updateEmployee(editing.id, patch);
-        message.success(`Đã cập nhật ${values.fullName}`);
+        message.success(t('employee.updated', { name: values.fullName }));
       } else {
         await createEmployee({
           employeeCode: values.employeeCode,
@@ -143,7 +191,7 @@ export default function EmployeePage() {
           nationalId: values.nationalId,
           address: values.address,
         });
-        message.success(`Đã tạo nhân viên ${values.employeeCode}`);
+        message.success(t('employee.created', { code: values.employeeCode }));
       }
       setModalOpen(false);
       actionRef.current?.reload();
@@ -154,64 +202,72 @@ export default function EmployeePage() {
     }
   };
 
-  const terminate = async (record: Employee) => {
+  const terminate = async () => {
+    if (!terminateTarget) return;
     try {
-      await terminateEmployee(record.id, 'Chấm dứt hợp đồng');
-      message.success(`Đã cho ${record.fullName} nghỉ việc`);
+      setSaving(true);
+      await terminateEmployee(terminateTarget.id, terminateReason.trim() || undefined);
+      message.success(t('employee.terminated', { name: terminateTarget.fullName }));
+      setTerminateTarget(null);
+      setTerminateReason('');
       actionRef.current?.reload();
     } catch (error) {
       message.error(errorMessage(error));
+    } finally {
+      setSaving(false);
     }
   };
 
   const columns: ProColumns<Employee>[] = [
-    { title: 'Mã NV', dataIndex: 'employeeCode', width: 110 },
-    { title: 'Họ và tên', dataIndex: 'fullName', width: 190, ellipsis: true },
-    { title: 'Email', dataIndex: 'email', width: 200, ellipsis: true },
-    { title: 'Phòng ban', dataIndex: 'departmentName', width: 130, ellipsis: true },
-    { title: 'Chức danh', dataIndex: 'position', width: 140, ellipsis: true },
+    { title: t('employee.column.employeeCode'), dataIndex: 'employeeCode', width: 110 },
+    { title: t('employee.column.fullName'), dataIndex: 'fullName', width: 190, ellipsis: true },
+    { title: t('employee.column.email'), dataIndex: 'email', width: 200, ellipsis: true },
+    { title: t('employee.column.department'), dataIndex: 'departmentName', width: 130, ellipsis: true },
+    { title: t('employee.column.position'), dataIndex: 'position', width: 140, ellipsis: true },
     {
-      title: 'Trạng thái',
+      title: t('employee.column.status'),
       dataIndex: 'status',
       width: 115,
       render: (_, record) => (
-        <Tag color={STATUS_META[record.status].color}>{STATUS_META[record.status].label}</Tag>
+        <Tag color={STATUS_COLOR[record.status]}>{t('status.' + record.status)}</Tag>
       ),
     },
     {
-      title: 'Ngày vào làm',
+      title: t('employee.column.hiredAt'),
       dataIndex: 'hiredAt',
       width: 125,
       render: (_, record) => (record.hiredAt ? dayjs(record.hiredAt).format('DD/MM/YYYY') : '—'),
     },
     {
-      title: 'Thao tác',
+      title: t('actions'),
       valueType: 'option',
       width: 190,
       render: (_, record) => {
         const actions: ReactNode[] = [
           <Button key="profile" type="link" size="small" onClick={() => navigate(`/nhan-su/${record.id}`)}>
-            Hồ sơ
+            {t('employee.profile')}
           </Button>,
         ];
         if (canWrite) {
           actions.push(
             <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              Sửa
+              {t('edit')}
             </Button>,
           );
           if (record.status !== 'TERMINATED') {
             actions.push(
-              <Popconfirm
+              <Button
                 key="terminate"
-                title="Cho nghỉ việc?"
-                description="Nhân viên chuyển trạng thái TERMINATED (nghỉ việc mềm, vẫn giữ lịch sử)."
-                onConfirm={() => terminate(record)}
+                type="link"
+                size="small"
+                danger
+                onClick={() => {
+                  setTerminateReason('');
+                  setTerminateTarget(record);
+                }}
               >
-                <Button type="link" size="small" danger>
-                  Nghỉ việc
-                </Button>
-              </Popconfirm>,
+                {t('employee.terminate.action')}
+              </Button>,
             );
           }
         }
@@ -226,7 +282,7 @@ export default function EmployeePage() {
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
-        headerTitle="Danh sách nhân viên"
+        headerTitle={t('employee.listTitle')}
         search={false}
         pagination={{ showSizeChanger: true, defaultPageSize: 20 }}
         options={{ density: false, setting: false }}
@@ -234,7 +290,7 @@ export default function EmployeePage() {
           <Input.Search
             key="q"
             allowClear
-            placeholder="Mã / tên / email"
+            placeholder={t('employee.filter.keyword')}
             style={{ width: 220 }}
             onSearch={(value) => {
               setKeyword(value);
@@ -246,7 +302,7 @@ export default function EmployeePage() {
             allowClear
             showSearch
             optionFilterProp="label"
-            placeholder="Phòng ban"
+            placeholder={t('employee.filter.department')}
             style={{ width: 170 }}
             value={deptFilter}
             onChange={(value) => {
@@ -256,9 +312,24 @@ export default function EmployeePage() {
             options={departments.map((d) => ({ value: d.id, label: d.name }))}
           />,
           <Select
+            key="position"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('employee.filter.position')}
+            style={{ width: 170 }}
+            value={positionFilter}
+            onChange={(value) => {
+              setPositionFilter(value);
+              actionRef.current?.reload();
+            }}
+            options={[...new Set([...positionOptions, ...jobTitleOptions])].sort()
+              .map((p) => ({ value: p, label: p }))}
+          />,
+          <Select
             key="status"
             allowClear
-            placeholder="Trạng thái"
+            placeholder={t('employee.filter.status')}
             style={{ width: 150 }}
             value={statusFilter}
             onChange={(value) => {
@@ -266,14 +337,15 @@ export default function EmployeePage() {
               actionRef.current?.reload();
             }}
             options={[
-              { value: 'ACTIVE', label: 'Đang làm' },
-              { value: 'PROBATION', label: 'Thử việc' },
-              { value: 'TERMINATED', label: 'Đã nghỉ' },
+              { value: 'ACTIVE', label: t('status.ACTIVE') },
+              { value: 'PROBATION', label: t('status.PROBATION') },
+              { value: 'ON_LEAVE', label: t('status.ON_LEAVE') },
+              { value: 'TERMINATED', label: t('status.TERMINATED') },
             ]}
           />,
           canWrite ? (
             <Button key="create" type="primary" onClick={openCreate}>
-              Thêm nhân viên
+              {t('employee.add')}
             </Button>
           ) : null,
         ]}
@@ -284,6 +356,7 @@ export default function EmployeePage() {
               size: params.pageSize ?? 20,
               status: statusFilter,
               departmentId: deptFilter,
+              position: positionFilter,
               q: keyword,
             });
             return { data: page.items, total: page.total, success: true };
@@ -295,104 +368,199 @@ export default function EmployeePage() {
       />
 
       <Modal
-        title={editing ? `Sửa nhân viên — ${editing.employeeCode}` : 'Thêm nhân viên'}
+        title={
+          editing ? t('employee.editTitle', { code: editing.employeeCode }) : t('employee.add')
+        }
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={submit}
-        okText="Lưu"
+        okText={t('save')}
         confirmLoading={saving}
         destroyOnClose
         width={640}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form
+          form={form}
+          layout="vertical"
+          style={{ marginTop: 16 }}
+          onValuesChange={(changed) => {
+            if (editing || !('fullName' in changed)) return;
+            // Gợi ý mã NV (= username đăng nhập) từ họ tên; HR vẫn sửa tay được
+            const suggestion = generateEmployeeCode(changed.fullName ?? '');
+            const current = form.getFieldValue('employeeCode');
+            if (!current || current === suggestedCodeRef.current) {
+              suggestedCodeRef.current = suggestion;
+              form.setFieldsValue({ employeeCode: suggestion });
+            }
+          }}
+        >
           <Form.Item
             name="employeeCode"
-            label="Mã nhân viên"
-            rules={[{ required: true, message: 'Nhập mã nhân viên' }, { max: 20 }]}
+            label={t('employee.form.employeeCode')}
+            extra={editing ? undefined : t('employee.form.employeeCodeExtra')}
+            rules={[{ max: 20 }]}
           >
-            <Input disabled={!!editing} placeholder="NV0003" />
+            <Input disabled={!!editing} placeholder={t('employee.form.employeeCodePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="fullName"
-            label="Họ và tên"
-            rules={[{ required: true, message: 'Nhập họ và tên' }, { max: 200 }]}
+            label={t('employee.form.fullName')}
+            rules={[{ required: true, message: t('employee.form.fullNameRequired') }, { max: 200 }]}
           >
-            <Input placeholder="Nguyễn Văn C" />
+            <Input placeholder={t('employee.form.fullNamePlaceholder')} />
           </Form.Item>
-          <Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email không hợp lệ' }, { max: 200 }]}>
-            <Input placeholder="cv@example.com" />
+          <Form.Item
+            name="email"
+            label={t('employee.form.email')}
+            rules={[{ type: 'email', message: t('employee.form.emailInvalid') }, { max: 200 }]}
+          >
+            <Input placeholder={t('employee.form.emailPlaceholder')} />
           </Form.Item>
           <Form.Item
             name="departmentId"
-            label="Phòng ban"
-            extra={editing ? 'Bỏ trống = gỡ khỏi phòng ban' : undefined}
+            label={t('employee.form.department')}
+            extra={editing ? t('employee.form.departmentExtra') : undefined}
           >
             <Select
               allowClear
               showSearch
               optionFilterProp="label"
-              placeholder="Chọn phòng ban"
+              placeholder={t('employee.form.departmentPlaceholder')}
               options={departments.map((d) => ({ value: d.id, label: d.name }))}
             />
           </Form.Item>
-          <Form.Item name="position" label="Chức danh" rules={[{ max: 100 }]}>
-            <Input placeholder="Backend Developer" />
+          <Form.Item name="position" label={t('employee.form.position')} rules={[{ max: 100 }]}>
+            <AutoComplete
+              allowClear
+              options={jobTitleOptions.map((p) => ({ value: p }))}
+              placeholder={t('employee.form.positionPlaceholder')}
+            />
           </Form.Item>
           <Form.Item
             name="managerId"
-            label="Quản lý trực tiếp"
-            extra={editing ? 'Bỏ trống = không có quản lý (gốc sơ đồ)' : undefined}
+            label={t('employee.form.manager')}
+            extra={editing ? t('employee.form.managerExtra') : undefined}
           >
             <Select
               allowClear
               showSearch
               optionFilterProp="label"
-              placeholder="Chọn nhân viên"
+              placeholder={t('employee.form.managerPlaceholder')}
               options={managerOptions.map((e) => ({
                 value: e.id,
                 label: `${e.employeeCode} — ${e.fullName}`,
               }))}
             />
           </Form.Item>
-          <Form.Item name="status" label="Trạng thái" rules={[{ required: !!editing, message: 'Chọn trạng thái' }]}>
+          <Form.Item
+            name="status"
+            label={t('employee.form.status')}
+            rules={[{ required: !!editing, message: t('employee.form.statusRequired') }]}
+          >
             <Select
               disabled={!editing}
-              placeholder={editing ? 'Chọn trạng thái' : 'Mặc định: Đang làm'}
+              placeholder={
+                editing ? t('employee.form.statusPlaceholder') : t('employee.form.statusDefault')
+              }
               options={[
-                { value: 'ACTIVE', label: 'Đang làm' },
-                { value: 'PROBATION', label: 'Thử việc' },
+                { value: 'ACTIVE', label: t('status.ACTIVE') },
+                { value: 'PROBATION', label: t('status.PROBATION') },
+                { value: 'ON_LEAVE', label: t('status.ON_LEAVE') },
               ]}
             />
           </Form.Item>
-          <Form.Item name="hiredAt" label="Ngày vào làm">
+          <Form.Item name="hiredAt" label={t('employee.form.hiredAt')}>
             <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-            <Form.Item name="birthDate" label="Ngày sinh">
+            <Form.Item name="birthDate" label={t('employee.form.birthDate')}>
               <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
             </Form.Item>
-            <Form.Item name="gender" label="Giới tính">
+            <Form.Item name="gender" label={t('employee.form.gender')}>
               <Select
                 allowClear
-                placeholder="—"
+                placeholder={t('employee.form.selectPlaceholder')}
                 options={[
-                  { value: 'MALE', label: 'Nam' },
-                  { value: 'FEMALE', label: 'Nữ' },
-                  { value: 'OTHER', label: 'Khác' },
+                  { value: 'MALE', label: t('gender.MALE') },
+                  { value: 'FEMALE', label: t('gender.FEMALE') },
+                  { value: 'OTHER', label: t('gender.OTHER') },
                 ]}
               />
             </Form.Item>
-            <Form.Item name="phone" label="SĐT" rules={[{ max: 20 }]}>
-              <Input placeholder="09xx" />
+            <Form.Item name="phone" label={t('employee.form.phone')} rules={[{ max: 20 }]}>
+              <Input placeholder={t('employee.form.phonePlaceholder')} />
             </Form.Item>
           </div>
-          <Form.Item name="nationalId" label="Số CCCD/CMND" rules={[{ max: 20 }]}>
+          <Form.Item name="nationalId" label={t('employee.form.nationalId')} rules={[{ max: 20 }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="address" label="Địa chỉ" rules={[{ max: 300 }]}>
+          <Form.Item name="address" label={t('employee.form.address')} rules={[{ max: 300 }]}>
             <Input />
           </Form.Item>
+          <Divider orientation="left" plain>
+            {t('employee.form.additionalInfo')}
+          </Divider>
+          <Form.Item name="educationLevel" label={t('employee.form.educationLevel')}>
+            <Select
+              allowClear
+              placeholder={t('employee.form.selectPlaceholder')}
+              options={[
+                { value: 'Trung cấp', label: t('employee.education.intermediate') },
+                { value: 'Cao đẳng', label: t('employee.education.college') },
+                { value: 'Đại học', label: t('employee.education.university') },
+                { value: 'Thạc sĩ', label: t('employee.education.master') },
+                { value: 'Tiến sĩ', label: t('employee.education.doctorate') },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="skills" label={t('employee.form.skills')} rules={[{ max: 1000 }]}>
+            <Input.TextArea rows={2} placeholder={t('employee.form.skillsPlaceholder')} />
+          </Form.Item>
+          <Form.Item
+            name="emergencyContactName"
+            label={t('employee.form.emergencyName')}
+            rules={[{ max: 100 }]}
+          >
+            <Input />
+          </Form.Item>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <Form.Item
+              name="emergencyContactPhone"
+              label={t('employee.form.emergencyPhone')}
+              rules={[{ max: 20 }]}
+            >
+              <Input placeholder={t('employee.form.phonePlaceholder')} />
+            </Form.Item>
+            <Form.Item
+              name="emergencyContactRelation"
+              label={t('employee.form.emergencyRelation')}
+              rules={[{ max: 50 }]}
+            >
+              <Input placeholder={t('employee.form.emergencyRelationPlaceholder')} />
+            </Form.Item>
+          </div>
         </Form>
+      </Modal>
+
+      <Modal
+        title={t('employee.terminate.title')}
+        open={terminateTarget !== null}
+        onOk={() => void terminate()}
+        onCancel={() => setTerminateTarget(null)}
+        confirmLoading={saving}
+        okText={t('employee.terminate.action')}
+        okButtonProps={{ danger: true }}
+      >
+        <p>
+          {t('employee.terminate.description', { name: terminateTarget?.fullName ?? '' })}
+        </p>
+        <Input.TextArea
+          rows={3}
+          maxLength={500}
+          value={terminateReason}
+          onChange={(e) => setTerminateReason(e.target.value)}
+          placeholder={t('employee.terminate.reasonPlaceholder')}
+        />
       </Modal>
     </>
   );

@@ -23,4 +23,9 @@ public record EmployeeUpdateRequest(
     @Size(max = 10) String gender,
     @Size(max = 20) String phone,
     @Size(max = 20) String nationalId,
-    @Size(max = 300) String address) {}
+    @Size(max = 300) String address,
+    @Size(max = 50) String educationLevel,
+    @Size(max = 1000) String skills,
+    @Size(max = 100) String emergencyContactName,
+    @Size(max = 20) String emergencyContactPhone,
+    @Size(max = 50) String emergencyContactRelation) {}

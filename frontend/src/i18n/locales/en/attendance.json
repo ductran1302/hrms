@@ -1,0 +1,11 @@
+﻿{
+  "title": "Attendance — Kafka projection data",
+  "employeeCode": "Employee code",
+  "fullName": "Full name",
+  "email": "Email",
+  "department": "Department",
+  "position": "Position",
+  "statusTitle": "Status",
+  "hiredAt": "Hire date",
+  "terminatedAt": "Termination date"
+}

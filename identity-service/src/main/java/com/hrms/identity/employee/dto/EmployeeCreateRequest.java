@@ -8,7 +8,8 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record EmployeeCreateRequest(
-    @NotBlank @Size(max = 20) String employeeCode,
+    /** Bỏ trống → BE sinh từ họ tên (mã NV = username đăng nhập Keycloak). */
+    @Size(max = 20) String employeeCode,
     @NotBlank @Size(max = 200) String fullName,
     @Email @Size(max = 200) String email,
     UUID departmentId,

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import keycloak from '../auth/keycloak';
 import { API_BASE } from '../config';
+import i18n from '../i18n';
 import type { ApiError } from './types';
 
 const client = axios.create({ baseURL: API_BASE });
@@ -32,7 +33,7 @@ export function errorMessage(error: unknown): string {
     }
     return error.message;
   }
-  return 'Lỗi không xác định';
+  return i18n.t('unknownError');
 }
 
 export default client;

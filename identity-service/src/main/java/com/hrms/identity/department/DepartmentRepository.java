@@ -16,7 +16,8 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
   Optional<Department> findByCode(String code);
 
-  @Query("select d from Department d join fetch d.manager where d.status = com.hrms.identity.department.DepartmentStatus.ACTIVE order by d.createdAt asc")
+  // left join fetch: phòng chưa có quản lý (cây tổ chức mới seed) vẫn phải xuất hiện trong tree
+  @Query("select d from Department d left join fetch d.manager where d.status = com.hrms.identity.department.DepartmentStatus.ACTIVE order by d.createdAt asc")
   List<Department> findAllActiveWithManager();
 
   long countByParent_Id(UUID parentId);

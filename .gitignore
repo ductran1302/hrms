@@ -31,3 +31,6 @@ openapi-output/
 
 # Coverage
 coverage/
+
+# File uploads (employee documents)
+data/

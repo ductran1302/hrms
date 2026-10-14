@@ -14,24 +14,25 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
 import { createContract, listContracts, terminateContract, updateContract } from '../api/contracts';
 import { searchEmployees } from '../api/employees';
 import type { Contract, ContractStatusValue, ContractTypeValue, Employee } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
-const TYPE_LABEL: Record<ContractTypeValue, string> = {
-  PROBATION: 'Thử việc',
-  FULL_TIME: 'Chính thức',
-  PART_TIME: 'Bán thời gian',
-  INTERN: 'Thực tập',
-  OTHER: 'Khác',
+const TYPE_KEYS: Record<ContractTypeValue, string> = {
+  PROBATION: 'contract.type.PROBATION',
+  FULL_TIME: 'contract.type.FULL_TIME',
+  PART_TIME: 'contract.type.PART_TIME',
+  INTERN: 'contract.type.INTERN',
+  OTHER: 'contract.type.OTHER',
 };
 
-const STATUS_META: Record<ContractStatusValue, { label: string; color: string }> = {
-  ACTIVE: { label: 'Hiệu lực', color: 'green' },
-  EXPIRED: { label: 'Hết hạn', color: 'orange' },
-  TERMINATED: { label: 'Chấm dứt', color: 'red' },
+const STATUS_META: Record<ContractStatusValue, { key: string; color: string }> = {
+  ACTIVE: { key: 'contract.status.ACTIVE', color: 'green' },
+  EXPIRED: { key: 'contract.status.EXPIRED', color: 'orange' },
+  TERMINATED: { key: 'contract.status.TERMINATED', color: 'red' },
 };
 
 interface FormValues {
@@ -50,6 +51,7 @@ const vnd = (value: number | null) =>
   value == null ? null : new Intl.NumberFormat('vi-VN').format(value);
 
 export default function HopDongPage() {
+  const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const auth = useAuth();
   const actionRef = useRef<ActionType>(null);
@@ -105,10 +107,10 @@ export default function HopDongPage() {
           note: values.note,
           status: values.status,
         });
-        message.success('Đã cập nhật hợp đồng');
+        message.success(t('contract.updated'));
       } else {
         if (!values.employeeId) {
-          message.error('Chọn nhân viên');
+          message.error(t('contract.selectEmployee'));
           setSaving(false);
           return;
         }
@@ -121,7 +123,7 @@ export default function HopDongPage() {
           signDate: values.signDate ? values.signDate.format('YYYY-MM-DD') : undefined,
           note: values.note,
         });
-        message.success('Đã tạo hợp đồng');
+        message.success(t('contract.created'));
       }
       setModalOpen(false);
       actionRef.current?.reload();
@@ -135,7 +137,7 @@ export default function HopDongPage() {
   const terminate = async (record: Contract) => {
     try {
       await terminateContract(record.id);
-      message.success('Đã chấm dứt hợp đồng');
+      message.success(t('contract.terminated'));
       actionRef.current?.reload();
     } catch (error) {
       message.error(errorMessage(error));
@@ -144,54 +146,54 @@ export default function HopDongPage() {
 
   const columns: ProColumns<Contract>[] = [
     {
-      title: 'Nhân viên',
+      title: t('contract.employee'),
       width: 220,
       ellipsis: true,
       render: (_, record) => `${record.employeeCode ?? '?'} — ${record.employeeName ?? '?'}`,
     },
     {
-      title: 'Loại HĐ',
+      title: t('contract.contractTypeShort'),
       dataIndex: 'contractType',
       width: 120,
-      render: (_, record) => TYPE_LABEL[record.contractType] ?? record.contractType,
+      render: (_, record) => t(TYPE_KEYS[record.contractType] ?? record.contractType),
     },
     {
-      title: 'Từ ngày',
+      title: t('contract.startDate'),
       dataIndex: 'startDate',
       width: 115,
       render: (_, record) => dayjs(record.startDate).format('DD/MM/YYYY'),
     },
     {
-      title: 'Đến ngày',
+      title: t('contract.endDate'),
       dataIndex: 'endDate',
       width: 115,
       render: (_, record) => (record.endDate ? dayjs(record.endDate).format('DD/MM/YYYY') : '—'),
     },
-    { title: 'Chức danh', dataIndex: 'position', width: 140, ellipsis: true },
+    { title: t('contract.positionShort'), dataIndex: 'position', width: 140, ellipsis: true },
     {
-      title: 'Lương (VND)',
+      title: t('contract.salary'),
       dataIndex: 'salary',
       width: 140,
       align: 'right',
       render: (_, record) =>
         record.salary == null ? (
           <Typography.Text type="secondary" italic>
-            Ẩn (HR_ADMIN)
+            {t('contract.salaryHidden')}
           </Typography.Text>
         ) : (
           vnd(record.salary)
         ),
     },
     {
-      title: 'Trạng thái',
+      title: t('contract.statusTitle'),
       dataIndex: 'status',
       width: 110,
       render: (_, record) => (
-        <Tag color={STATUS_META[record.status].color}>{STATUS_META[record.status].label}</Tag>
+        <Tag color={STATUS_META[record.status].color}>{t(STATUS_META[record.status].key)}</Tag>
       ),
     },
     {
-      title: 'Thao tác',
+      title: t('actions'),
       valueType: 'option',
       width: 140,
       render: (_, record) => {
@@ -199,18 +201,18 @@ export default function HopDongPage() {
         if (canWrite) {
           actions.push(
             <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              Sửa
+              {t('edit')}
             </Button>,
           );
           if (record.status !== 'TERMINATED') {
             actions.push(
               <Popconfirm
                 key="terminate"
-                title="Chấm dứt hợp đồng?"
+                title={t('contract.terminateConfirm')}
                 onConfirm={() => terminate(record)}
               >
                 <Button type="link" size="small" danger>
-                  Chấm dứt
+                  {t('contract.terminate')}
                 </Button>
               </Popconfirm>,
             );
@@ -227,7 +229,7 @@ export default function HopDongPage() {
         rowKey="id"
         actionRef={actionRef}
         columns={columns}
-        headerTitle="Hợp đồng lao động"
+        headerTitle={t('contract.title')}
         search={false}
         pagination={{ showSizeChanger: true, defaultPageSize: 20 }}
         options={{ density: false, setting: false }}
@@ -237,7 +239,7 @@ export default function HopDongPage() {
             allowClear
             showSearch
             optionFilterProp="label"
-            placeholder="Nhân viên"
+            placeholder={t('contract.employee')}
             style={{ width: 220 }}
             value={employeeFilter}
             onChange={(value) => {
@@ -251,7 +253,7 @@ export default function HopDongPage() {
           />,
           canWrite ? (
             <Button key="create" type="primary" onClick={openCreate}>
-              Thêm hợp đồng
+              {t('contract.add')}
             </Button>
           ) : null,
         ]}
@@ -276,11 +278,11 @@ export default function HopDongPage() {
       />
 
       <Modal
-        title={editing ? 'Sửa hợp đồng' : 'Thêm hợp đồng'}
+        title={editing ? t('contract.editTitle') : t('contract.add')}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={submit}
-        okText="Lưu"
+        okText={t('save')}
         confirmLoading={saving}
         destroyOnClose
         width={620}
@@ -289,60 +291,67 @@ export default function HopDongPage() {
           {!editing && (
             <Form.Item
               name="employeeId"
-              label="Nhân viên"
-              rules={[{ required: true, message: 'Chọn nhân viên' }]}
+              label={t('contract.employee')}
+              rules={[{ required: true, message: t('contract.selectEmployee') }]}
             >
               <Select
                 showSearch
                 optionFilterProp="label"
-                placeholder="Chọn nhân viên"
+                placeholder={t('contract.selectEmployee')}
                 options={employees
                   .filter((e) => e.status !== 'TERMINATED')
                   .map((e) => ({ value: e.id, label: `${e.employeeCode} — ${e.fullName}` }))}
               />
             </Form.Item>
           )}
-          <Form.Item name="contractType" label="Loại hợp đồng" rules={[{ required: true }]}>
+          <Form.Item
+            name="contractType"
+            label={t('contract.contractType')}
+            rules={[{ required: true }]}
+          >
             <Select
-              options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))}
+              options={Object.entries(TYPE_KEYS).map(([value, key]) => ({
+                value,
+                label: t(key),
+              }))}
             />
           </Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <Form.Item
               name="startDate"
-              label="Từ ngày"
-              rules={[{ required: true, message: 'Chọn ngày bắt đầu' }]}
+              label={t('contract.startDate')}
+              rules={[{ required: true, message: t('contract.selectStartDate') }]}
             >
               <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
             </Form.Item>
-            <Form.Item name="endDate" label="Đến ngày">
+            <Form.Item name="endDate" label={t('contract.endDate')}>
               <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
             </Form.Item>
-            <Form.Item name="signDate" label="Ngày ký">
+            <Form.Item name="signDate" label={t('contract.signDate')}>
               <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
             </Form.Item>
           </div>
-          <Form.Item name="position" label="Chức danh (HĐ)" rules={[{ max: 100 }]}>
+          <Form.Item name="position" label={t('contract.position')} rules={[{ max: 100 }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="salary"
-            label="Lương (VND)"
-            rules={[{ type: 'number', min: 0, message: 'Lương không âm' }]}
+            label={t('contract.salary')}
+            rules={[{ type: 'number', min: 0, message: t('contract.salaryNotNegative') }]}
           >
             <InputNumber style={{ width: '100%' }} min={0} step={100000} />
           </Form.Item>
           {editing && (
-            <Form.Item name="status" label="Trạng thái">
+            <Form.Item name="status" label={t('contract.statusTitle')}>
               <Select
                 options={Object.entries(STATUS_META).map(([value, meta]) => ({
                   value,
-                  label: meta.label,
+                  label: t(meta.key),
                 }))}
               />
             </Form.Item>
           )}
-          <Form.Item name="note" label="Ghi chú" rules={[{ max: 500 }]}>
+          <Form.Item name="note" label={t('contract.note')} rules={[{ max: 500 }]}>
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>

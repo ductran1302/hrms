@@ -1,0 +1,37 @@
+﻿{
+  "title": "Hợp đồng lao động",
+  "add": "Thêm hợp đồng",
+  "editTitle": "Sửa hợp đồng",
+  "employee": "Nhân viên",
+  "contractType": "Loại hợp đồng",
+  "contractTypeShort": "Loại HĐ",
+  "startDate": "Từ ngày",
+  "endDate": "Đến ngày",
+  "signDate": "Ngày ký",
+  "position": "Chức danh (HĐ)",
+  "positionShort": "Chức danh",
+  "salary": "Lương (VND)",
+  "salaryHidden": "Ẩn (HR_ADMIN)",
+  "statusTitle": "Trạng thái",
+  "note": "Ghi chú",
+  "terminate": "Chấm dứt",
+  "terminateConfirm": "Chấm dứt hợp đồng?",
+  "updated": "Đã cập nhật hợp đồng",
+  "created": "Đã tạo hợp đồng",
+  "terminated": "Đã chấm dứt hợp đồng",
+  "selectEmployee": "Chọn nhân viên",
+  "selectStartDate": "Chọn ngày bắt đầu",
+  "salaryNotNegative": "Lương không âm",
+  "type": {
+    "PROBATION": "Thử việc",
+    "FULL_TIME": "Chính thức",
+    "PART_TIME": "Bán thời gian",
+    "INTERN": "Thực tập",
+    "OTHER": "Khác"
+  },
+  "status": {
+    "ACTIVE": "Hiệu lực",
+    "EXPIRED": "Hết hạn",
+    "TERMINATED": "Chấm dứt"
+  }
+}

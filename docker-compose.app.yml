@@ -9,6 +9,12 @@ services:
       context: .
       dockerfile: identity-service/Dockerfile
     restart: unless-stopped
+    environment:
+      DOCS_DIR: /app/data/documents
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    volumes:
+      - hrms-documents:/app/data/documents
 
   attendance:
     build:
@@ -42,6 +48,9 @@ services:
       - "3000:80"
     depends_on:
       - gateway
+
+volumes:
+  hrms-documents:
 
 networks:
   default:

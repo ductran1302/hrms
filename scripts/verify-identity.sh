@@ -129,13 +129,76 @@ check_has "co root/nhan vien" "$(has "$R" "$EMP_CODE")" yes
 R=$(req GET "$EMP" /api/v1/org-chart)
 check "GET org-chart (EMPLOYEE)" 403 "$(code_of "$R")"
 
-echo "== 8. Cleanup"
+echo "== 8. Bo sung Nhom A (position / ON_LEAVE / supplements / tai lieu)"
+R=$(req GET "$HR" "/api/v1/employees?position=Senior%20Tester")
+check "GET search theo position" 200 "$(code_of "$R")"
+check_has "tim thay nhan vien theo vi tri" "$(has "$R" "$EMP_CODE")" yes
+R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"status":"ON_LEAVE"}')
+check "PATCH status=ON_LEAVE" 200 "$(code_of "$R")"
+check_has "trang thai ON_LEAVE" "$(has "$R" '"status":"ON_LEAVE"')" yes
+R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"educationLevel":"Cao đẳng","skills":"SQL, Postman","emergencyContactName":"Nguyễn Văn B","emergencyContactPhone":"0900000002","emergencyContactRelation":"Vợ"}')
+check "PATCH thong tin bo sung" 200 "$(code_of "$R")"
+check_has "da luu educationLevel" "$(has "$R" '"educationLevel":"Cao đẳng"')" yes
+check_has "da luu emergencyContactPhone" "$(has "$R" '"emergencyContactPhone":"0900000002"')" yes
+
+printf 'hrms verify document' > /tmp/vdoc.txt
+CODE=$(curl -s -o /tmp/up.json -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/vdoc.txt;type=text/plain' -F 'docType=CERTIFICATE' -F 'note=Bang cap' \
+  "$API/api/v1/employees/$EMP_ID/documents")
+check "POST upload tai lieu (HR)" 201 "$CODE"
+check_has "upload co fileName" "$(has "$(cat /tmp/up.json)" 'vdoc.txt')" yes
+DOC_ID=$(id_of "$(cat /tmp/up.json)"); echo "documentId=$DOC_ID"
+CODE=$(curl -s -o /tmp/list.json -w '%{http_code}' -H "Authorization: Bearer $HR" \
+  "$API/api/v1/employees/$EMP_ID/documents")
+check "GET list tai lieu (HR)" 200 "$CODE"
+check_has "list co tai lieu" "$(has "$(cat /tmp/list.json)" 'vdoc.txt')" yes
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $MGR" \
+  "$API/api/v1/employees/$EMP_ID/documents")
+check "GET list tai lieu (MANAGER)" 200 "$CODE"
+CODE=$(curl -s -o /tmp/dl.bin -w '%{http_code}' -H "Authorization: Bearer $HR" \
+  "$API/api/v1/employees/$EMP_ID/documents/$DOC_ID")
+check "GET download tai lieu (HR)" 200 "$CODE"
+check_has "download noi dung dung" "$(has "$(cat /tmp/dl.bin)" 'hrms verify document')" yes
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $EMP" \
+  "$API/api/v1/employees/$EMP_ID/documents/$DOC_ID")
+check "GET download (EMPLOYEE)" 403 "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $EMP" \
+  -F 'file=@/tmp/vdoc.txt;type=text/plain' "$API/api/v1/employees/$EMP_ID/documents")
+check "POST upload boi EMPLOYEE" 403 "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/vdoc.txt;type=text/plain' -F 'docType=SAI_LOAI' \
+  "$API/api/v1/employees/$EMP_ID/documents")
+check "POST upload docType khong hop le" 422 "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $EMP" \
+  "$API/api/v1/employees/$EMP_ID/documents/$DOC_ID")
+check "DELETE tai lieu boi EMPLOYEE" 403 "$CODE"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $HR" \
+  "$API/api/v1/employees/$EMP_ID/documents/$DOC_ID")
+check "DELETE tai lieu (HR)" 204 "$CODE"
+
+echo "== 9. Cleanup"
 R=$(req DELETE "$HR" "/api/v1/employees/$EMP_ID?reason=T%E1%BB%B1%20nguy%E1%BB%8Dn")
 check "DELETE nghi viec" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$EMP_ID")
 check "DELETE lan 2" 422 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/departments/$DEPT_ID")
 check "DELETE phong ban" 204 "$(code_of "$R")"
+
+echo "== 10. Danh muc chuc vu + cay to chuc seed"
+R=$(req GET "$HR" /api/v1/job-titles)
+check "GET job-titles (HR)" 200 "$(code_of "$R")"
+check_has "co chuc vu CTO" "$(has "$R" '"code":"CTO"')" yes
+check_has "co chuc vu SENIOR_SWE" "$(has "$R" '"code":"SENIOR_SWE"')" yes
+R=$(req GET "$MGR" /api/v1/job-titles)
+check "GET job-titles (MANAGER)" 200 "$(code_of "$R")"
+R=$(req GET "$EMP" /api/v1/job-titles)
+check "GET job-titles (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/departments/tree")
+check_has "cay to chuc co ENG-DEV-BE" "$(has "$R" '"code":"ENG-DEV-BE"')" yes
+check_has "cay to chuc co ORG goc" "$(has "$R" '"code":"ORG"')" yes
+R=$(req GET "$MGR" "/api/v1/org-chart")
+check_has "org-chart co Chairman (root)" "$(has "$R" '"fullName":"Nguyễn Hoàng Minh"')" yes
+check_has "org-chart co CTO" "$(has "$R" '"fullName":"Hoàng Đức Trí"')" yes
 
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

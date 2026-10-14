@@ -1,0 +1,37 @@
+﻿{
+  "title": "Employment contracts",
+  "add": "Add contract",
+  "editTitle": "Edit contract",
+  "employee": "Employee",
+  "contractType": "Contract type",
+  "contractTypeShort": "Type",
+  "startDate": "Start date",
+  "endDate": "End date",
+  "signDate": "Sign date",
+  "position": "Position (contract)",
+  "positionShort": "Position",
+  "salary": "Salary (VND)",
+  "salaryHidden": "Hidden (HR_ADMIN)",
+  "statusTitle": "Status",
+  "note": "Note",
+  "terminate": "Terminate",
+  "terminateConfirm": "Terminate contract?",
+  "updated": "Contract updated",
+  "created": "Contract created",
+  "terminated": "Contract terminated",
+  "selectEmployee": "Select employee",
+  "selectStartDate": "Select start date",
+  "salaryNotNegative": "Salary must not be negative",
+  "type": {
+    "PROBATION": "Probation",
+    "FULL_TIME": "Full-time",
+    "PART_TIME": "Part-time",
+    "INTERN": "Intern",
+    "OTHER": "Other"
+  },
+  "status": {
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "TERMINATED": "Terminated"
+  }
+}

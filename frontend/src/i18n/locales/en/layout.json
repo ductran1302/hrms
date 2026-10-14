@@ -1,0 +1,12 @@
+{
+  "menu": {
+    "employees": "Employees",
+    "departments": "Departments",
+    "contracts": "Contracts",
+    "orgchart": "Org chart",
+    "attendance": "Attendance"
+  },
+  "logout": "Log out",
+  "language": "Language",
+  "brand": "HRMS"
+}
