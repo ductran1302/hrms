@@ -69,6 +69,7 @@ function YearCalendar({
   holidays: Holiday[];
   onPickDate?: (date: string) => void;
 }) {
+  const { t } = useTranslation();
   const byDate = useMemo(() => {
     const map = new Map<string, Holiday[]>();
     for (const h of holidays) {
@@ -138,7 +139,7 @@ function YearCalendar({
                 return hits?.length ? (
                   <Tooltip
                     key={i}
-                    title={hits.map((h) => `${h.name}${h.halfDay ? ' (nửa ngày)' : ''}`).join('\n')}
+                    title={hits.map((h) => `${h.name}${h.halfDay ? ` (${t('holiday.halfDay')})` : ''}`).join('\n')}
                   >
                     {cell}
                   </Tooltip>
@@ -155,8 +156,7 @@ function YearCalendar({
 }
 
 export default function LePage() {
-  const { t } = useTranslation('holiday');
-  const { t: tc } = useTranslation();
+  const { t } = useTranslation();
 
   const currentYear = dayjs().year();
   const [year, setYear] = useState<number>(currentYear);
@@ -241,7 +241,7 @@ export default function LePage() {
         if (!calendarId) return;
         await createHoliday(calendarId, payload);
       }
-      message.success(tc('saved'));
+      message.success(t('saved'));
       setHolidayModalOpen(false);
       await loadHolidays();
     } catch (e) {
@@ -252,7 +252,7 @@ export default function LePage() {
   const submitRemoveHoliday = async (id: string) => {
     try {
       await deleteHoliday(id);
-      message.success(tc('deleted'));
+      message.success(t('deleted'));
       await loadHolidays();
     } catch (e) {
       message.error(errorMessage(e));
@@ -297,7 +297,7 @@ export default function LePage() {
         });
         setCalendarId(created.id);
       }
-      message.success(tc('saved'));
+      message.success(t('saved'));
       setCalendarModalOpen(false);
       await loadCalendars();
     } catch (e) {
@@ -309,7 +309,7 @@ export default function LePage() {
     if (!selectedCalendar) return;
     try {
       await deleteCalendar(selectedCalendar.id);
-      message.success(tc('deleted'));
+      message.success(t('deleted'));
       setCalendarId(null);
       await loadCalendars();
     } catch (e) {
@@ -319,48 +319,48 @@ export default function LePage() {
 
   const columns: ColumnsType<Holiday> = [
     {
-      title: t('holidayName'),
+      title: t('holiday.holidayName'),
       dataIndex: 'name',
       render: (v: string, r) => (
         <Space>
           {v}
-          {r.halfDay && <Tag color="orange">{t('halfDay')}</Tag>}
+          {r.halfDay && <Tag color="orange">{t('holiday.halfDay')}</Tag>}
         </Space>
       ),
     },
     {
-      title: t('dateFrom'),
+      title: t('holiday.dateFrom'),
       dataIndex: 'dateFrom',
       width: 110,
       render: (v: string) => dayjs(v).format('DD/MM/YYYY'),
     },
     {
-      title: t('dateTo'),
+      title: t('holiday.dateTo'),
       dataIndex: 'dateTo',
       width: 110,
       render: (v: string) => dayjs(v).format('DD/MM/YYYY'),
     },
     {
-      title: t('type'),
+      title: t('holiday.type'),
       dataIndex: 'type',
       width: 100,
-      render: (v: HolidayTypeValue) => <Tag color={TYPE_COLOR[v]}>{t(`types.${v}`)}</Tag>,
+      render: (v: HolidayTypeValue) => <Tag color={TYPE_COLOR[v]}>{t(`holiday.types.${v}`)}</Tag>,
     },
     {
-      title: t('note'),
+      title: t('holiday.note'),
       dataIndex: 'note',
       ellipsis: true,
       render: (v: string | null) => v ?? '—',
     },
     {
-      title: t('actions'),
+      title: t('holiday.actions'),
       width: 110,
       render: (_, r) => (
         <Space>
           <Button type="text" icon={<EditOutlined />} onClick={() => openEditHoliday(r)} />
           <Popconfirm
-            title={t('deleteConfirmTitle')}
-            description={t('deleteConfirm')}
+            title={t('holiday.deleteConfirmTitle')}
+            description={t('holiday.deleteConfirm')}
             onConfirm={() => submitRemoveHoliday(r.id)}
           >
             <Button type="text" danger icon={<DeleteOutlined />} />
@@ -375,15 +375,15 @@ export default function LePage() {
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <div>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            {t('title')}
+            {t('holiday.title')}
           </Typography.Title>
-          <Text type="secondary">{t('subtitle')}</Text>
+          <Text type="secondary">{t('holiday.subtitle')}</Text>
         </div>
 
         <Space wrap>
           <Select
             style={{ minWidth: 240 }}
-            placeholder={t('calendars')}
+            placeholder={t('holiday.calendars')}
             value={calendarId}
             onChange={setCalendarId}
             options={calendars.map((c) => ({
@@ -403,27 +403,27 @@ export default function LePage() {
           <Input
             allowClear
             prefix={<SearchOutlined />}
-            placeholder={t('searchPlaceholder')}
+            placeholder={t('holiday.searchPlaceholder')}
             style={{ width: 220 }}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreateHoliday}>
-            {t('newHoliday')}
+            {t('holiday.newHoliday')}
           </Button>
           <Button icon={<PlusOutlined />} onClick={openCreateCalendar}>
-            {t('newCalendar')}
+            {t('holiday.newCalendar')}
           </Button>
           <Button icon={<EditOutlined />} disabled={!selectedCalendar} onClick={openEditCalendar}>
-            {t('editCalendar')}
+            {t('holiday.editCalendar')}
           </Button>
           <Popconfirm
-            title={t('deleteCalendarConfirmTitle')}
-            description={t('deleteCalendarConfirm')}
+            title={t('holiday.deleteCalendarConfirmTitle')}
+            description={t('holiday.deleteCalendarConfirm')}
             onConfirm={submitRemoveCalendar}
           >
             <Button danger icon={<DeleteOutlined />} disabled={!selectedCalendar}>
-              {t('deleteCalendarConfirmTitle')}
+              {t('holiday.deleteCalendarConfirmTitle')}
             </Button>
           </Popconfirm>
         </Space>
@@ -438,7 +438,7 @@ export default function LePage() {
             pagination={{ pageSize: 10, hideOnSinglePage: true }}
             locale={{
               emptyText: (
-                <Empty description={calendarId ? t('empty') : t('selectCalendar')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <Empty description={calendarId ? t('holiday.empty') : t('holiday.selectCalendar')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
               ),
             }}
           />
@@ -450,90 +450,90 @@ export default function LePage() {
                 onPickDate={() => undefined}
               />
             ) : (
-              <Empty description={t('selectCalendar')} />
+              <Empty description={t('holiday.selectCalendar')} />
             )}
           </div>
         </div>
       </Space>
 
       <Modal
-        title={editing ? t('editHoliday') : t('newHoliday')}
+        title={editing ? t('holiday.editHoliday') : t('holiday.newHoliday')}
         open={holidayModalOpen}
         onOk={submitHoliday}
         onCancel={() => setHolidayModalOpen(false)}
         destroyOnClose
-        okText={tc('save')}
-        cancelText={tc('cancel')}
+        okText={t('save')}
+        cancelText={t('cancel')}
       >
         <Form form={holidayForm} layout="vertical">
           <Form.Item
             name="name"
-            label={t('holidayName')}
-            rules={[{ required: true, message: tc('required') }]}
+            label={t('holiday.holidayName')}
+            rules={[{ required: true, message: t('required') }]}
           >
             <Input maxLength={200} />
           </Form.Item>
           <Form.Item
             name="range"
-            label={`${t('dateFrom')} — ${t('dateTo')}`}
-            rules={[{ required: true, message: tc('required') }]}
+            label={`${t('holiday.dateFrom')} — ${t('holiday.dateTo')}`}
+            rules={[{ required: true, message: t('required') }]}
           >
             <DatePicker.RangePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
           </Form.Item>
-          <Form.Item name="type" label={t('type')} rules={[{ required: true }]}>
+          <Form.Item name="type" label={t('holiday.type')} rules={[{ required: true }]}>
             <Select
               options={(['NATIONAL', 'COMPANY', 'OTHER'] as HolidayTypeValue[]).map((v) => ({
                 value: v,
-                label: t(`types.${v}`),
+                label: t(`holiday.types.${v}`),
               }))}
             />
           </Form.Item>
-          <Form.Item name="halfDay" label={t('halfDay')} valuePropName="checked">
+          <Form.Item name="halfDay" label={t('holiday.halfDay')} valuePropName="checked">
             <Switch />
           </Form.Item>
-          <Form.Item name="note" label={t('note')}>
+          <Form.Item name="note" label={t('holiday.note')}>
             <Input.TextArea rows={2} maxLength={300} />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={editingCalendar ? t('editCalendar') : t('newCalendar')}
+        title={editingCalendar ? t('holiday.editCalendar') : t('holiday.newCalendar')}
         open={calendarModalOpen}
         onOk={submitCalendar}
         onCancel={() => setCalendarModalOpen(false)}
         destroyOnClose
-        okText={tc('save')}
-        cancelText={tc('cancel')}
+        okText={t('save')}
+        cancelText={t('cancel')}
       >
         <Form form={calendarForm} layout="vertical">
           <Form.Item
             name="code"
-            label={t('calendarCode')}
-            rules={[{ required: !editingCalendar, message: tc('required') }]}
+            label={t('holiday.calendarCode')}
+            rules={[{ required: !editingCalendar, message: t('required') }]}
           >
             <Input maxLength={30} disabled={!!editingCalendar} />
           </Form.Item>
           <Form.Item
             name="name"
-            label={t('calendarName')}
-            rules={[{ required: true, message: tc('required') }]}
+            label={t('holiday.calendarName')}
+            rules={[{ required: true, message: t('required') }]}
           >
             <Input maxLength={100} />
           </Form.Item>
           <Form.Item
             name="country"
-            label={t('country')}
+            label={t('holiday.country')}
             rules={[{ required: !editingCalendar, len: 2, message: 'ISO alpha-2' }]}
           >
             <Input maxLength={2} disabled={!!editingCalendar} />
           </Form.Item>
-          <Form.Item name="description" label={t('description')}>
+          <Form.Item name="description" label={t('holiday.description')}>
             <Input.TextArea rows={2} maxLength={300} />
           </Form.Item>
           {editingCalendar && (
-            <Form.Item name="status" label={t('status')} valuePropName="checked" initialValue>
-              <Switch checkedChildren={t('statusActive')} unCheckedChildren={t('statusInactive')} />
+            <Form.Item name="status" label={t('holiday.status')} valuePropName="checked" initialValue>
+              <Switch checkedChildren={t('holiday.statusActive')} unCheckedChildren={t('holiday.statusInactive')} />
             </Form.Item>
           )}
         </Form>
