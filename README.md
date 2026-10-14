@@ -295,8 +295,8 @@ Mở **http://localhost:5173** → tự redirect Keycloak → đăng nhập `hr`
 
 | Trang | Route | Quyền |
 |---|---|---|
-| Nhân sự (ProTable CRUD) | `/nhan-su` | `HR_ADMIN` thêm/sửa/nghỉ việc; `MANAGER` xem |
-| Chấm công (projection Kafka) | `/cham-cong` | `HR_ADMIN`, `MANAGER` |
+| Nhân sự (ProTable CRUD) | `/employees` | `HR_ADMIN` thêm/sửa/nghỉ việc; `MANAGER` xem |
+| Chấm công (projection Kafka) | `/attendance` | `HR_ADMIN`, `MANAGER` |
 
 Smoke test E2E PKCE không cần browser (authorize → login form → code → token → gateway):
 

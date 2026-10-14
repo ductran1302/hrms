@@ -260,7 +260,7 @@ export default function EmployeePage() {
       width: 190,
       render: (_, record) => {
         const actions: ReactNode[] = [
-          <Button key="profile" type="link" size="small" onClick={() => navigate(`/nhan-su/${record.id}`)}>
+          <Button key="profile" type="link" size="small" onClick={() => navigate(`/employees/${record.id}`)}>
             {t('employee.profile')}
           </Button>,
         ];

@@ -23,9 +23,9 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/nhan-su" replace />} />
+          <Route index element={<Navigate to="/employees" replace />} />
           <Route
-            path="nhan-su"
+            path="employees"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <EmployeePage />
@@ -33,7 +33,7 @@ export default function App() {
             }
           />
           <Route
-            path="nhan-su/:id"
+            path="employees/:id"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <EmployeeProfile />
@@ -41,7 +41,7 @@ export default function App() {
             }
           />
           <Route
-            path="phong-ban"
+            path="departments"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <PhongBanPage />
@@ -49,7 +49,7 @@ export default function App() {
             }
           />
           <Route
-            path="hop-dong"
+            path="contracts"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <HopDongPage />
@@ -57,7 +57,7 @@ export default function App() {
             }
           />
           <Route
-            path="to-chuc"
+            path="org-chart"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <OrgChartPage />
@@ -65,7 +65,7 @@ export default function App() {
             }
           />
           <Route
-            path="cham-cong"
+            path="attendance"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <AttendancePage />
@@ -73,13 +73,21 @@ export default function App() {
             }
           />
           <Route
-            path="ngay-le"
+            path="holidays"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <LePage />
               </ProtectedRoute>
             }
           />
+          {/* redirect URL cũ (tiếng Việt không dấu) */}
+          <Route path="nhan-su" element={<Navigate to="/employees" replace />} />
+          <Route path="nhan-su/:id" element={<Navigate to="/employees" replace />} />
+          <Route path="phong-ban" element={<Navigate to="/departments" replace />} />
+          <Route path="hop-dong" element={<Navigate to="/contracts" replace />} />
+          <Route path="to-chuc" element={<Navigate to="/org-chart" replace />} />
+          <Route path="cham-cong" element={<Navigate to="/attendance" replace />} />
+          <Route path="ngay-le" element={<Navigate to="/holidays" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

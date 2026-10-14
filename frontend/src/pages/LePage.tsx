@@ -96,7 +96,16 @@ function YearCalendar({
         ];
         while (cells.length % 7 !== 0) cells.push(null);
         return (
-          <div key={m} style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 8 }}>
+          <div
+            key={m}
+            style={{
+              background: '#fff',
+              border: '1px solid #e5e7eb',
+              borderRadius: 8,
+              padding: 8,
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+            }}
+          >
             <Text strong style={{ display: 'block', textAlign: 'center', marginBottom: 4 }}>
               {first.format('MM/YYYY')}
             </Text>

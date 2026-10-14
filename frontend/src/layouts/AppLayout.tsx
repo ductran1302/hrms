@@ -26,32 +26,32 @@ export default function AppLayout() {
 
   const menuItems = [
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
-      key: '/nhan-su',
+      key: '/employees',
       icon: <TeamOutlined />,
       label: t('menu.employees'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
-      key: '/phong-ban',
+      key: '/departments',
       icon: <ApartmentOutlined />,
       label: t('menu.departments'),
     },
     auth.hasRole('HR_ADMIN') && {
-      key: '/hop-dong',
+      key: '/contracts',
       icon: <FileTextOutlined />,
       label: t('menu.contracts'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
-      key: '/to-chuc',
+      key: '/org-chart',
       icon: <ClusterOutlined />,
       label: t('menu.orgchart'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
-      key: '/cham-cong',
+      key: '/attendance',
       icon: <ClockCircleOutlined />,
       label: t('menu.attendance'),
     },
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
-      key: '/ngay-le',
+      key: '/holidays',
       icon: <ThunderboltOutlined />,
       label: t('menu.holidays'),
     },

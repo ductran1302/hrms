@@ -389,7 +389,7 @@ export default function EmployeeProfile() {
           <Button
             type="text"
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/nhan-su')}
+            onClick={() => navigate('/employees')}
             style={{ marginRight: 8 }}
           />
           {employee.fullName}{' '}
