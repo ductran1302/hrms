@@ -1,4 +1,4 @@
-import { ArrowLeftOutlined, UploadOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
@@ -25,6 +25,7 @@ import { deleteDocument, downloadDocument, listDocuments, uploadDocument } from 
 import { getEmployee, getEmployeeHistory, searchEmployees } from '../api/employees';
 import type { Contract, Employee, EmployeeDocument, JobHistoryItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import ActionIcon from '../components/ActionIcon';
 
 const STATUS_COLOR: Record<Employee['status'], string> = {
   ACTIVE: 'green',
@@ -205,9 +206,9 @@ export default function EmployeeProfile() {
                           .catch((error) => message.error(errorMessage(error)))
                       }
                     >
-                      <Button type="link" size="small" danger>
-                        {t('delete')}
-                      </Button>
+                      <ActionIcon title={t('delete')} color="#ff4d4f">
+                        <DeleteOutlined />
+                      </ActionIcon>
                     </Popconfirm>
                   ),
                 },

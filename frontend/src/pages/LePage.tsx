@@ -37,6 +37,7 @@ import {
   updateHoliday,
 } from '../api/holidays';
 import type { Holiday, HolidayCalendar, HolidayTypeValue } from '../api/types';
+import ActionIcon from '../components/ActionIcon';
 
 const { Text } = Typography;
 
@@ -363,16 +364,20 @@ export default function LePage() {
     },
     {
       title: t('holiday.actions'),
-      width: 110,
+      width: 90,
       render: (_, r) => (
         <Space>
-          <Button type="text" icon={<EditOutlined />} onClick={() => openEditHoliday(r)} />
+          <ActionIcon key="edit" title={t('edit')} color="#1677ff" onClick={() => openEditHoliday(r)}>
+            <EditOutlined />
+          </ActionIcon>
           <Popconfirm
             title={t('holiday.deleteConfirmTitle')}
             description={t('holiday.deleteConfirm')}
             onConfirm={() => submitRemoveHoliday(r.id)}
           >
-            <Button type="text" danger icon={<DeleteOutlined />} />
+            <ActionIcon title={t('delete')} color="#ff4d4f">
+              <DeleteOutlined />
+            </ActionIcon>
           </Popconfirm>
         </Space>
       ),

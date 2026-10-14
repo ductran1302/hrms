@@ -1,4 +1,5 @@
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
+import { EditOutlined, FileSearchOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   App as AntApp,
   AutoComplete,
@@ -22,6 +23,7 @@ import { assignEmployeeCalendar, listCalendars } from '../api/holidays';
 import { listJobTitles } from '../api/jobtitles';
 import type { Department, Employee, EmployeeUpdate, HolidayCalendar } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import ActionIcon from '../components/ActionIcon';
 import { generateEmployeeCode } from '../utils/employeeCode';
 
 const STATUS_COLOR: Record<Employee['status'], string> = {
@@ -257,33 +259,36 @@ export default function EmployeePage() {
     {
       title: t('actions'),
       valueType: 'option',
-      width: 190,
+      width: 120,
       render: (_, record) => {
         const actions: ReactNode[] = [
-          <Button key="profile" type="link" size="small" onClick={() => navigate(`/employees/${record.id}`)}>
-            {t('employee.profile')}
-          </Button>,
+          <ActionIcon
+            key="profile"
+            title={t('employee.profile')}
+            onClick={() => navigate(`/employees/${record.id}`)}
+          >
+            <FileSearchOutlined />
+          </ActionIcon>,
         ];
         if (canWrite) {
           actions.push(
-            <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              {t('edit')}
-            </Button>,
+            <ActionIcon key="edit" title={t('edit')} color="#1677ff" onClick={() => openEdit(record)}>
+              <EditOutlined />
+            </ActionIcon>,
           );
           if (record.status !== 'TERMINATED') {
             actions.push(
-              <Button
+              <ActionIcon
                 key="terminate"
-                type="link"
-                size="small"
-                danger
+                title={t('employee.terminate.action')}
+                color="#faad14"
                 onClick={() => {
                   setTerminateReason('');
                   setTerminateTarget(record);
                 }}
               >
-                {t('employee.terminate.action')}
-              </Button>,
+                <WarningOutlined />
+              </ActionIcon>,
             );
           }
         }

@@ -1,4 +1,4 @@
-import { UploadOutlined } from '@ant-design/icons';
+import { EditOutlined, RiseOutlined, SyncOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import {
   App as AntApp,
@@ -38,6 +38,7 @@ import type {
   EmployeeDocument,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import ActionIcon from '../components/ActionIcon';
 
 const TYPE_KEYS: Record<ContractTypeValue, string> = {
   PROBATION: 'contract.type.PROBATION',
@@ -346,36 +347,41 @@ export default function HopDongPage() {
     {
       title: t('actions'),
       valueType: 'option',
-      width: 200,
+      width: 130,
       render: (_, record) => {
         const actions: ReactNode[] = [];
         if (canWrite) {
           actions.push(
-            <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              {t('edit')}
-            </Button>,
+            <ActionIcon key="edit" title={t('edit')} color="#1677ff" onClick={() => openEdit(record)}>
+              <EditOutlined />
+            </ActionIcon>,
           );
           if (record.status === 'PENDING' || record.status === 'ACTIVE') {
             actions.push(
-              <Button
+              <ActionIcon
                 key="extend"
-                type="link"
-                size="small"
+                title={t('contract.extend')}
+                color="#52c41a"
                 onClick={() => {
                   setExtendEndDate(null);
                   setExtendNote('');
                   setExtendTarget(record);
                 }}
               >
-                {t('contract.extend')}
-              </Button>,
+                <RiseOutlined />
+              </ActionIcon>,
             );
           }
           if (record.status !== 'TERMINATED') {
             actions.push(
-              <Button key="replace" type="link" size="small" onClick={() => openReplace(record)}>
-                {t('contract.replace')}
-              </Button>,
+              <ActionIcon
+                key="replace"
+                title={t('contract.replace')}
+                color="#1677ff"
+                onClick={() => openReplace(record)}
+              >
+                <SyncOutlined />
+              </ActionIcon>,
             );
             actions.push(
               <Popconfirm
@@ -383,9 +389,9 @@ export default function HopDongPage() {
                 title={t('contract.terminateConfirm')}
                 onConfirm={() => terminate(record)}
               >
-                <Button type="link" size="small" danger>
-                  {t('contract.terminate')}
-                </Button>
+                <ActionIcon title={t('contract.terminate')} color="#faad14">
+                  <WarningOutlined />
+                </ActionIcon>
               </Popconfirm>,
             );
           }

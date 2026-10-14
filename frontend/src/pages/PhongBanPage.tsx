@@ -1,3 +1,4 @@
+import { EditOutlined, WarningOutlined } from '@ant-design/icons';
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { App as AntApp, Button, Form, Input, Modal, Popconfirm, Select, Tag } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -12,6 +13,7 @@ import {
 import { searchEmployees } from '../api/employees';
 import type { Department, Employee } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import ActionIcon from '../components/ActionIcon';
 
 interface FormValues {
   code: string;
@@ -138,14 +140,14 @@ export default function PhongBanPage() {
     {
       title: t('actions'),
       valueType: 'option',
-      width: 150,
+      width: 100,
       render: (_, record) => {
         const actions: ReactNode[] = [];
         if (canWrite) {
           actions.push(
-            <Button key="edit" type="link" size="small" onClick={() => openEdit(record)}>
-              {t('edit')}
-            </Button>,
+            <ActionIcon key="edit" title={t('edit')} color="#1677ff" onClick={() => openEdit(record)}>
+              <EditOutlined />
+            </ActionIcon>,
           );
           if (record.status === 'ACTIVE') {
             actions.push(
@@ -155,9 +157,9 @@ export default function PhongBanPage() {
                 description={t('department.deactivateDesc')}
                 onConfirm={() => deactivate(record)}
               >
-                <Button type="link" size="small" danger>
-                  {t('department.deactivate')}
-                </Button>
+                <ActionIcon title={t('department.deactivate')} color="#faad14">
+                  <WarningOutlined />
+                </ActionIcon>
               </Popconfirm>,
             );
           }
