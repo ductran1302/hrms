@@ -54,6 +54,7 @@ public class WorkShiftService {
     shift.setWorkingTime(request.workingTime());
     shift.setBreakingTime(request.breakingTime());
     shift.setActive(request.active() == null || request.active());
+    normalize(shift);
     validate(shift);
     workShiftRepository.save(shift);
     log.info("Tạo ca làm việc '{}' ({}, {} phút làm, {} phút nghỉ)",
@@ -95,6 +96,11 @@ public class WorkShiftService {
     if (request.active() != null) {
       shift.setActive(request.active());
     }
+    if (Boolean.TRUE.equals(request.clearBreak())) {
+      shift.setStartBreakTime(null);
+      shift.setEndBreakTime(null);
+    }
+    normalize(shift);
     validate(shift);
     workShiftRepository.save(shift);
     log.info("Cập nhật ca làm việc {}", shift.getName());
@@ -110,6 +116,17 @@ public class WorkShiftService {
     }
     workShiftRepository.delete(shift);
     log.info("Xóa ca làm việc {}", shift.getName());
+  }
+
+  /**
+   * Ca FLEXIBLE không dùng khung giờ nghỉ (công thức tính công chỉ cần breakingTime) —
+   * tự xóa start/end break để dữ liệu nhất quán.
+   */
+  static void normalize(WorkShift shift) {
+    if (shift.getShiftType() == ShiftType.FLEXIBLE) {
+      shift.setStartBreakTime(null);
+      shift.setEndBreakTime(null);
+    }
   }
 
   /** Validate trên entity (sau gộp PATCH). */

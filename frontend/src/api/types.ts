@@ -382,6 +382,7 @@ export interface WorkShiftUpsert {
   workingTime: number; // phút
   breakingTime: number; // phút
   active?: boolean;
+  clearBreak?: boolean; // PATCH: true = xóa khung giờ nghỉ (khi chuyển sang FLEXIBLE)
 }
 
 export interface ShiftAssignment {

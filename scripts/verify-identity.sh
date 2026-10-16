@@ -436,10 +436,11 @@ R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca vuot tong $
 check "POST working+break vuot ca" 422 "$(code_of "$R")"
 R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca dem $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"22:00:00\",\"endWorkTime\":\"06:00:00\",\"workingTime\":480,\"breakingTime\":0}")
 check "POST ca qua nua dem" 422 "$(code_of "$R")"
-# b. ca FLEXIBLE hop le + PATCH
-R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca linh hoa verify $SUF\",\"shiftType\":\"FLEXIBLE\",\"startWorkTime\":\"07:00:00\",\"endWorkTime\":\"18:00:00\",\"startBreakTime\":\"12:00:00\",\"endBreakTime\":\"13:00:00\",\"workingTime\":480,\"breakingTime\":60}")
-check "POST tao ca FLEXIBLE" 201 "$(code_of "$R")"
+# b. ca FLEXIBLE khong can khung gio nghi (chi breakingTime) + PATCH
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca linh hoa verify $SUF\",\"shiftType\":\"FLEXIBLE\",\"startWorkTime\":\"07:00:00\",\"endWorkTime\":\"18:00:00\",\"workingTime\":480,\"breakingTime\":60}")
+check "POST tao ca FLEXIBLE (khong khung nghi)" 201 "$(code_of "$R")"
 FLEX_ID=$(id_of "$R")
+check_has "FLEXIBLE khong luu khung nghi" "$(has "$R" "\"startBreakTime\":null")" yes
 R=$(areq PATCH "$HR" "/api/v1/attendance/work-shifts/$FIX_ID" "{\"name\":\"Ca verify $SUF v2\"}")
 check "PATCH doi ten ca" 200 "$(code_of "$R")"
 # c. NV verify cho gan ca (auto-provision → token theo ma NV)

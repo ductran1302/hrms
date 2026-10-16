@@ -4,6 +4,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
+  QuestionCircleOutlined,
   StopOutlined,
 } from '@ant-design/icons';
 import {
@@ -23,6 +24,7 @@ import {
   Tabs,
   Tag,
   TimePicker,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
@@ -95,6 +97,13 @@ export default function WorkShiftPage() {
   const [empOptions, setEmpOptions] = useState<{ value: string; label: string }[]>([]);
   const watchedShiftType = Form.useWatch('shiftType', shiftForm);
 
+  // Ca FLEXIBLE không dùng khung giờ nghỉ — bỏ giá trị đang giữ trong form
+  useEffect(() => {
+    if (watchedShiftType === 'FLEXIBLE') {
+      shiftForm.setFieldValue('breakRange', undefined);
+    }
+  }, [watchedShiftType, shiftForm]);
+
   const loadShifts = useCallback(async () => {
     setShiftLoading(true);
     try {
@@ -166,16 +175,19 @@ export default function WorkShiftPage() {
 
   const submitShift = async () => {
     const values = await shiftForm.validateFields();
+    const isFlexible = values.shiftType === 'FLEXIBLE';
     const body = {
       name: values.name,
       shiftType: values.shiftType,
       startWorkTime: values.workRange[0].format('HH:mm:ss'),
       endWorkTime: values.workRange[1].format('HH:mm:ss'),
-      startBreakTime: values.breakRange ? values.breakRange[0].format('HH:mm:ss') : null,
-      endBreakTime: values.breakRange ? values.breakRange[1].format('HH:mm:ss') : null,
+      startBreakTime: !isFlexible && values.breakRange ? values.breakRange[0].format('HH:mm:ss') : null,
+      endBreakTime: !isFlexible && values.breakRange ? values.breakRange[1].format('HH:mm:ss') : null,
       workingTime: Math.round(values.workingHours * 60),
       breakingTime: Math.round((values.breakingHours ?? 0) * 60),
       active: values.active,
+      // Sửa ca đang FIXED → FLEXIBLE: backend cần biết để xóa khung giờ nghỉ cũ
+      ...(editing ? { clearBreak: isFlexible } : {}),
     };
     try {
       if (editing) {
@@ -477,7 +489,21 @@ export default function WorkShiftPage() {
       </Space>
 
       <Modal
-        title={editing ? t('shift.action.edit') : t('shift.action.create')}
+        title={
+          <Space>
+            {editing ? t('shift.action.edit') : t('shift.action.create')}
+            <Tooltip
+              title={
+                <div>
+                  <div>{t('shift.help.fixed')}</div>
+                  <div style={{ marginTop: 8 }}>{t('shift.help.flexible')}</div>
+                </div>
+              }
+            >
+              <QuestionCircleOutlined style={{ color: '#8c8c8c', cursor: 'help' }} />
+            </Tooltip>
+          </Space>
+        }
         open={shiftModalOpen}
         onOk={() => void submitShift()}
         onCancel={() => setShiftModalOpen(false)}
@@ -507,25 +533,22 @@ export default function WorkShiftPage() {
             label={t('shift.form.workTime')}
             rules={[{ required: true, message: t('required') }]}
           >
-            <TimePicker.RangePicker format="HH:mm:ss" style={{ width: '100%' }} />
+            <TimePicker.RangePicker format="HH:mm" style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="breakRange" label={t('shift.form.breakTime')}>
-            <TimePicker.RangePicker
-              format="HH:mm:ss"
-              allowEmpty={[false, false]}
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
+          {watchedShiftType !== 'FLEXIBLE' && (
+            <Form.Item name="breakRange" label={t('shift.form.breakTime')}>
+              <TimePicker.RangePicker
+                format="HH:mm"
+                allowEmpty={[false, false]}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          )}
           <Space size={12} style={{ display: 'flex' }}>
             <Form.Item
               name="workingHours"
               label={t('shift.form.workingHours')}
               rules={[{ required: true, message: t('required') }]}
-              extra={
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {watchedShiftType === 'FLEXIBLE' ? t('shift.hint.flexible') : t('shift.hint.fixed')}
-                </Text>
-              }
             >
               <InputNumber min={0.25} max={24} step={0.25} style={{ width: 150 }} />
             </Form.Item>
@@ -536,9 +559,6 @@ export default function WorkShiftPage() {
               <Switch />
             </Form.Item>
           </Space>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('shift.form.minutesNote')}
-          </Text>
         </Form>
       </Modal>
 

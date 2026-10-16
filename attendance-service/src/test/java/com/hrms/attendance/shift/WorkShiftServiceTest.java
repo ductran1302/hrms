@@ -90,6 +90,25 @@ class WorkShiftServiceTest {
     WorkShiftResponse response = service.create(request);
 
     assertEquals("FLEXIBLE", response.shiftType());
+    // Ca linh hoạt không dùng khung giờ nghỉ — bị tự xóa
+    assertEquals(null, response.startBreakTime());
+    assertEquals(null, response.endBreakTime());
+    assertEquals(60, response.breakingTime());
+  }
+
+  @Test
+  void create_flexibleWithoutBreakTimes_savesOk() {
+    WorkShiftRequest request = new WorkShiftRequest(
+        "Linh hoạt không nghỉ", "FLEXIBLE",
+        LocalTime.of(7, 0), LocalTime.of(18, 0),
+        null, null,
+        600, 0, null);
+    when(workShiftRepository.existsByName(any())).thenReturn(false);
+
+    WorkShiftResponse response = service.create(request);
+
+    assertEquals("FLEXIBLE", response.shiftType());
+    assertEquals(600, response.workingTime());
   }
 
   @Test
@@ -165,11 +184,36 @@ class WorkShiftServiceTest {
     when(workShiftRepository.existsByNameAndIdNot("Ca mới", existing.getId())).thenReturn(false);
 
     service.update(existing.getId(), new WorkShiftUpdateRequest(
-        "Ca mới", null, null, null, null, null, null, null, null));
+        "Ca mới", null, null, null, null, null, null, null, null, null));
 
     assertEquals("Ca mới", existing.getName());
     assertEquals(LocalTime.of(8, 0), existing.getStartWorkTime());
     assertEquals(480, existing.getWorkingTime());
+    verify(workShiftRepository).save(existing);
+  }
+
+  @Test
+  void update_switchToFlexible_clearsBreakWindow() {
+    when(workShiftRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+    service.update(existing.getId(), new WorkShiftUpdateRequest(
+        null, "FLEXIBLE", null, null, null, null, null, null, null, null));
+
+    assertEquals(ShiftType.FLEXIBLE, existing.getShiftType());
+    assertEquals(null, existing.getStartBreakTime());
+    assertEquals(null, existing.getEndBreakTime());
+    verify(workShiftRepository).save(existing);
+  }
+
+  @Test
+  void update_clearBreak_clearsBothFields() {
+    when(workShiftRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+    service.update(existing.getId(), new WorkShiftUpdateRequest(
+        null, null, null, null, null, null, null, null, null, true));
+
+    assertEquals(null, existing.getStartBreakTime());
+    assertEquals(null, existing.getEndBreakTime());
     verify(workShiftRepository).save(existing);
   }
 
@@ -180,7 +224,7 @@ class WorkShiftServiceTest {
     assertThrows(BusinessRuleException.class, () -> service.update(existing.getId(),
         new WorkShiftUpdateRequest(
             null, null, LocalTime.of(8, 0), LocalTime.of(11, 0),
-            LocalTime.of(12, 0), LocalTime.of(13, 0), null, null, null)));
+            LocalTime.of(12, 0), LocalTime.of(13, 0), null, null, null, null)));
     verify(workShiftRepository, never()).save(any());
   }
 

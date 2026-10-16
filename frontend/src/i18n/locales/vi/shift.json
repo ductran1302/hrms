@@ -52,12 +52,11 @@
     "breakTime": "Giờ bắt đầu - kết thúc nghỉ giữa ca (để trống nếu không nghỉ)",
     "workingHours": "Thời gian làm để đủ công (giờ)",
     "breakingHours": "Nghỉ giữa ca (giờ)",
-    "active": "Đang dùng",
-    "minutesNote": "Nhập theo giờ, bước 0.25 (15 phút) — hệ thống lưu chính xác theo phút."
+    "active": "Đang dùng"
   },
-  "hint": {
-    "fixed": "Ca cố định: đủ từng đoạn trước/sau giờ nghỉ = 0.5 công, đủ cả 2 đoạn = 1 công",
-    "flexible": "Ca linh hoạt: đủ workingTime trong khung giờ = 1 công, tính tuyến tính theo thời gian có mặt"
+  "help": {
+    "fixed": "Ca cố định: đủ nguyên đoạn trước giờ nghỉ = 0.5 công, đủ cả 2 đoạn trước/sau giờ nghỉ = 1 công (thiếu đoạn = không tính đoạn đó).",
+    "flexible": "Ca linh hoạt: không nhập khung giờ nghỉ — chỉ nhập tổng thời gian nghỉ giữa ca. Tính công theo thời gian có mặt trong khung start–kết thúc ca, so với thời gian làm để đủ công."
   },
   "assignForm": {
     "employee": "Nhân viên",

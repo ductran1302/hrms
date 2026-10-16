@@ -52,12 +52,11 @@
     "breakTime": "Break start - end time (leave empty if no break)",
     "workingHours": "Hours required for full day",
     "breakingHours": "Mid-shift break (hours)",
-    "active": "Active",
-    "minutesNote": "Enter in hours, step 0.25 (15 minutes) — stored precisely in minutes."
+    "active": "Active"
   },
-  "hint": {
-    "fixed": "Fixed shift: each segment before/after break = 0.5 day, both segments = 1 day",
-    "flexible": "Flexible shift: reach workingTime within the window = 1 day, prorated by time present"
+  "help": {
+    "fixed": "Fixed shift: a full segment before break = 0.5 day, both segments before/after break = 1 day (missing segment = not counted).",
+    "flexible": "Flexible shift: no break window needed — only enter total mid-shift break. Day is computed from time present within the shift window vs. hours required for a full day."
   },
   "assignForm": {
     "employee": "Employee",
