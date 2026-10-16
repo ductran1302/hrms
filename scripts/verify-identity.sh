@@ -420,5 +420,71 @@ check "DELETE entitlement BONUS" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$QP_ID?reason=cleanup")
 check "cleanup NV quy phep" 204 "$(code_of "$R")"
 
+echo "== 14. Ca lam viec (work shift + gan ca theo ngay hieu luc)"
+# a. tao ca FIXED + validation (areq/ATT dinh nghia o section 13)
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca verify $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"17:00:00\",\"startBreakTime\":\"12:00:00\",\"endBreakTime\":\"13:00:00\",\"workingTime\":480,\"breakingTime\":60}")
+check "POST tao ca FIXED" 201 "$(code_of "$R")"
+FIX_ID=$(id_of "$R")
+R=$(areq GET "$HR" "/api/v1/attendance/work-shifts?q=$SUF")
+check "GET work-shifts theo q" 200 "$(code_of "$R")"
+check_has "co ca FIXED verify" "$(has "$R" "Ca verify $SUF")" yes
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca verify $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"17:00:00\",\"workingTime\":480,\"breakingTime\":0}")
+check "POST trung ten ca" 409 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca loi break $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"17:00:00\",\"startBreakTime\":\"07:00:00\",\"endBreakTime\":\"08:00:00\",\"workingTime\":480,\"breakingTime\":60}")
+check "POST break ngoai khung" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca vuot tong $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"17:00:00\",\"workingTime\":500,\"breakingTime\":60}")
+check "POST working+break vuot ca" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca dem $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"22:00:00\",\"endWorkTime\":\"06:00:00\",\"workingTime\":480,\"breakingTime\":0}")
+check "POST ca qua nua dem" 422 "$(code_of "$R")"
+# b. ca FLEXIBLE hop le + PATCH
+R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca linh hoa verify $SUF\",\"shiftType\":\"FLEXIBLE\",\"startWorkTime\":\"07:00:00\",\"endWorkTime\":\"18:00:00\",\"startBreakTime\":\"12:00:00\",\"endBreakTime\":\"13:00:00\",\"workingTime\":480,\"breakingTime\":60}")
+check "POST tao ca FLEXIBLE" 201 "$(code_of "$R")"
+FLEX_ID=$(id_of "$R")
+R=$(areq PATCH "$HR" "/api/v1/attendance/work-shifts/$FIX_ID" "{\"name\":\"Ca verify $SUF v2\"}")
+check "PATCH doi ten ca" 200 "$(code_of "$R")"
+# c. NV verify cho gan ca (auto-provision → token theo ma NV)
+NVW_CODE="nvc$SUF"
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$NVW_CODE\",\"fullName\":\"NV Ca Lam Viec $SUF\",\"email\":\"clv$SUF@hrms.vn\"}")
+check "POST tao NV verify ca" 201 "$(code_of "$R")"
+NVW_ID=$(id_of "$R")
+sleep 3
+# d. gan ca: lan 1 OK, cung ngay/truoc ngay bi 422, chuyen ca (ke lich) OK
+R=$(areq POST "$HR" "/api/v1/attendance/shift-assignments" "{\"employeeId\":\"$NVW_ID\",\"workShiftId\":\"$FIX_ID\",\"effectiveFrom\":\"2020-01-01\"}")
+check "POST gan ca lan 1" 201 "$(code_of "$R")"
+AS1=$(id_of "$R")
+R=$(areq POST "$HR" "/api/v1/attendance/shift-assignments" "{\"employeeId\":\"$NVW_ID\",\"workShiftId\":\"$FIX_ID\",\"effectiveFrom\":\"2020-01-01\"}")
+check "POST gan cung ngay bi tu choi" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/shift-assignments" "{\"employeeId\":\"$NVW_ID\",\"workShiftId\":\"$FIX_ID\",\"effectiveFrom\":\"2019-12-31\"}")
+check "POST gan truoc ngay hieu luc truoc" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/shift-assignments" "{\"employeeId\":\"$NVW_ID\",\"workShiftId\":\"$FLEX_ID\",\"effectiveFrom\":\"2021-01-01\"}")
+check "POST gan ca 2 (ke lich)" 201 "$(code_of "$R")"
+AS2=$(id_of "$R")
+R=$(areq GET "$HR" "/api/v1/attendance/shift-assignments?q=$NVW_CODE")
+check "GET assignments list (q ma NV)" 200 "$(code_of "$R")"
+check_has "list co ca da gan" "$(has "$R" "Ca verify $SUF v2")" yes
+# e. xem ca cua minh (NV auto-provision username = ma NV)
+NVW_TOK=$(token "$NVW_CODE" 'hrms@123')
+check "token NV ca" 0 "$([ -n "$NVW_TOK" ] && echo 0 || echo missing)"
+R=$(areq GET "$NVW_TOK" "/api/v1/attendance/shift-assignments/my")
+check "GET my shift" 200 "$(code_of "$R")"
+check_has "my shift dung ca hien tai" "$(has "$R" "Ca linh hoa verify")" yes
+# f. RBAC + quy tac xoa
+R=$(areq POST "$EMP" "/api/v1/attendance/work-shifts" "{\"name\":\"x $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"12:00:00\",\"workingTime\":240,\"breakingTime\":0}")
+check "EMPLOYEE tao ca bi 403" 403 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/work-shifts/$FIX_ID")
+check "DELETE ca con gan NV bi 422" 422 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/shift-assignments/$AS1")
+check "DELETE ban gan cu khong phai moi nhat" 422 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/shift-assignments/$AS2")
+check "DELETE ban gan moi nhat" 204 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/shift-assignments/$AS1")
+check "DELETE ban gan cu sau do" 204 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/work-shifts/$FIX_ID")
+check "DELETE ca khi khong con gan" 204 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/work-shifts/$FLEX_ID")
+check "DELETE ca flexible" 204 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/employees/$NVW_ID?reason=cleanup")
+check "cleanup NV ca lam viec" 204 "$(code_of "$R")"
+
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

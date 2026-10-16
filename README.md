@@ -257,6 +257,17 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-attendance.sh
 | `/api/v1/attendance/leave/quotas/{employeeId}` | GET | `HR_ADMIN`, `MANAGER`, `EMPLOYEE` |
 | `/api/v1/attendance/leave/quotas/{id}/entitlements` | POST | `HR_ADMIN` (201 — cấp BONUS/CARRYOVER/ADJUSTMENT) |
 | `/api/v1/attendance/leave/entitlements/{id}` | DELETE | `HR_ADMIN` (204 — chỉ dòng cấp tay) |
+| `/api/v1/attendance/work-shifts` | GET / POST / PATCH / DELETE | GET: `HR_ADMIN`,`MANAGER`; ghi: `HR_ADMIN` (POST 201, DELETE 204/422) |
+| `/api/v1/attendance/shift-assignments` | GET / POST / DELETE | GET: `HR_ADMIN`,`MANAGER`; ghi: `HR_ADMIN` (chỉ gỡ bản mới nhất) |
+| `/api/v1/attendance/shift-assignments/my` | GET | mọi user đã đăng nhập (ca của chính mình tại 1 ngày) |
+
+> **Spec tính công (module chấm công sẽ implement — chưa code):**
+> - **Ca cố định:** chia **2 đoạn** theo giờ nghỉ (VD 8:00→12:00 và 13:00→17:00); đủ nguyên 1 đoạn = **0.5 công**, đủ cả 2 = **1.0**.
+>   Thiếu (đi muộn/về sớm/lỗi chấm công) = 0 đoạn đó — bù qua request approve quản lý (module sau).
+> - **Ca linh hoạt:** k = thời gian có mặt trong ca, n = `workingTime`, b = `breakingTime`:
+>   `k < n/2 → k/n` · `n/2 ≤ k < n/2+b → 0.5` · `k ≥ n/2+b → min(1, (k−b)/n)`.
+>   VD n=8h, b=1h: 3h→0.375 · 4h→0.5 · 5h→0.5 · 7h→0.75 · 9h→1.0.
+> - `workingTime`/`breakingTime` lưu **phút (int)** — FE nhập giờ (bước 0.25) rồi convert.
 
 ### Swagger UI + Bearer Auth (springdoc)
 
@@ -420,3 +431,10 @@ docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổ
   0.1/0.125 ngày), cấp tay BONUS/CARRYOVER/ADJUSTMENT (audit `grantedBy`), nhân viên
   xem quota của mình qua `GET /api/v1/employees/me`; FE trang Quỹ phép (`/leave-quota`)
   + Quyền phép của tôi (`/my-leave`); verify section 13 (`verify-identity.sh` 155/155).
+- [x] **Module ca làm việc** (`attendance` `shift` package) — CRUD ca cố định/linh hoạt
+  (khung start/end work + start/end break, `workingTime`/`breakingTime` lưu **phút**,
+  validate break trong khung, không ca qua nửa đêm), gán ca từng NV theo **ngày hiệu lực**
+  (lịch sử, ngày gán phải sau bản trước, chỉ gỡ bản mới nhất), `GET /shift-assignments/my`;
+  FE trang Ca làm việc (`/work-shifts`, 2 tab Danh sách ca + Gán ca); spec tính công
+  ghi ở mục endpoint attendance; verify section 14 (`verify-identity.sh`).
+  **Pipeline tiếp theo:** xin nghỉ phép → quản lý phép → chấm công → tính công.

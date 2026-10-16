@@ -11,6 +11,7 @@ import layoutVi from './locales/vi/layout.json';
 import leaveVi from './locales/vi/leave.json';
 import orgchartVi from './locales/vi/orgchart.json';
 import profileVi from './locales/vi/profile.json';
+import shiftVi from './locales/vi/shift.json';
 import attendanceEn from './locales/en/attendance.json';
 import authEn from './locales/en/auth.json';
 import commonEn from './locales/en/common.json';
@@ -22,6 +23,7 @@ import layoutEn from './locales/en/layout.json';
 import leaveEn from './locales/en/leave.json';
 import orgchartEn from './locales/en/orgchart.json';
 import profileEn from './locales/en/profile.json';
+import shiftEn from './locales/en/shift.json';
 
 /**
  * Bộ translation: common/layout/auth merge phẳng (key dùng chung: save, menu.*, status.*),
@@ -39,6 +41,7 @@ const vi = {
   department: departmentVi,
   attendance: attendanceVi,
   orgchart: orgchartVi,
+  shift: shiftVi,
 };
 
 const en = {
@@ -53,6 +56,7 @@ const en = {
   department: departmentEn,
   attendance: attendanceEn,
   orgchart: orgchartEn,
+  shift: shiftEn,
 };
 
 export const LANGUAGES: Record<string, string> = {

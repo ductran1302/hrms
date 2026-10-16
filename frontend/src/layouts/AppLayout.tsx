@@ -7,6 +7,7 @@ import {
   GiftOutlined,
   GlobalOutlined,
   LogoutOutlined,
+  ScheduleOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
@@ -61,6 +62,11 @@ export default function AppLayout() {
       key: '/leave-quota',
       icon: <GiftOutlined />,
       label: t('menu.leaveQuotas'),
+    },
+    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+      key: '/work-shifts',
+      icon: <ScheduleOutlined />,
+      label: t('menu.workShifts'),
     },
     {
       key: '/my-leave',

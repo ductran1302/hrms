@@ -1,0 +1,72 @@
+{
+  "title": "Work shifts",
+  "subtitle": "Manage fixed / flexible shifts and assign shifts to employees by effective date",
+  "tab": {
+    "shifts": "Shift list",
+    "assignments": "Assignments"
+  },
+  "searchPlaceholder": "Search by shift name...",
+  "searchAssignPlaceholder": "Search by code / name / department...",
+  "column": {
+    "name": "Shift name",
+    "type": "Type",
+    "timeRange": "Work hours",
+    "breakRange": "Break hours",
+    "workingTime": "Full day at",
+    "breakingTime": "Mid-shift break",
+    "active": "Status",
+    "updated": "Updated",
+    "employeeCode": "Emp. code",
+    "fullName": "Full name",
+    "department": "Department",
+    "shift": "Assigned shift",
+    "effectiveFrom": "Effective from",
+    "assignedBy": "Assigned by",
+    "current": "Current"
+  },
+  "type": {
+    "FIXED": "Fixed",
+    "FLEXIBLE": "Flexible"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "action": {
+    "create": "Create shift",
+    "edit": "Edit shift",
+    "delete": "Delete shift",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "assign": "Assign shift",
+    "assignTitle": "Assign shift to employee",
+    "unassign": "Remove assignment",
+    "confirmDelete": "Delete this shift?",
+    "confirmUnassign": "Remove this assignment?"
+  },
+  "form": {
+    "name": "Shift name",
+    "namePlaceholder": "e.g. Fixed 8:00-17:00, Flexible 7:00-18:00",
+    "shiftType": "Shift type",
+    "workTime": "Work start - end time",
+    "breakTime": "Break start - end time (leave empty if no break)",
+    "workingHours": "Hours required for full day",
+    "breakingHours": "Mid-shift break (hours)",
+    "active": "Active",
+    "minutesNote": "Enter in hours, step 0.25 (15 minutes) — stored precisely in minutes."
+  },
+  "hint": {
+    "fixed": "Fixed shift: each segment before/after break = 0.5 day, both segments = 1 day",
+    "flexible": "Flexible shift: reach workingTime within the window = 1 day, prorated by time present"
+  },
+  "assignForm": {
+    "employee": "Employee",
+    "employeePlaceholder": "Search by code or name...",
+    "searchHint": "Type a keyword to search",
+    "shift": "Work shift",
+    "shiftPlaceholder": "Select an active shift...",
+    "effectiveFrom": "Effective from"
+  },
+  "emptyShifts": "No work shifts yet",
+  "emptyAssignments": "No shift assignments yet"
+}

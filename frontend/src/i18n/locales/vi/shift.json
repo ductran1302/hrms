@@ -1,0 +1,72 @@
+{
+  "title": "Ca làm việc",
+  "subtitle": "Quản lý ca cố định / linh hoạt và gán ca cho nhân viên theo ngày hiệu lực",
+  "tab": {
+    "shifts": "Danh sách ca",
+    "assignments": "Gán ca"
+  },
+  "searchPlaceholder": "Tìm theo tên ca...",
+  "searchAssignPlaceholder": "Tìm theo mã / tên / phòng ban...",
+  "column": {
+    "name": "Tên ca",
+    "type": "Loại ca",
+    "timeRange": "Giờ làm",
+    "breakRange": "Giờ nghỉ",
+    "workingTime": "Đủ công",
+    "breakingTime": "Nghỉ giữa ca",
+    "active": "Trạng thái",
+    "updated": "Cập nhật",
+    "employeeCode": "Mã NV",
+    "fullName": "Họ tên",
+    "department": "Phòng ban",
+    "shift": "Ca được gán",
+    "effectiveFrom": "Hiệu lực từ",
+    "assignedBy": "Người gán",
+    "current": "Hiện tại"
+  },
+  "type": {
+    "FIXED": "Cố định",
+    "FLEXIBLE": "Linh hoạt"
+  },
+  "status": {
+    "active": "Đang dùng",
+    "inactive": "Ngưng dùng"
+  },
+  "action": {
+    "create": "Tạo ca",
+    "edit": "Sửa ca",
+    "delete": "Xóa ca",
+    "deactivate": "Ngưng dùng",
+    "activate": "Kích hoạt",
+    "assign": "Gán ca mới",
+    "assignTitle": "Gán ca cho nhân viên",
+    "unassign": "Gỡ gán",
+    "confirmDelete": "Xóa ca này?",
+    "confirmUnassign": "Gỡ bản gán này?"
+  },
+  "form": {
+    "name": "Tên ca",
+    "namePlaceholder": "VD: Cố định 8:00-17:00, Linh hoạt 7:00-18:00",
+    "shiftType": "Loại ca",
+    "workTime": "Giờ bắt đầu - kết thúc làm việc",
+    "breakTime": "Giờ bắt đầu - kết thúc nghỉ giữa ca (để trống nếu không nghỉ)",
+    "workingHours": "Thời gian làm để đủ công (giờ)",
+    "breakingHours": "Nghỉ giữa ca (giờ)",
+    "active": "Đang dùng",
+    "minutesNote": "Nhập theo giờ, bước 0.25 (15 phút) — hệ thống lưu chính xác theo phút."
+  },
+  "hint": {
+    "fixed": "Ca cố định: đủ từng đoạn trước/sau giờ nghỉ = 0.5 công, đủ cả 2 đoạn = 1 công",
+    "flexible": "Ca linh hoạt: đủ workingTime trong khung giờ = 1 công, tính tuyến tính theo thời gian có mặt"
+  },
+  "assignForm": {
+    "employee": "Nhân viên",
+    "employeePlaceholder": "Tìm theo mã hoặc tên...",
+    "searchHint": "Nhập từ khóa để tìm",
+    "shift": "Ca làm việc",
+    "shiftPlaceholder": "Chọn ca đang dùng...",
+    "effectiveFrom": "Áp dụng từ ngày"
+  },
+  "emptyShifts": "Chưa có ca làm việc nào",
+  "emptyAssignments": "Chưa có bản gán ca nào"
+}

@@ -10,6 +10,7 @@ import MyLeavePage from './pages/MyLeavePage';
 import OrgChartPage from './pages/OrgChartPage';
 import PhongBanPage from './pages/PhongBanPage';
 import QuyPhepPage from './pages/QuyPhepPage';
+import WorkShiftPage from './pages/WorkShiftPage';
 
 const STAFF_ROLES = ['HR_ADMIN', 'MANAGER'];
 
@@ -87,6 +88,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <QuyPhepPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="work-shifts"
+            element={
+              <ProtectedRoute roles={STAFF_ROLES}>
+                <WorkShiftPage />
               </ProtectedRoute>
             }
           />

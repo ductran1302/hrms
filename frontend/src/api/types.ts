@@ -355,6 +355,56 @@ export interface LeaveGrant {
   reason?: string;
 }
 
+export type ShiftTypeValue = 'FIXED' | 'FLEXIBLE';
+
+export interface WorkShift {
+  id: string;
+  name: string;
+  shiftType: ShiftTypeValue;
+  startWorkTime: string; // 'HH:mm:ss'
+  endWorkTime: string;
+  startBreakTime: string | null;
+  endBreakTime: string | null;
+  workingTime: number; // phút
+  breakingTime: number; // phút
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkShiftUpsert {
+  name: string;
+  shiftType: ShiftTypeValue;
+  startWorkTime: string;
+  endWorkTime: string;
+  startBreakTime?: string | null;
+  endBreakTime?: string | null;
+  workingTime: number; // phút
+  breakingTime: number; // phút
+  active?: boolean;
+}
+
+export interface ShiftAssignment {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  departmentName: string | null;
+  workShiftId: string;
+  shiftName: string;
+  shiftType: ShiftTypeValue;
+  effectiveFrom: string; // 'YYYY-MM-DD'
+  assignedBy: string | null;
+  latest: boolean;
+  createdAt: string;
+}
+
+export interface ShiftAssignmentCreate {
+  employeeId: string;
+  workShiftId: string;
+  effectiveFrom: string;
+}
+
 export interface ApiError {
   timestamp?: string;
   status?: number;
