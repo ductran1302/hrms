@@ -26,9 +26,14 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
 docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-attendance.sh
 docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-gateway-routes.sh
 
-# Frontend
+# Frontend (dev)
 docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run build"
 docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run dev"
+
+# Frontend (app stack production-style) — PHẢI build image + up -d để apply code mới
+# (Lưu ý: `npm run build` trong dev container chỉ ghi dist vào host, KHÔNG update image app stack)
+docker compose -f docker-compose.app.yml build frontend
+docker compose -f docker-compose.app.yml up -d frontend
 ```
 
 ---
