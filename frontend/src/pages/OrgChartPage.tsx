@@ -3,8 +3,10 @@ import {
   BankOutlined,
   DownOutlined,
   ExportOutlined,
+  IdcardOutlined,
   MinusOutlined,
   PlusOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
   TeamOutlined,
   UnorderedListOutlined,
@@ -49,6 +51,27 @@ const STATUS_META: Record<string, { key: string; color: string }> = {
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 150;
 const ZOOM_STEP = 10;
+
+/**
+ * Icon vị trí trên card sơ đồ — Bank (ngân hàng/HĐQT) chỉ dành cho Chủ tịch;
+ * các cấp khác dùng icon riêng theo vai trò.
+ */
+function deptIcon(position: string | null | undefined): ReactNode {
+  const p = (position ?? '').toLowerCase();
+  if (p.includes('chủ tịch')) return <BankOutlined />;
+  if (
+    p.includes('giám đốc') ||
+    p.includes('cto') ||
+    p.includes('cfo') ||
+    p.includes('coo')
+  ) {
+    return <SafetyCertificateOutlined />;
+  }
+  if (p.includes('trưởng') || p.includes('quản lý') || p.includes('manager')) {
+    return <TeamOutlined />;
+  }
+  return <IdcardOutlined />;
+}
 
 /** Giữ nguyên nhánh chứa node khớp + node khớp (cả nhánh con của nó). */
 function filterTree(
@@ -136,7 +159,7 @@ function OrgLi({ node, collapsed, onToggle }: { node: OrgChartNode } & TreeProps
         </Tag>
         {node.position && <div className="org-card-pos">{node.position}</div>}
         <div className="org-card-dept">
-          <BankOutlined />
+          {deptIcon(node.position)}
           <span>{node.departmentName ?? '—'}</span>
         </div>
         <div className="org-card-foot">
