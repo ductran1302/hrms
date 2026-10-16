@@ -107,6 +107,14 @@ public class KeycloakAdminClient {
     log.info("Đã tạo tài khoản Keycloak '{}' (role EMPLOYEE)", username);
   }
 
+  /**
+   * Đảm bảo user đã tồn tại có realm role (idempotent, soft-fail).
+   * Dùng heal các user auto-provision tạo trước khi có gán role riêng.
+   */
+  public void ensureRealmRole(String username, String roleName) {
+    assignRealmRole(username, roleName);
+  }
+
   /** Gán realm role cho user đã tồn tại (idempotent — đã có role thì KC trả 204/409 bỏ qua). */
   private void assignRealmRole(String username, String roleName) {
     try {

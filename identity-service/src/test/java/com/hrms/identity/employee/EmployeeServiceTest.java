@@ -423,6 +423,31 @@ class EmployeeServiceTest {
     verify(outboxRepository, never()).save(any());
   }
 
+  @Test
+  void me_matchedByEmployeeCode_returnsProfile() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(employee));
+    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
+        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, 0L));
+
+    assertEquals("NV0001", service.me("NV0001", "a@x.vn").employeeCode());
+    verify(employeeRepository, never()).findFirstByEmail(any());
+  }
+
+  @Test
+  void me_fallbackEmail_returnsProfile() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.empty());
+    when(employeeRepository.findFirstByEmail("employee1@hrms.local"))
+        .thenReturn(Optional.of(employee));
+    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0002",
+        "Nhân viên 1", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
+        null, null, null, null, null, null, null, null, null, null, null, null, 0L));
+
+    assertEquals("NV0002", service.me("manager1", "employee1@hrms.local").employeeCode());
+  }
+
   private Employee employeeWithStatus(EmployeeStatus status) {
     Employee employee = new Employee();
     employee.setId(employeeId);

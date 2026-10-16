@@ -83,6 +83,24 @@ public class DataSeeder implements ApplicationRunner {
     runSeed("phòng IT", this::seedItDepartment);
     runSeed("cây nhân sự mẫu", this::seedOrgEmployees);
     runSeed("lịch nghỉ lễ", this::seedHolidayCalendars);
+    runSeed("role EMPLOYEE cho nhân viên", this::ensureEmployeeRealmRoles);
+  }
+
+  /**
+   * Heal: user auto-provision tạo trước khi có fix gán role (realmRoles bị KC bỏ qua
+   * khi REST thô) chưa có role EMPLOYEE → 403 các endpoint self-service.
+   */
+  private void ensureEmployeeRealmRoles() {
+    for (Employee employee : employeeRepository.findAllByOrderByCreatedAtDesc()) {
+      try {
+        if (keycloakAdminClient.userExists(employee.getEmployeeCode())) {
+          keycloakAdminClient.ensureRealmRole(employee.getEmployeeCode(), "EMPLOYEE");
+        }
+      } catch (Exception ex) {
+        log.debug("Chưa gán được role EMPLOYEE cho {}: {}", employee.getEmployeeCode(),
+            ex.getMessage());
+      }
+    }
   }
 
   private void runSeed(String what, Runnable seed) {

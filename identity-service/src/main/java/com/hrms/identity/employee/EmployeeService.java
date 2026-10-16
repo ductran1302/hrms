@@ -124,6 +124,24 @@ public class EmployeeService {
     return mapper.toResponse(find(id));
   }
 
+  /**
+   * Nhân viên hiện tại. Auto-provision users: KC username = employeeCode → match trước;
+   * fallback theo email claim (user import realm không có mã NV trùng username).
+   */
+  @Transactional(readOnly = true)
+  public EmployeeResponse me(String preferredUsername, String email) {
+    java.util.Optional<Employee> employee =
+        preferredUsername == null || preferredUsername.isBlank()
+            ? java.util.Optional.empty()
+            : employeeRepository.findByEmployeeCode(preferredUsername);
+    if (employee.isEmpty() && email != null && !email.isBlank()) {
+      employee = employeeRepository.findFirstByEmail(email);
+    }
+    Employee found = employee.orElseThrow(() -> new ResourceNotFoundException(
+        "Nhân viên (username/email " + preferredUsername + ")"));
+    return mapper.toResponse(found);
+  }
+
   @Transactional
   public EmployeeResponse update(UUID id, EmployeeUpdateRequest patch, String actorId) {
     if (isNothingToPatch(patch)) {

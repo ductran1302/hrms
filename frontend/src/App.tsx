@@ -6,8 +6,10 @@ import EmployeePage from './pages/EmployeePage';
 import EmployeeProfile from './pages/EmployeeProfile';
 import HopDongPage from './pages/HopDongPage';
 import LePage from './pages/LePage';
+import MyLeavePage from './pages/MyLeavePage';
 import OrgChartPage from './pages/OrgChartPage';
 import PhongBanPage from './pages/PhongBanPage';
+import QuyPhepPage from './pages/QuyPhepPage';
 
 const STAFF_ROLES = ['HR_ADMIN', 'MANAGER'];
 
@@ -77,6 +79,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <LePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="leave-quota"
+            element={
+              <ProtectedRoute roles={STAFF_ROLES}>
+                <QuyPhepPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="my-leave"
+            element={
+              <ProtectedRoute>
+                <MyLeavePage />
               </ProtectedRoute>
             }
           />

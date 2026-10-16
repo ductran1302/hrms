@@ -62,6 +62,13 @@ public class EmployeeController {
     return employeeService.search(page, Math.max(size, 1), status, departmentId, position, q);
   }
 
+  @GetMapping("/me")
+  @PreAuthorize("isAuthenticated()")
+  @Operation(summary = "Hồ sơ nhân viên của chính mình (username = employeeCode, fallback email)")
+  public EmployeeResponse me(@AuthenticationPrincipal Jwt jwt) {
+    return employeeService.me(jwt.getClaimAsString("preferred_username"), jwt.getClaimAsString("email"));
+  }
+
   @GetMapping("/{id}")
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
   @Operation(summary = "Chi tiết nhân viên")

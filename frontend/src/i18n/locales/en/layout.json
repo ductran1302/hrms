@@ -5,7 +5,9 @@
     "contracts": "Contracts",
     "orgchart": "Org chart",
     "attendance": "Attendance",
-    "holidays": "Holidays"
+    "holidays": "Holidays",
+    "leaveQuotas": "Leave quota",
+    "myLeave": "My leave"
   },
   "logout": "Log out",
   "language": "Language",

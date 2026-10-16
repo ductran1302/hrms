@@ -5,7 +5,9 @@
     "contracts": "Hợp đồng",
     "orgchart": "Sơ đồ tổ chức",
     "attendance": "Chấm công",
-    "holidays": "Ngày lễ"
+    "holidays": "Ngày lễ",
+    "leaveQuotas": "Quỹ phép",
+    "myLeave": "Phép của tôi"
   },
   "logout": "Đăng xuất",
   "language": "Ngôn ngữ",

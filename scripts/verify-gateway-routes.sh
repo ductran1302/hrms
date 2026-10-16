@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Kiểm tra route gateway dev (8085) cho các API identity mới.
+# Kiểm tra route gateway cho các API identity mới.
+# Default: dev gateway (8085). Override: GW=http://gateway:8080 (app stack) ./verify-gateway-routes.sh
 set -u
+GW=${GW:-http://localhost:8085}
 KC=http://keycloak:8080/realms/hrms
 TOK=$(curl -s -X POST "$KC/protocol/openid-connect/token" \
   -d 'client_id=hrms-spa&grant_type=password&username=hr&password=hr@123&scope=openid' \
@@ -9,21 +11,21 @@ TOK=$(curl -s -X POST "$KC/protocol/openid-connect/token" \
 fail=0
 for p in departments org-chart contracts "employees?size=1"; do
   code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOK" \
-    "http://localhost:8085/api/v1/$p")
+    "$GW/api/v1/$p")
   if [ "$code" = 200 ]; then
-    echo "OK   dev gw /api/v1/$p -> 200"
+    echo "OK   gw /api/v1/$p -> 200"
   else
-    echo "FAIL dev gw /api/v1/$p -> $code (want 200)"
+    echo "FAIL gw /api/v1/$p -> $code (want 200)"
     fail=1
   fi
 done
-# route attendance vẫn đúng chỗ (không rơi vào identity-api)
+# route attendance van dang chu (khong rot vao identity-api)
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOK" \
-  "http://localhost:8085/api/v1/attendance/employees")
+  "$GW/api/v1/attendance/employees")
 if [ "$code" = 200 ]; then
-  echo "OK   dev gw /api/v1/attendance/employees -> 200"
+  echo "OK   gw attendance -> 200"
 else
-  echo "FAIL dev gw attendance -> $code (want 200)"
+  echo "FAIL gw attendance -> $code (want 200)"
   fail=1
 fi
 echo "RESULT: $([ $fail -eq 0 ] && echo ALL OK || echo FAILED)"

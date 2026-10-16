@@ -1,8 +1,10 @@
 import {
   ApartmentOutlined,
+  CarryOutOutlined,
   ClockCircleOutlined,
   ClusterOutlined,
   FileTextOutlined,
+  GiftOutlined,
   GlobalOutlined,
   LogoutOutlined,
   TeamOutlined,
@@ -54,6 +56,16 @@ export default function AppLayout() {
       key: '/holidays',
       icon: <ThunderboltOutlined />,
       label: t('menu.holidays'),
+    },
+    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+      key: '/leave-quota',
+      icon: <GiftOutlined />,
+      label: t('menu.leaveQuotas'),
+    },
+    {
+      key: '/my-leave',
+      icon: <CarryOutOutlined />,
+      label: t('menu.myLeave'),
     },
   ].filter(Boolean) as { key: string; icon: ReactNode; label: string }[];
 

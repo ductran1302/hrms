@@ -294,6 +294,67 @@ export interface HolidayUpdate {
   note?: string;
 }
 
+export type LeaveSourceValue = 'BASE' | 'SENIORITY' | 'POSITION' | 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT';
+
+export interface LeavePositionQuota {
+  positionName: string;
+  bonusDays: number;
+}
+
+export interface LeavePolicy {
+  id: string;
+  year: number;
+  baseDays: number;
+  seniorityStepYears: number;
+  seniorityBonusDays: number;
+  seniorityMaxBonus: number;
+  carryoverMax: number;
+  positionQuotas: LeavePositionQuota[];
+}
+
+export interface LeavePolicyUpsert {
+  year: number;
+  baseDays: number;
+  seniorityStepYears: number;
+  seniorityBonusDays: number;
+  seniorityMaxBonus: number;
+  carryoverMax: number;
+  positionQuotas: LeavePositionQuota[];
+}
+
+export interface LeaveEntitlement {
+  id: string;
+  source: LeaveSourceValue;
+  days: number;
+  reason: string | null;
+  grantedBy: string | null;
+  createdAt: string;
+}
+
+export interface LeaveQuota {
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  departmentName: string | null;
+  position: string | null;
+  status: string;
+  baseDays: number;
+  seniorityDays: number;
+  positionDays: number;
+  bonusDays: number;
+  carryoverDays: number;
+  adjustmentDays: number;
+  totalDays: number;
+  remainingDays: number;
+  entitlements: LeaveEntitlement[];
+}
+
+export interface LeaveGrant {
+  source: 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT';
+  days: number;
+  reason?: string;
+}
+
 export interface ApiError {
   timestamp?: string;
   status?: number;

@@ -23,6 +23,11 @@ export function getEmployee(id: string): Promise<Employee> {
   return client.get<Employee>(`/api/v1/employees/${id}`).then((r) => r.data);
 }
 
+/** Hồ sơ của chính mình (KC username = employeeCode). */
+export function getMyEmployee(): Promise<Employee> {
+  return client.get<Employee>('/api/v1/employees/me').then((r) => r.data);
+}
+
 export function getEmployeeHistory(id: string): Promise<JobHistoryItem[]> {
   return client.get<JobHistoryItem[]>(`/api/v1/employees/${id}/history`).then((r) => r.data);
 }

@@ -359,5 +359,66 @@ check "DELETE lich trong" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$LE_ID?reason=cleanup")
 check "cleanup NV ngay le" 204 "$(code_of "$R")"
 
+echo "== 13. Quy phep (attendance leave quota — BigDecimal, self-heal policy)"
+ATT=http://attendance:8080
+areq() { # method token path [data] — goi attendance service truc tiep (khong qua gateway)
+  local method=$1 tok=$2 path=$3 data=$4
+  if [ -n "$data" ]; then
+    curl -s -X "$method" -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
+      -d "$data" -w '\nHTTP %{http_code}\n' "$ATT$path"
+  else
+    curl -s -X "$method" -H "Authorization: Bearer $tok" -w '\nHTTP %{http_code}\n' "$ATT$path"
+  fi
+}
+YEAR=$(date +%Y)
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies/$YEAR")
+check "GET leave policy (self-heal)" 200 "$(code_of "$R")"
+check_has "policy co baseDays" "$(has "$R" 'baseDays')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/recalculate?year=$YEAR")
+check "POST recalculate leave quota" 200 "$(code_of "$R")"
+R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas?year=$YEAR")
+check "GET quotas list (HR)" 200 "$(code_of "$R")"
+check_has "quotas co NV" "$(has "$R" 'employeeCode')" yes
+# NV verify quy phep: username = ma NV (auto-provision, role EMPLOYEE)
+QP_CODE="nvq$SUF"
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$QP_CODE\",\"fullName\":\"NV Quy Phep $SUF\",\"email\":\"qp$SUF@hrms.vn\"}")
+check "POST tao NV verify quy phep" 201 "$(code_of "$R")"
+QP_ID=$(id_of "$R")
+QP_TOK=$(token "$QP_CODE" 'hrms@123')
+check "token NV quy phep" 0 "$([ -n "$QP_TOK" ] && echo 0 || echo missing)"
+# cho attendance projection nhan employee.created (outbox poll ~1-2s)
+sleep 3
+R=$(req GET "$QP_TOK" "/api/v1/employees/me")
+check "GET /employees/me (NV auto-provision)" 200 "$(code_of "$R")"
+check_has "me dung ma NV" "$(has "$R" "$QP_CODE")" yes
+R=$(areq GET "$QP_TOK" "/api/v1/attendance/leave/quotas/$QP_ID?year=$YEAR")
+check "GET self quota (EMPLOYEE)" 200 "$(code_of "$R")"
+check_has "quota co baseDays" "$(has "$R" 'baseDays')" yes
+# cap tay: thapphan dung chinh xac (0.25 + 0.1 — khong co loi float)
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"BONUS","days":0.25,"reason":"verify"}')
+check "POST grant BONUS 0.25" 201 "$(code_of "$R")"
+check_has "BONUS luu 0.2500" "$(has "$R" '0.2500')" yes
+BONUS_ID=$(id_of "$R")
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"CARRYOVER","days":0.1,"reason":"verify"}')
+check "POST grant CARRYOVER 0.1" 201 "$(code_of "$R")"
+check_has "CARRYOVER luu 0.1000" "$(has "$R" '0.1000')" yes
+# validation
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"BASE","days":1}')
+check "grant BASE (nguon auto) bi tu choi" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"BONUS","days":0}')
+check "grant 0 ngay bi tu choi" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"CARRYOVER","days":99}')
+check "grant CARRYOVER vuot tran" 422 "$(code_of "$R")"
+# RBAC
+R=$(areq GET "$EMP" "/api/v1/attendance/leave/quotas?year=$YEAR")
+check "EMPLOYEE list quotas bi 403" 403 "$(code_of "$R")"
+R=$(areq GET "$EMP" "/api/v1/attendance/leave/policies/$YEAR")
+check "EMPLOYEE get policy bi 403" 403 "$(code_of "$R")"
+# cleanup: xoa BONUS da cap + nghi viec NV
+R=$(areq DELETE "$HR" "/api/v1/attendance/leave/entitlements/$BONUS_ID")
+check "DELETE entitlement BONUS" 204 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/employees/$QP_ID?reason=cleanup")
+check "cleanup NV quy phep" 204 "$(code_of "$R")"
+
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
