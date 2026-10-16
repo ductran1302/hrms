@@ -119,18 +119,20 @@ body,
   gap: 12px;
 }
 
-/* Segmented Sơ đồ/Danh sách: nền đậm + chữ trắng, selected xanh primary (giống nút Thêm nhân sự) */
+/* Segmented Sơ đồ/Danh sách theo mockup: nền trắng + chữ đậm (không chọn),
+   nền xanh primary #1677ff + chữ trắng (đang chọn — giống nút Thêm nhân sự) */
 .org-toolbar-right .ant-segmented {
-  background: rgba(15, 23, 42, 0.8);
+  background: #fff;
+  border: 1px solid #e5e7eb;
 }
 
 .org-toolbar-right .ant-segmented .ant-segmented-item-label {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .org-toolbar-right .ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected)
   .ant-segmented-item-label {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .org-toolbar-right .ant-segmented .ant-segmented-item-selected {
@@ -139,7 +141,6 @@ body,
 
 .org-toolbar-right .ant-segmented .ant-segmented-item-selected .ant-segmented-item-label {
   color: #fff;
-  font-weight: 600;
 }
 
 .org-zoom {
