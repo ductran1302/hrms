@@ -78,6 +78,12 @@ body,
   color: rgba(0, 0, 0, 0.45);
 }
 
+.org-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .org-stat-value {
   font-size: 26px;
   font-weight: 700;
@@ -85,14 +91,26 @@ body,
   color: rgba(0, 0, 0, 0.88);
 }
 
+/* mockup: delta 2 dòng nằm bên phải số (▲ +12 / so với tháng trước) */
 .org-stat-hint {
+  display: flex;
+  flex-direction: column;
   font-size: 12px;
+  line-height: 1.35;
+}
+
+.org-stat-caption {
   color: rgba(0, 0, 0, 0.45);
 }
 
 .org-stat-delta {
   color: #52c41a;
   font-weight: 600;
+}
+
+/* card "Đang làm": % xanh lá */
+.org-stat-hint--ok .org-stat-delta {
+  color: #52c41a;
 }
 
 /* ==== Panel: toolbar + khu vực sơ đồ ==== */
@@ -147,7 +165,7 @@ body,
   display: flex;
   align-items: center;
   gap: 2px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 2px 6px;
 }
@@ -208,14 +226,14 @@ body,
   position: relative;
 }
 
-/* đường dọc từ thẻ cha xuống thanh ngang của hàng con */
+/* đường dọc từ thẻ cha xuống thanh ngang của hàng con — xanh nhạt theo mockup */
 .org-tree ul::before {
   content: '';
   position: absolute;
   top: 0;
   left: 50%;
   height: 20px;
-  border-left: 1px solid #bfbfbf;
+  border-left: 1px solid #adc6ff;
 }
 
 .org-tree li {
@@ -235,7 +253,7 @@ body,
   top: 0;
   width: 50%;
   height: 20px;
-  border-top: 1px solid #bfbfbf;
+  border-top: 1px solid #adc6ff;
 }
 
 .org-tree li::before {
@@ -244,7 +262,7 @@ body,
 
 .org-tree li::after {
   left: 50%;
-  border-left: 1px solid #bfbfbf;
+  border-left: 1px solid #adc6ff;
 }
 
 /* con đầu: bỏ nửa trái; con cuối: bỏ nửa phải (thay bằng border-right) */
@@ -258,7 +276,7 @@ body,
 }
 
 .org-tree li:last-child::before {
-  border-right: 1px solid #bfbfbf;
+  border-right: 1px solid #adc6ff;
   border-top-right-radius: 6px;
 }
 
@@ -291,6 +309,12 @@ body,
   padding: 14px 16px 12px;
   text-align: left;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* root card luôn viền xanh (theo mockup — giống trạng thái selected) */
+.org-tree > li > .org-card {
+  border-color: #1677ff;
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.12);
 }
 
 .org-card--parent {
@@ -340,6 +364,7 @@ body,
 
 .org-card-status {
   margin: 10px 0 0;
+  border-radius: 100px; /* bo tròn viên thuốc theo mockup */
 }
 
 .org-card-pos {

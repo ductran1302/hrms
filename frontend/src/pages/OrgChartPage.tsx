@@ -187,22 +187,29 @@ function StatCard({
   icon,
   label,
   value,
-  hint,
-  hintClass,
+  delta,
+  caption,
+  ok,
 }: {
   icon: ReactNode;
   label: string;
   value: string | number;
-  hint: ReactNode;
-  hintClass?: string;
+  delta: ReactNode;
+  caption: string;
+  ok?: boolean;
 }) {
   return (
     <div className="org-stat">
       <div className="org-stat-icon">{icon}</div>
       <div className="org-stat-body">
         <div className="org-stat-label">{label}</div>
-        <div className="org-stat-value">{value}</div>
-        <div className={`org-stat-hint${hintClass ? ` ${hintClass}` : ''}`}>{hint}</div>
+        <div className="org-stat-row">
+          <div className="org-stat-value">{value}</div>
+          <div className={`org-stat-hint${ok ? ' org-stat-hint--ok' : ''}`}>
+            <span className="org-stat-delta">{delta}</span>
+            <span className="org-stat-caption">{caption}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -389,46 +396,30 @@ export default function OrgChartPage() {
             icon={<TeamOutlined />}
             label={t('orgchart.stats.totalEmployees')}
             value={stats.totalEmployees}
-            hint={
-              <>
-                <span className="org-stat-delta">{fmtDelta(stats.employeeDelta)}</span>{' '}
-                {t('orgchart.stats.vsLastMonth')}
-              </>
-            }
+            delta={fmtDelta(stats.employeeDelta)}
+            caption={t('orgchart.stats.vsLastMonth')}
           />
           <StatCard
             icon={<BankOutlined />}
             label={t('orgchart.stats.departments')}
             value={stats.totalDepartments}
-            hint={
-              <>
-                <span className="org-stat-delta">{fmtDelta(stats.departmentDelta)}</span>{' '}
-                {t('orgchart.stats.vsLastMonth')}
-              </>
-            }
+            delta={fmtDelta(stats.departmentDelta)}
+            caption={t('orgchart.stats.vsLastMonth')}
           />
           <StatCard
             icon={<UserOutlined />}
             label={t('orgchart.stats.managers')}
             value={stats.totalManagers}
-            hint={
-              <>
-                <span className="org-stat-delta">{fmtDelta(stats.managerDelta)}</span>{' '}
-                {t('orgchart.stats.vsLastMonth')}
-              </>
-            }
+            delta={fmtDelta(stats.managerDelta)}
+            caption={t('orgchart.stats.vsLastMonth')}
           />
           <StatCard
             icon={<UserOutlined />}
             label={t('orgchart.stats.active')}
             value={stats.activeEmployees}
-            hintClass="org-stat-hint--ok"
-            hint={
-              <>
-                <span className="org-stat-delta">{stats.activePercent}%</span>{' '}
-                {t('orgchart.stats.activeRatio')}
-              </>
-            }
+            delta={`${stats.activePercent}%`}
+            caption={t('orgchart.stats.activeRatio')}
+            ok
           />
         </div>
       )}
