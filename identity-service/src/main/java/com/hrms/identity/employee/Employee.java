@@ -88,6 +88,10 @@ public class Employee extends BaseEntity {
   @Column(name = "photo_url")
   private String photoUrl;
 
+  /** Nơi làm việc / văn phòng (V10) — dùng cho filter "văn phòng" trên sơ đồ tổ chức. */
+  @Column(name = "office")
+  private String office;
+
   /** FK → holiday_calendars.id (V8) — null = dùng lịch mặc định theo country. */
   @Column(name = "calendar_id")
   private UUID calendarId;

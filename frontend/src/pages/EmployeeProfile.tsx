@@ -249,6 +249,7 @@ export default function EmployeeProfile() {
         {employee.nationalId ?? '—'}
       </Descriptions.Item>
       <Descriptions.Item label={t('profile.info.address')}>{employee.address ?? '—'}</Descriptions.Item>
+      <Descriptions.Item label={t('profile.info.office')}>{employee.office ?? '—'}</Descriptions.Item>
       <Descriptions.Item label={t('profile.info.education')}>
         {employee.educationLevel ?? '—'}
       </Descriptions.Item>

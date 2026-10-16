@@ -10,6 +10,7 @@ public record OrgChartNode(
     String fullName,
     String position,
     String departmentName,
+    String office,
     String status,
     String photoUrl,
     List<OrgChartNode> children) {}

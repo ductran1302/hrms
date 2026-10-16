@@ -20,4 +20,5 @@ public record EmployeeCreateRequest(
     @Size(max = 10) String gender,
     @Size(max = 20) String phone,
     @Size(max = 20) String nationalId,
-    @Size(max = 300) String address) {}
+    @Size(max = 300) String address,
+    @Size(max = 100) String office) {}

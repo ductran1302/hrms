@@ -72,21 +72,30 @@ R=$(req GET "$HR" /api/v1/departments);          check "GET departments" 200 "$(
 R=$(req GET "$MGR" /api/v1/departments/tree);    check "GET departments tree" 200 "$(code_of "$R")"
 
 echo "== 3. Nhan vien + gan phong ban + search"
-R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"$EMP_CODE\",\"fullName\":\"NV $SUF\",\"email\":\"$SUF@hrms.vn\",\"departmentId\":\"$DEPT_ID\",\"position\":\"Tester\",\"hiredAt\":\"2026-01-05T00:00:00Z\",\"gender\":\"FEMALE\",\"birthDate\":\"1995-04-02\",\"phone\":\"0900000001\",\"nationalId\":\"012345678901\"}")
-check "POST tao nhan vien (co departmentId)" 201 "$(code_of "$R")"
+R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"$EMP_CODE\",\"fullName\":\"NV $SUF\",\"email\":\"$SUF@hrms.vn\",\"departmentId\":\"$DEPT_ID\",\"position\":\"Tester\",\"office\":\"Tòa nhà A - Tầng 3\",\"hiredAt\":\"2026-01-05T00:00:00Z\",\"gender\":\"FEMALE\",\"birthDate\":\"1995-04-02\",\"phone\":\"0900000001\",\"nationalId\":\"012345678901\"}")
+check "POST tao nhan vien (co departmentId + office)" 201 "$(code_of "$R")"
 EMP_ID=$(id_of "$R"); echo "employeeId=$EMP_ID"
 check_has "resolve ten phong ban" "$(has "$R" "Phòng QA $SUF")" yes
+check_has "luu office" "$(has "$R" '"office":"Tòa nhà A - Tầng 3"')" yes
 R=$(req GET "$HR" "/api/v1/employees?q=$EMP_CODE")
 check "GET search q=ma NV" 200 "$(code_of "$R")"
 check_has "search tim thay trong items" "$(has "$R" "$EMP_CODE")" yes
 R=$(req GET "$HR" "/api/v1/employees?departmentId=$DEPT_ID")
 check "GET search theo departmentId" 200 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/employees?office=T%C3%B2a%20nh%C3%A0%20A%20-%20T%E1%BA%A7ng%203")
+check "GET search theo office" 200 "$(code_of "$R")"
+check_has "tim thay theo office" "$(has "$R" "$EMP_CODE")" yes
+R=$(req GET "$HR" "/api/v1/employees?office=Khong%20Ton%20Tai")
+check_has "office khong ton tai -> khong co NV" "$(has "$R" "$EMP_CODE")" no
 R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"$EMP_CODE\",\"fullName\":\"Trùng Mã\"}")
 check "POST trung ma" 409 "$(code_of "$R")"
 
 echo "== 4. PATCH nang cao (history + clear)"
 R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"position":"Senior Tester"}')
 check "PATCH doi vi tri" 200 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"office":"Tòa nhà B - Tầng 1"}')
+check "PATCH doi office" 200 "$(code_of "$R")"
+check_has "office da doi" "$(has "$R" '"office":"Tòa nhà B - Tầng 1"')" yes
 R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"status":"TERMINATED"}')
 check "PATCH status=TERMINATED" 422 "$(code_of "$R")"
 R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"clearDepartment":true}')
@@ -128,6 +137,15 @@ check "GET org-chart (MANAGER)" 200 "$(code_of "$R")"
 check_has "co root/nhan vien" "$(has "$R" "$EMP_CODE")" yes
 R=$(req GET "$EMP" /api/v1/org-chart)
 check "GET org-chart (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req GET "$MGR" /api/v1/org-chart/stats)
+check "GET org-chart/stats (MANAGER)" 200 "$(code_of "$R")"
+check_has "stats co totalEmployees" "$(has "$R" '"totalEmployees"')" yes
+check_has "stats co totalDepartments" "$(has "$R" '"totalDepartments"')" yes
+check_has "stats co employeeDelta" "$(has "$R" '"employeeDelta"')" yes
+check_has "stats co departmentDelta" "$(has "$R" '"departmentDelta"')" yes
+check_has "stats co managerDelta" "$(has "$R" '"managerDelta"')" yes
+R=$(req GET "$EMP" /api/v1/org-chart/stats)
+check "GET org-chart/stats (EMPLOYEE)" 403 "$(code_of "$R")"
 
 echo "== 8. Bo sung Nhom A (position / ON_LEAVE / supplements / tai lieu)"
 R=$(req GET "$HR" "/api/v1/employees?position=Senior%20Tester")

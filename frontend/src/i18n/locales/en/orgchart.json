@@ -1,5 +1,39 @@
 ﻿{
+  "title": "Org chart",
+  "subtitle": "Company-wide structure and reporting lines",
+  "breadcrumbStaff": "People",
+  "export": "Export chart",
+  "exporting": "Exporting image...",
+  "exportDone": "Org chart exported as PNG",
+  "exportFailed": "Failed to export image",
+  "addEmployee": "Add employee",
+  "stats": {
+    "totalEmployees": "Total headcount",
+    "departments": "Departments",
+    "managers": "Managers",
+    "active": "Active",
+    "vsLastMonth": "vs last month",
+    "activeRatio": "of headcount"
+  },
+  "searchPlaceholder": "Search by name, title...",
+  "allDepartments": "All departments",
+  "allOffices": "All offices",
+  "viewChart": "Chart",
+  "viewList": "List",
+  "zoomOut": "Zoom out",
+  "zoomIn": "Zoom in",
   "expandBranch": "Expand branch",
   "collapseBranch": "Collapse branch",
-  "empty": "No org chart data yet — assign a direct manager to employees."
+  "empty": "No org chart data yet — assign a direct manager to employees.",
+  "emptyFiltered": "No employee matches the current filters.",
+  "columns": {
+    "name": "Employee",
+    "code": "Employee code",
+    "position": "Title",
+    "department": "Department",
+    "office": "Office",
+    "status": "Status",
+    "manager": "Direct manager",
+    "reports": "Reports"
+  }
 }

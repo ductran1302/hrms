@@ -15,7 +15,7 @@ import {
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listDepartments } from '../api/departments';
 import { createEmployee, searchEmployees, terminateEmployee, updateEmployee } from '../api/employees';
@@ -47,6 +47,7 @@ interface FormValues {
   phone?: string;
   nationalId?: string;
   address?: string;
+  office?: string;
   educationLevel?: string;
   skills?: string;
   emergencyContactName?: string;
@@ -60,6 +61,7 @@ export default function EmployeePage() {
   const { message } = AntApp.useApp();
   const auth = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const actionRef = useRef<ActionType>(null);
   const [form] = Form.useForm<FormValues>();
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,6 +71,8 @@ export default function EmployeePage() {
   const [deptFilter, setDeptFilter] = useState<string | undefined>(undefined);
   const [positionFilter, setPositionFilter] = useState<string | undefined>(undefined);
   const [positionOptions, setPositionOptions] = useState<string[]>([]);
+  const [officeFilter, setOfficeFilter] = useState<string | undefined>(undefined);
+  const [officeOptions, setOfficeOptions] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managerOptions, setManagerOptions] = useState<Employee[]>([]);
@@ -92,13 +96,19 @@ export default function EmployeePage() {
       .catch(() => setCalendars([]));
     searchEmployees({ size: 500 })
       .then((page) => {
-        const unique = new Set<string>();
+        const positions = new Set<string>();
+        const offices = new Set<string>();
         page.items.forEach((e) => {
-          if (e.position) unique.add(e.position);
+          if (e.position) positions.add(e.position);
+          if (e.office) offices.add(e.office);
         });
-        setPositionOptions([...unique].sort());
+        setPositionOptions([...positions].sort());
+        setOfficeOptions([...offices].sort());
       })
-      .catch(() => setPositionOptions([]));
+      .catch(() => {
+        setPositionOptions([]);
+        setOfficeOptions([]);
+      });
   }, []);
 
   const openCreate = () => {
@@ -111,6 +121,15 @@ export default function EmployeePage() {
       .then((page) => setManagerOptions(page.items))
       .catch(() => setManagerOptions([]));
   };
+
+  // Đến từ nút "Thêm nhân sự" trên sơ đồ tổ chức → mở sẵn form tạo
+  useEffect(() => {
+    const state = location.state as { create?: boolean } | null;
+    if (state?.create) {
+      openCreate();
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state]);
 
   const openEdit = (record: Employee) => {
     setEditing(record);
@@ -128,6 +147,7 @@ export default function EmployeePage() {
       phone: record.phone ?? undefined,
       nationalId: record.nationalId ?? undefined,
       address: record.address ?? undefined,
+      office: record.office ?? undefined,
       educationLevel: record.educationLevel ?? undefined,
       skills: record.skills ?? undefined,
       emergencyContactName: record.emergencyContactName ?? undefined,
@@ -165,6 +185,7 @@ export default function EmployeePage() {
         if ((values.phone ?? null) !== editing.phone) patch.phone = values.phone;
         if ((values.nationalId ?? null) !== editing.nationalId) patch.nationalId = values.nationalId;
         if ((values.address ?? null) !== editing.address) patch.address = values.address;
+        if ((values.office ?? null) !== editing.office) patch.office = values.office;
         if ((values.educationLevel ?? null) !== editing.educationLevel) {
           patch.educationLevel = values.educationLevel;
         }
@@ -205,6 +226,7 @@ export default function EmployeePage() {
           phone: values.phone,
           nationalId: values.nationalId,
           address: values.address,
+          office: values.office,
         });
         if (values.calendarId) {
           await assignEmployeeCalendar(created.id, values.calendarId);
@@ -242,6 +264,7 @@ export default function EmployeePage() {
     { title: t('employee.column.email'), dataIndex: 'email', width: 200, ellipsis: true },
     { title: t('employee.column.department'), dataIndex: 'departmentName', width: 130, ellipsis: true },
     { title: t('employee.column.position'), dataIndex: 'position', width: 140, ellipsis: true },
+    { title: t('employee.column.office'), dataIndex: 'office', width: 140, ellipsis: true },
     {
       title: t('employee.column.status'),
       dataIndex: 'status',
@@ -348,6 +371,20 @@ export default function EmployeePage() {
               .map((p) => ({ value: p, label: p }))}
           />,
           <Select
+            key="office"
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder={t('employee.filter.office')}
+            style={{ width: 160 }}
+            value={officeFilter}
+            onChange={(value) => {
+              setOfficeFilter(value);
+              actionRef.current?.reload();
+            }}
+            options={officeOptions.map((o) => ({ value: o, label: o }))}
+          />,
+          <Select
             key="status"
             allowClear
             placeholder={t('employee.filter.status')}
@@ -378,6 +415,7 @@ export default function EmployeePage() {
               status: statusFilter,
               departmentId: deptFilter,
               position: positionFilter,
+              office: officeFilter,
               q: keyword,
             });
             return { data: page.items, total: page.total, success: true };
@@ -526,6 +564,9 @@ export default function EmployeePage() {
           </Form.Item>
           <Form.Item name="address" label={t('employee.form.address')} rules={[{ max: 300 }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="office" label={t('employee.form.office')} rules={[{ max: 100 }]}>
+            <Input placeholder={t('employee.form.officePlaceholder')} />
           </Form.Item>
           <Divider orientation="left" plain>
             {t('employee.form.additionalInfo')}

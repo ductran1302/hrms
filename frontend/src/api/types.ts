@@ -27,6 +27,7 @@ export interface Employee {
   phone: string | null;
   nationalId: string | null;
   address: string | null;
+  office: string | null;
   educationLevel: string | null;
   skills: string | null;
   emergencyContactName: string | null;
@@ -52,6 +53,7 @@ export interface EmployeeCreate {
   phone?: string;
   nationalId?: string;
   address?: string;
+  office?: string;
 }
 
 export interface EmployeeUpdate {
@@ -68,6 +70,7 @@ export interface EmployeeUpdate {
   phone?: string;
   nationalId?: string;
   address?: string;
+  office?: string;
   educationLevel?: string;
   skills?: string;
   emergencyContactName?: string;
@@ -81,6 +84,7 @@ export interface EmployeeQuery {
   status?: string;
   departmentId?: string;
   position?: string;
+  office?: string;
   q?: string;
 }
 
@@ -221,9 +225,22 @@ export interface OrgChartNode {
   fullName: string;
   position: string | null;
   departmentName: string | null;
+  office: string | null;
   status: string;
   photoUrl: string | null;
   children: OrgChartNode[];
+}
+
+/** Thống kê đầu trang màn sơ đồ tổ chức (delta = so với 30 ngày trước). */
+export interface OrgChartStats {
+  totalEmployees: number;
+  totalDepartments: number;
+  totalManagers: number;
+  activeEmployees: number;
+  activePercent: number;
+  employeeDelta: number;
+  departmentDelta: number;
+  managerDelta: number;
 }
 
 export interface AttendanceEmployee {

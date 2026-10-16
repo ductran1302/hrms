@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +83,7 @@ public class DataSeeder implements ApplicationRunner {
     runSeed("danh mục chức vụ", this::seedJobTitles);
     runSeed("phòng IT", this::seedItDepartment);
     runSeed("cây nhân sự mẫu", this::seedOrgEmployees);
+    runSeed("nơi làm việc (office)", this::seedOffices);
     runSeed("lịch nghỉ lễ", this::seedHolidayCalendars);
     runSeed("role EMPLOYEE cho nhân viên", this::ensureEmployeeRealmRoles);
   }
@@ -390,7 +392,7 @@ public class DataSeeder implements ApplicationRunner {
           s.code(), s.fullName(), s.email(), dept.getId(), s.position(), managerId,
           Instant.parse(s.hiredAt()), LocalDate.parse(s.birthDate()), s.gender(),
           String.format("0912%07d", i), String.format("001%09d", i),
-          addresses[i % addresses.length]));
+          addresses[i % addresses.length], officeFrom(addresses[i % addresses.length])));
       ids.put(s.code(), emp.getId());
     }
     attachItDirectorUnderCio(ids.get("nqbao"));
@@ -409,7 +411,7 @@ public class DataSeeder implements ApplicationRunner {
     }
     employeeService.update(itDirector.getId(), new EmployeeUpdateRequest(
         null, null, null, null, null, cioId, null, null, null, null, null, null, null,
-        null, null, null, null, null), ACTOR);
+        null, null, null, null, null, null), ACTOR);
   }
 
   private void seedItDepartment() {
@@ -419,7 +421,7 @@ public class DataSeeder implements ApplicationRunner {
         "NVIT001", "Trần Đình Khoa", "khoa.td@hrms.vn", it.getId(),
         "Giám đốc Công nghệ thông tin", null, Instant.parse("2020-01-15T00:00:00Z"),
         LocalDate.of(1988, 3, 12), "MALE", "0912000001", "001088012345",
-        "Hà Nội"));
+        "Hà Nội", officeFrom("Hà Nội")));
     ensureDepartmentManager(it, director);
 
     // ---- Cấp 2: bộ phận (cha = phòng IT) ----
@@ -431,17 +433,20 @@ public class DataSeeder implements ApplicationRunner {
         "NVIT002", "Lê Thu Hà", "ha.lt@hrms.vn", be.getId(),
         "Trưởng phòng Phát triển Backend", director.getId(),
         Instant.parse("2020-06-01T00:00:00Z"),
-        LocalDate.of(1992, 7, 22), "FEMALE", "0912000002", "001092054321", "Hà Nội"));
+        LocalDate.of(1992, 7, 22), "FEMALE", "0912000002", "001092054321", "Hà Nội",
+        officeFrom("Hà Nội")));
     Employee feLead = ensureEmployee(new EmployeeCreateRequest(
         "NVIT003", "Phạm Minh Tuấn", "tuan.pm@hrms.vn", fe.getId(),
         "Trưởng phòng Phát triển Frontend", director.getId(),
         Instant.parse("2021-02-01T00:00:00Z"),
-        LocalDate.of(1993, 11, 5), "MALE", "0912000003", "001093098765", "Hà Nội"));
+        LocalDate.of(1993, 11, 5), "MALE", "0912000003", "001093098765", "Hà Nội",
+        officeFrom("Hà Nội")));
     Employee opsLead = ensureEmployee(new EmployeeCreateRequest(
         "NVIT004", "Vũ Ngọc Sơn", "son.vn@hrms.vn", ops.getId(),
         "Trưởng phòng Vận hành & Hạ tầng", director.getId(),
         Instant.parse("2021-09-01T00:00:00Z"),
-        LocalDate.of(1990, 1, 30), "MALE", "0912000004", "001090011223", "Đà Nẵng"));
+        LocalDate.of(1990, 1, 30), "MALE", "0912000004", "001090011223", "Đà Nẵng",
+        officeFrom("Đà Nẵng")));
 
     ensureDepartmentManager(be, beLead);
     ensureDepartmentManager(fe, feLead);
@@ -451,21 +456,68 @@ public class DataSeeder implements ApplicationRunner {
     ensureEmployee(new EmployeeCreateRequest(
         "NVIT005", "Nguyễn Văn Bình", "binh.nv@hrms.vn", be.getId(),
         "Lập trình viên Backend", beLead.getId(), Instant.parse("2022-03-01T00:00:00Z"),
-        LocalDate.of(1997, 4, 18), "MALE", "0912000005", "001097044556", "Hà Nội"));
+        LocalDate.of(1997, 4, 18), "MALE", "0912000005", "001097044556", "Hà Nội",
+        officeFrom("Hà Nội")));
     ensureEmployee(new EmployeeCreateRequest(
         "NVIT006", "Đỗ Thanh Mai", "mai.dt@hrms.vn", be.getId(),
         "Lập trình viên Backend", beLead.getId(), Instant.parse("2023-01-09T00:00:00Z"),
-        LocalDate.of(1999, 9, 9), "FEMALE", "0912000006", "001099066778", "Hải Phòng"));
+        LocalDate.of(1999, 9, 9), "FEMALE", "0912000006", "001099066778", "Hải Phòng",
+        officeFrom("Hải Phòng")));
     ensureEmployee(new EmployeeCreateRequest(
         "NVIT007", "Hoàng Gia Huy", "huy.hg@hrms.vn", fe.getId(),
         "Lập trình viên Frontend", feLead.getId(), Instant.parse("2023-05-15T00:00:00Z"),
-        LocalDate.of(1998, 12, 1), "MALE", "0912000007", "001098077889", "Huế"));
+        LocalDate.of(1998, 12, 1), "MALE", "0912000007", "001098077889", "Huế",
+        officeFrom("Huế")));
     ensureEmployee(new EmployeeCreateRequest(
         "NVIT008", "Bùi Thị Lan", "lan.bt@hrms.vn", ops.getId(),
         "Kỹ sư Hạ tầng", opsLead.getId(), Instant.parse("2022-08-01T00:00:00Z"),
-        LocalDate.of(1996, 2, 14), "FEMALE", "0912000008", "001096088990", "HCM"));
+        LocalDate.of(1996, 2, 14), "FEMALE", "0912000008", "001096088990", "HCM",
+        officeFrom("HCM")));
 
     log.info("Seed phòng IT hoàn tất — 4 phòng ban, 8 nhân viên (idempotent, bỏ qua nếu đã có)");
+  }
+
+  /**
+   * Suy ra nơi làm việc (office, V10) từ địa chỉ — dữ liệu mẫu dùng 3 văn phòng.
+   * Không khớp thành phố (Hải Phòng/Cần Thơ/Huế...) → trụ sở chính.
+   */
+  private static String officeFrom(String address) {
+    if (address == null || address.isBlank()) {
+      return "Trụ sở Hà Nội";
+    }
+    String a = address.trim().toLowerCase(Locale.ROOT);
+    if (a.contains("hồ chí minh") || a.contains("ho chi minh") || a.contains("hcm")) {
+      return "VP Hồ Chí Minh";
+    }
+    if (a.contains("đà nẵng") || a.contains("da nang")) {
+      return "VP Đà Nẵng";
+    }
+    return "Trụ sở Hà Nội";
+  }
+
+  /**
+   * Backfill office cho nhân viên tạo trước V10 (data cũ trong DB đang chạy).
+   * Chỉ đụng NULL (dữ liệu cũ) — chuỗi rỗng do người dùng để trống được giữ nguyên.
+   */
+  private void seedOffices() {
+    int updated = 0;
+    for (Employee employee : employeeRepository.findAllByOrderByCreatedAtDesc()) {
+      if (employee.getOffice() != null) {
+        continue;
+      }
+      String office = officeFrom(employee.getAddress());
+      try {
+        employeeService.update(employee.getId(), new EmployeeUpdateRequest(
+            null, null, null, null, null, null, null, null, null, null, null, null, null,
+            office, null, null, null, null, null), ACTOR);
+        updated++;
+      } catch (Exception ex) {
+        log.warn("Chưa set office cho {}: {}", employee.getEmployeeCode(), ex.getMessage());
+      }
+    }
+    if (updated > 0) {
+      log.info("Backfill office cho {} nhân viên cũ (idempotent)", updated);
+    }
   }
 
   private Department ensureDepartment(String code, String name, UUID parentId) {

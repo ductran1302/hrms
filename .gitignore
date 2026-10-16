@@ -34,3 +34,6 @@ coverage/
 
 # File uploads (employee documents)
 data/
+
+# Exported opencode sessions (không thuộc source)
+session-*.mdx

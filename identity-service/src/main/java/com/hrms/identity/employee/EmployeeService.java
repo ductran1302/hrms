@@ -107,15 +107,16 @@ public class EmployeeService {
    */
   @Transactional(readOnly = true)
   public PageResponse<EmployeeResponse> search(int page, int size, EmployeeStatus status,
-      UUID departmentId, String position, String q) {
+      UUID departmentId, String position, String office, String q) {
     String query = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase(Locale.ROOT);
     String pos = (position == null || position.isBlank()) ? "" : position.trim();
+    String off = (office == null || office.isBlank()) ? "" : office.trim();
     PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
     List<EmployeeResponse> items =
-        employeeRepository.search(status, departmentId, pos, query, pageable).stream()
+        employeeRepository.search(status, departmentId, pos, off, query, pageable).stream()
             .map(mapper::toResponse)
             .toList();
-    long total = employeeRepository.countSearch(status, departmentId, pos, query);
+    long total = employeeRepository.countSearch(status, departmentId, pos, off, query);
     return PageResponse.of(items, page, size, total);
   }
 
@@ -245,6 +246,10 @@ public class EmployeeService {
     if (patch.address() != null && !Objects.equals(patch.address(), employee.getAddress())) {
       employee.setAddress(patch.address());
       changed.add("address");
+    }
+    if (patch.office() != null && !Objects.equals(patch.office(), employee.getOffice())) {
+      employee.setOffice(patch.office());
+      changed.add("office");
     }
 
     // ---- Thông tin bổ sung (không ghi job history) ----
@@ -379,6 +384,7 @@ public class EmployeeService {
         && patch.phone() == null
         && patch.nationalId() == null
         && patch.address() == null
+        && patch.office() == null
         && patch.educationLevel() == null
         && patch.skills() == null
         && patch.emergencyContactName() == null

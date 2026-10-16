@@ -5,11 +5,166 @@ body,
   margin: 0;
 }
 
+/* ==== Trang sơ đồ tổ chức ==== */
+.org-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.org-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.org-title {
+  margin: 8px 0 4px !important;
+}
+
+/* ==== 4 card thống kê đầu trang ==== */
+.org-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.org-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.org-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.org-stats .org-stat:nth-child(1) .org-stat-icon {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+.org-stats .org-stat:nth-child(2) .org-stat-icon {
+  background: #f9f0ff;
+  color: #722ed1;
+}
+
+.org-stats .org-stat:nth-child(3) .org-stat-icon {
+  background: #e6fffb;
+  color: #13c2c2;
+}
+
+.org-stats .org-stat:nth-child(4) .org-stat-icon {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.org-stat-label {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.org-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.org-stat-hint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.org-stat-delta {
+  color: #52c41a;
+  font-weight: 600;
+}
+
+/* ==== Panel: toolbar + khu vực sơ đồ ==== */
+.org-panel {
+  background: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.org-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.org-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.org-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+
+.org-zoom .ant-btn {
+  border: none;
+  box-shadow: none;
+}
+
+.org-zoom-value {
+  min-width: 48px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.org-tree-scale {
+  min-height: 120px;
+}
+
+@media (max-width: 1200px) {
+  .org-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .org-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .org-toolbar-right {
+    margin-left: 0;
+  }
+}
+
 /* ==== Org chart — cây nhánh top-down (css tree) ==== */
 .org-chart-scroll {
   overflow: auto;
   background: #fff;
-  padding: 32px 24px;
+  padding: 24px 16px;
   border-radius: 8px;
 }
 
@@ -104,69 +259,108 @@ body,
 
 .org-card {
   position: relative;
-  min-width: 180px;
-  max-width: 220px;
+  min-width: 250px;
+  max-width: 270px;
   background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 8px;
-  padding: 10px 14px;
-  text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .org-card--parent {
   cursor: pointer;
 }
 
-.org-card--parent:hover {
+.org-card--parent:hover,
+.org-card.is-collapsed {
   border-color: #1677ff;
   box-shadow: 0 2px 8px rgba(22, 119, 255, 0.15);
 }
 
-.org-card-avatar {
+.org-card-head {
   display: flex;
-  justify-content: center;
-  margin-bottom: 6px;
+  align-items: center;
+  gap: 10px;
+}
+
+.org-card-id {
+  flex: 1;
+  min-width: 0;
 }
 
 .org-card-name {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
   color: rgba(0, 0, 0, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.org-card-sub {
+.org-card-code {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.45);
-  margin-top: 2px;
 }
 
-.org-card-sub .ant-tag {
-  margin-inline-end: 0;
+.org-card-chevron {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease;
+}
+
+.org-card.is-collapsed .org-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.org-card-status {
+  margin: 10px 0 0;
 }
 
 .org-card-pos {
+  margin-top: 8px;
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
-  margin-top: 6px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
 }
 
 .org-card-dept {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
-  margin-top: 2px;
+  color: rgba(0, 0, 0, 0.55);
 }
 
-.org-toggle {
-  position: absolute;
-  top: -9px;
-  right: -9px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid #bfbfbf;
-  background: #fff;
+.org-card-dept .anticon {
+  color: #1677ff;
+}
+
+.org-card-foot {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #f0f0f0;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 12px;
-  line-height: 16px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.org-card-office {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.org-card-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: rgba(0, 0, 0, 0.65);
+  flex-shrink: 0;
 }

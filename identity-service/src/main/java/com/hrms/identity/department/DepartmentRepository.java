@@ -22,6 +22,10 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
   long countByParent_Id(UUID parentId);
 
+  long countByStatus(DepartmentStatus status);
+
+  long countByCreatedAtAfter(java.time.Instant cutoff);
+
   @Query("select count(e) from Employee e where e.departmentId = :departmentId and e.status <> com.hrms.identity.employee.EmployeeStatus.TERMINATED")
   long countActiveEmployees(UUID departmentId);
 }

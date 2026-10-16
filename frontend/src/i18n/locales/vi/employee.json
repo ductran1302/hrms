@@ -11,6 +11,7 @@
     "keyword": "Mã / tên / email",
     "department": "Phòng ban",
     "position": "Chức danh",
+    "office": "Văn phòng",
     "status": "Trạng thái"
   },
   "column": {
@@ -19,6 +20,7 @@
     "email": "Email",
     "department": "Phòng ban",
     "position": "Chức danh",
+    "office": "Văn phòng",
     "status": "Trạng thái",
     "hiredAt": "Ngày vào làm"
   },
@@ -60,6 +62,8 @@
     "phonePlaceholder": "09xx",
     "nationalId": "Số CCCD/CMND",
     "address": "Địa chỉ",
+    "office": "Nơi làm việc",
+    "officePlaceholder": "VD: Trụ sở Hà Nội",
     "additionalInfo": "Thông tin bổ sung",
     "educationLevel": "Trình độ học vấn",
     "skills": "Kỹ năng",

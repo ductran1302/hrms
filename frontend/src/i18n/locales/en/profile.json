@@ -11,6 +11,7 @@
     "gender": "Gender",
     "nationalId": "National ID",
     "address": "Address",
+    "office": "Office",
     "education": "Education",
     "emergencyContact": "Emergency contact",
     "skills": "Skills",

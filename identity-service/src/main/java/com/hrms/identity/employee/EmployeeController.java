@@ -51,15 +51,16 @@ public class EmployeeController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
-  @Operation(summary = "Danh sách nhân viên phân trang (tìm kiếm + lọc status/phòng ban/chức vụ)")
+  @Operation(summary = "Danh sách nhân viên phân trang (tìm kiếm + lọc status/phòng ban/chức vụ/văn phòng)")
   public PageResponse<EmployeeResponse> search(
       @RequestParam(name = "page", defaultValue = "0") int page,
       @RequestParam(name = "size", defaultValue = "20") int size,
       @RequestParam(name = "status", required = false) EmployeeStatus status,
       @RequestParam(name = "departmentId", required = false) UUID departmentId,
       @RequestParam(name = "position", required = false) String position,
+      @RequestParam(name = "office", required = false) String office,
       @RequestParam(name = "q", required = false) String q) {
-    return employeeService.search(page, Math.max(size, 1), status, departmentId, position, q);
+    return employeeService.search(page, Math.max(size, 1), status, departmentId, position, office, q);
   }
 
   @GetMapping("/me")

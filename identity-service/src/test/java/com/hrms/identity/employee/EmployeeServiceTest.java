@@ -74,9 +74,8 @@ class EmployeeServiceTest {
 
   @Test
   void create_savesEmployeeAndWritesOutbox() {
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", "a@hrms.vn", null, "Backend",
-            null, null, null, null, null, null, null);
+    EmployeeCreateRequest request = createReq("NV0001", "Nguyễn Văn A", "a@hrms.vn", null,
+        "Backend");
     Employee entity = new Employee();
     entity.setEmployeeCode("NV0001");
     entity.setFullName("Nguyễn Văn A");
@@ -113,9 +112,7 @@ class EmployeeServiceTest {
 
   @Test
   void create_blankCode_generatesFromFullName() {
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest(null, "Nguyễn Trung Hiếu", null, null, null, null, null,
-            null, null, null, null, null);
+    EmployeeCreateRequest request = createReq(null, "Nguyễn Trung Hiếu", null, null, null);
     Employee entity = new Employee();
     entity.setFullName("Nguyễn Trung Hiếu");
 
@@ -137,9 +134,7 @@ class EmployeeServiceTest {
 
   @Test
   void create_blankCode_appendsSuffixWhenTaken() {
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest("", "Nguyễn Trung Hiếu", null, null, null, null, null,
-            null, null, null, null, null);
+    EmployeeCreateRequest request = createReq("", "Nguyễn Trung Hiếu", null, null, null);
     Employee entity = new Employee();
     entity.setFullName("Nguyễn Trung Hiếu");
 
@@ -162,9 +157,7 @@ class EmployeeServiceTest {
 
   @Test
   void create_keycloakUsernameTaken_throwsConflictAndSkipsOutbox() {
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest("hr", "Hồ Ráng", null, null, null, null, null, null, null,
-            null, null, null);
+    EmployeeCreateRequest request = createReq("hr", "Hồ Ráng", null, null, null);
     Employee entity = new Employee();
     entity.setFullName("Hồ Ráng");
 
@@ -184,9 +177,7 @@ class EmployeeServiceTest {
 
   @Test
   void create_duplicateCode_throwsConflict() {
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest("NV0001", "Nguyễn Văn A", null, null, null, null, null,
-            null, null, null, null, null);
+    EmployeeCreateRequest request = createReq("NV0001", "Nguyễn Văn A", null, null, null);
     when(employeeRepository.existsByEmployeeCode("NV0001")).thenReturn(true);
 
     assertThrows(ConflictException.class, () -> service.create(request, actorId));
@@ -197,9 +188,7 @@ class EmployeeServiceTest {
   @Test
   void create_unknownDepartment_throwsResourceNotFound() {
     UUID departmentId = UUID.randomUUID();
-    EmployeeCreateRequest request =
-        new EmployeeCreateRequest("NV0002", "Test", null, departmentId, null, null, null,
-            null, null, null, null, null);
+    EmployeeCreateRequest request = createReq("NV0002", "Test", null, departmentId, null);
     Employee entity = new Employee();
     entity.setEmployeeCode("NV0002");
 
@@ -214,17 +203,15 @@ class EmployeeServiceTest {
   @Test
   void search_returnsPageResponse() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
-    EmployeeResponse response = new EmployeeResponse(employeeId, "NV0001", "Nguyễn Văn A",
-        null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, 0L);
-    when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
+    EmployeeResponse response = sampleResponse();
+    when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""), eq(""),
         any())).thenReturn(List.of(employee));
-    when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq("")))
-        .thenReturn(1L);
+    when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
+        eq(""))).thenReturn(1L);
     when(mapper.toResponse(employee)).thenReturn(response);
 
     PageResponse<EmployeeResponse> result =
-        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null);
+        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null, null);
 
     assertEquals(1, result.items().size());
     assertEquals(1L, result.total());
@@ -239,17 +226,14 @@ class EmployeeServiceTest {
 
   @Test
   void update_noFields_throwsBusinessRule() {
-    EmployeeUpdateRequest patch = new EmployeeUpdateRequest(null, null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateReq();
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
 
   @Test
   void update_statusTerminatedViaPatch_rejected() {
-    EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, null, null, null, null, null, null, "TERMINATED",
-            null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithStatus("TERMINATED");
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).findById(any());
   }
@@ -262,9 +246,7 @@ class EmployeeServiceTest {
     when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, "new@hrms.vn", null, null, null, null, null, null,
-            null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithEmail("new@hrms.vn");
     service.update(employeeId, patch, actorId);
 
     assertEquals("new@hrms.vn", employee.getEmail());
@@ -280,6 +262,29 @@ class EmployeeServiceTest {
   }
 
   @Test
+  void update_officeChange_savesWithoutJobHistory() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    employee.setOffice("Trụ sở Hà Nội");
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+
+    EmployeeUpdateRequest patch = updateWithOffice("VP Đà Nẵng");
+    service.update(employeeId, patch, actorId);
+
+    assertEquals("VP Đà Nẵng", employee.getOffice());
+    // office là info thường xuyên đổi (không phải job info) → không ghi history
+    verify(jobHistoryService, never()).record(any(), any(), any(), any(), any());
+
+    ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
+    verify(outboxRepository).save(outbox.capture());
+    EmployeeEventPayload payload =
+        OutboxPayloadConverter.fromJson(outbox.getValue().getPayload(),
+            EmployeeEventPayload.class);
+    assertTrue(payload.changedFields().contains("office"));
+  }
+
+  @Test
   void update_positionChange_recordsJobHistory() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     employee.setPosition("Backend");
@@ -287,9 +292,7 @@ class EmployeeServiceTest {
     when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, null, null, null, "Senior Backend", null, null,
-            null, null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithPosition("Senior Backend");
     service.update(employeeId, patch, actorId);
 
     assertEquals("Senior Backend", employee.getPosition());
@@ -312,9 +315,7 @@ class EmployeeServiceTest {
     when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, null, departmentId, null, null, null, null, null,
-            null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithDepartment(departmentId);
     service.update(employeeId, patch, actorId);
 
     assertEquals(departmentId, employee.getDepartmentId());
@@ -328,9 +329,7 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
-    EmployeeUpdateRequest patch =
-        new EmployeeUpdateRequest(null, null, null, null, null, employeeId, null, null,
-            null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithManager(employeeId);
     assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
     verify(employeeRepository, never()).save(any());
   }
@@ -341,8 +340,7 @@ class EmployeeServiceTest {
     employee.setFullName("Nguyễn Văn A");
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
-    EmployeeUpdateRequest patch = new EmployeeUpdateRequest("Nguyễn Văn A", null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+    EmployeeUpdateRequest patch = updateWithFullName("Nguyễn Văn A");
     service.update(employeeId, patch, actorId);
 
     verify(outboxRepository, never()).save(any());
@@ -394,9 +392,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
     when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
     when(holidayCalendarRepository.findById(calendarId)).thenReturn(Optional.of(calendar));
-    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
-        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
-        null, null, null, null, null, null, null, null, null, calendarId, null, null, 0L));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse("NV0001", calendarId));
 
     EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
 
@@ -412,9 +408,7 @@ class EmployeeServiceTest {
     UUID calendarId = UUID.randomUUID();
     employee.setCalendarId(calendarId);
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
-    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
-        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
-        null, null, null, null, null, null, null, null, null, calendarId, null, null, 0L));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse("NV0001", calendarId));
 
     EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
 
@@ -427,9 +421,7 @@ class EmployeeServiceTest {
   void me_matchedByEmployeeCode_returnsProfile() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(employee));
-    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0001",
-        "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, 0L));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse());
 
     assertEquals("NV0001", service.me("NV0001", "a@x.vn").employeeCode());
     verify(employeeRepository, never()).findFirstByEmail(any());
@@ -441,9 +433,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.empty());
     when(employeeRepository.findFirstByEmail("employee1@hrms.local"))
         .thenReturn(Optional.of(employee));
-    when(mapper.toResponse(employee)).thenReturn(new EmployeeResponse(employeeId, "NV0002",
-        "Nhân viên 1", null, null, null, null, null, EmployeeStatus.ACTIVE, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, 0L));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse("NV0002", null));
 
     assertEquals("NV0002", service.me("manager1", "employee1@hrms.local").employeeCode());
   }
@@ -455,5 +445,65 @@ class EmployeeServiceTest {
     employee.setFullName("Nguyễn Văn A");
     employee.setStatus(status);
     return employee;
+  }
+
+  // ---- Factory helpers: tránh lỗi sai số lượng tham số khi record thêm field ----
+
+  private static EmployeeCreateRequest createReq(String employeeCode, String fullName,
+      String email, UUID departmentId, String position) {
+    return new EmployeeCreateRequest(employeeCode, fullName, email, departmentId, position, null,
+        null, null, null, null, null, null, null);
+  }
+
+  private EmployeeResponse sampleResponse() {
+    return sampleResponse("NV0001", null);
+  }
+
+  private EmployeeResponse sampleResponse(String code, UUID calendarId) {
+    return new EmployeeResponse(
+        employeeId, code, "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE,
+        null, null, null, null, null, null, null, null, null, null, null, null, null, calendarId,
+        null, null, 0L);
+  }
+
+  /** PATCH toàn null (19 trường) — dùng cho case "không có trường nào để cập nhật". */
+  private static EmployeeUpdateRequest updateReq() {
+    return new EmployeeUpdateRequest(null, null, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithFullName(String fullName) {
+    return new EmployeeUpdateRequest(fullName, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithEmail(String email) {
+    return new EmployeeUpdateRequest(null, email, null, null, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithDepartment(UUID departmentId) {
+    return new EmployeeUpdateRequest(null, null, departmentId, null, null, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithPosition(String position) {
+    return new EmployeeUpdateRequest(null, null, null, null, position, null, null, null, null,
+        null, null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithManager(UUID managerId) {
+    return new EmployeeUpdateRequest(null, null, null, null, null, managerId, null, null, null,
+        null, null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithStatus(String status) {
+    return new EmployeeUpdateRequest(null, null, null, null, null, null, null, status, null, null,
+        null, null, null, null, null, null, null, null, null);
+  }
+
+  private static EmployeeUpdateRequest updateWithOffice(String office) {
+    return new EmployeeUpdateRequest(null, null, null, null, null, null, null, null, null, null,
+        null, null, null, office, null, null, null, null, null);
   }
 }

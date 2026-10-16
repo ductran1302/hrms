@@ -15,6 +15,7 @@ export function searchEmployees(params: EmployeeQuery = {}): Promise<PageRespons
   if (params.status) query.status = params.status;
   if (params.departmentId) query.departmentId = params.departmentId;
   if (params.position) query.position = params.position;
+  if (params.office) query.office = params.office;
   if (params.q) query.q = params.q;
   return client.get<PageResponse<Employee>>('/api/v1/employees', { params: query }).then((r) => r.data);
 }

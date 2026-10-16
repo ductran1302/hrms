@@ -1,5 +1,39 @@
 ﻿{
+  "title": "Sơ đồ tổ chức",
+  "subtitle": "Cơ cấu tổ chức và tuyến báo cáo toàn công ty",
+  "breadcrumbStaff": "Nhân sự",
+  "export": "Xuất sơ đồ",
+  "exporting": "Đang xuất ảnh...",
+  "exportDone": "Đã xuất sơ đồ PNG",
+  "exportFailed": "Xuất ảnh thất bại",
+  "addEmployee": "Thêm nhân sự",
+  "stats": {
+    "totalEmployees": "Tổng nhân sự",
+    "departments": "Phòng ban",
+    "managers": "Quản lý",
+    "active": "Đang làm",
+    "vsLastMonth": "so với tháng trước",
+    "activeRatio": "tổng nhân sự"
+  },
+  "searchPlaceholder": "Tìm theo tên, chức danh...",
+  "allDepartments": "Tất cả phòng ban",
+  "allOffices": "Tất cả văn phòng",
+  "viewChart": "Sơ đồ",
+  "viewList": "Danh sách",
+  "zoomOut": "Thu nhỏ",
+  "zoomIn": "Phóng to",
   "expandBranch": "Mở rộng nhánh",
   "collapseBranch": "Thu gọn nhánh",
-  "empty": "Chưa có dữ liệu sơ đồ tổ chức — gán quản lý trực tiếp cho nhân viên."
+  "empty": "Chưa có dữ liệu sơ đồ tổ chức — gán quản lý trực tiếp cho nhân viên.",
+  "emptyFiltered": "Không tìm thấy nhân viên phù hợp bộ lọc.",
+  "columns": {
+    "name": "Nhân viên",
+    "code": "Mã NV",
+    "position": "Chức danh",
+    "department": "Phòng ban",
+    "office": "Văn phòng",
+    "status": "Trạng thái",
+    "manager": "Quản lý trực tiếp",
+    "reports": "Cấp dưới"
+  }
 }

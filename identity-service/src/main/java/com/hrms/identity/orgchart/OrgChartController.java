@@ -23,4 +23,11 @@ public class OrgChartController {
   public List<OrgChartNode> tree() {
     return orgChartService.tree();
   }
+
+  @GetMapping("/stats")
+  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @Operation(summary = "Thống kê đầu trang (tổng nhân sự/phòng ban/quản lý/đang làm + delta 30 ngày)")
+  public OrgChartStats stats() {
+    return orgChartService.stats();
+  }
 }

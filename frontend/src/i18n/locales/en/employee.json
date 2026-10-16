@@ -11,6 +11,7 @@
     "keyword": "Code / name / email",
     "department": "Department",
     "position": "Position",
+    "office": "Office",
     "status": "Status"
   },
   "column": {
@@ -19,6 +20,7 @@
     "email": "Email",
     "department": "Department",
     "position": "Position",
+    "office": "Office",
     "status": "Status",
     "hiredAt": "Hired date"
   },
@@ -60,6 +62,8 @@
     "phonePlaceholder": "09xx",
     "nationalId": "National ID number",
     "address": "Address",
+    "office": "Office",
+    "officePlaceholder": "e.g. HQ Hanoi",
     "additionalInfo": "Additional information",
     "educationLevel": "Education",
     "skills": "Skills",

@@ -21,6 +21,7 @@ public record EmployeeResponse(
     String phone,
     String nationalId,
     String address,
+    String office,
     String educationLevel,
     String skills,
     String emergencyContactName,
