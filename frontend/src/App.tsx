@@ -2,14 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './auth/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 import AttendancePage from './pages/AttendancePage';
+import ContractPage from './pages/ContractPage';
+import DepartmentPage from './pages/DepartmentPage';
 import EmployeePage from './pages/EmployeePage';
 import EmployeeProfile from './pages/EmployeeProfile';
-import HopDongPage from './pages/HopDongPage';
-import LePage from './pages/LePage';
+import HolidayPage from './pages/HolidayPage';
+import LeaveQuotaPage from './pages/LeaveQuotaPage';
 import MyLeavePage from './pages/MyLeavePage';
 import OrgChartPage from './pages/OrgChartPage';
-import PhongBanPage from './pages/PhongBanPage';
-import QuyPhepPage from './pages/QuyPhepPage';
 import WorkShiftPage from './pages/WorkShiftPage';
 
 const STAFF_ROLES = ['HR_ADMIN', 'MANAGER'];
@@ -47,7 +47,7 @@ export default function App() {
             path="departments"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
-                <PhongBanPage />
+                <DepartmentPage />
               </ProtectedRoute>
             }
           />
@@ -55,7 +55,7 @@ export default function App() {
             path="contracts"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
-                <HopDongPage />
+                <ContractPage />
               </ProtectedRoute>
             }
           />
@@ -79,7 +79,7 @@ export default function App() {
             path="holidays"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
-                <LePage />
+                <HolidayPage />
               </ProtectedRoute>
             }
           />
@@ -87,7 +87,7 @@ export default function App() {
             path="leave-quota"
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
-                <QuyPhepPage />
+                <LeaveQuotaPage />
               </ProtectedRoute>
             }
           />

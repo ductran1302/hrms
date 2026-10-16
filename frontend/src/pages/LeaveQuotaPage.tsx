@@ -60,7 +60,7 @@ interface PolicyFormValues {
   positionQuotas: { positionName: string; bonusDays: number }[];
 }
 
-export default function QuyPhepPage() {
+export default function LeaveQuotaPage() {
   const { t } = useTranslation();
   const auth = useAuth();
   const canWrite = auth.hasRole('HR_ADMIN');

@@ -165,7 +165,7 @@ function YearCalendar({
   );
 }
 
-export default function LePage() {
+export default function HolidayPage() {
   const { t } = useTranslation();
 
   const currentYear = dayjs().year();

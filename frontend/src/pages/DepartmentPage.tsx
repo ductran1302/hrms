@@ -22,7 +22,7 @@ interface FormValues {
   managerId?: string;
 }
 
-export default function PhongBanPage() {
+export default function DepartmentPage() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const auth = useAuth();

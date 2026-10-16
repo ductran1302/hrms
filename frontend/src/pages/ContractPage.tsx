@@ -72,7 +72,7 @@ interface FormValues {
 const vnd = (value: number | null) =>
   value == null ? null : new Intl.NumberFormat('vi-VN').format(value);
 
-export default function HopDongPage() {
+export default function ContractPage() {
   const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const auth = useAuth();
