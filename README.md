@@ -2,7 +2,9 @@
 
 Hệ thống quản lý nhân sự kiến trúc microservice: **Spring Boot 3 + React 18 + Kafka + PostgreSQL + Keycloak**.
 
-> **Trạng thái: HOÀN TẤT lộ trình ①–⑨.** Bước 9: identity-core — phòng ban, hợp đồng (lương che theo role), lịch sử job info, org chart, hồ sơ nhân viên mở rộng + phân trang/tìm kiếm. Trước đó: Bước 8 Docker/app stack; Bước 7 React frontend; Bước 6 attendance + springdoc.
+> **Đọc nhanh:** [`AGENTS.md`](AGENTS.md) — quick reference cho AI agents/dev mới: lệnh build, quy ước code, kiến trúc, checklist thêm feature. File này (README) mô tả tổng quan + cách chạy.
+
+> **Trạng thái: HOÀN TẤT lộ trình ①–⑪ + module mở rộng.** Bước 11A: nhân sự nhóm A đầy đủ + mã NV tự sinh + i18n VI/EN + seed cây tổ chức. Kèm các module: contract evolution (PENDING/gia hạn/thay thế/phụ lục/cảnh báo hết hạn), ngày lễ (calendar CRUD + gán NV + attendance projection qua Kafka), quỹ phép GĐ1 (policy + quota + cấp tay BigDecimal). Trước đó: Bước 9 identity-core; Bước 8 Docker/app stack; Bước 7 frontend; Bước 6 attendance + springdoc.
 
 ## Kiến trúc
 
@@ -157,9 +159,11 @@ HRMS/
 │   └── src/main/resources/db/migration/  # Flyway (attendance_db)
 ├── frontend/                   # React 18 + Vite + AntD v5 + ProComponents (Dockerfile → nginx)
 │   └── src/{auth,api,pages,layouts}/
-├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC)
+├── scripts/verify-identity.sh  # smoke test API (auth + CRUD + RBAC + ngày lễ + quỹ phép, 155 checks)
 ├── scripts/verify-attendance.sh # smoke test attendance (RBAC + E2E qua gateway)
+├── scripts/verify-new-features.sh # smoke test hợp đồng tiến độ + ngày lễ
 ├── scripts/verify-gateway-attendance.sh # route gateway → attendance (200/401/403)
+├── scripts/verify-gateway-routes.sh # route gateway (env GW= để trỏ app gateway)
 ├── scripts/verify-swagger.sh   # kiểm tra springdoc + bearerAuth (identity + attendance)
 ├── scripts/verify-frontend-pkce.sh # E2E PKCE: authorize → login → token → gateway API
 └── scripts/fix-esbuild.sh      # npm 12 chặn postinstall esbuild → approve + rebuild
@@ -248,6 +252,11 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-attendance.sh
 |---|---|---|
 | `/api/v1/attendance/employees` | GET | `HR_ADMIN`, `MANAGER` |
 | `/api/v1/attendance/employees/{employeeCode}` | GET | `HR_ADMIN`, `MANAGER` |
+| `/api/v1/attendance/leave/policies[/{year}]` | GET/POST | `HR_ADMIN` (GET năm có default cho mọi role HR/MGR) |
+| `/api/v1/attendance/leave/quotas?year=` | GET | `HR_ADMIN`, `MANAGER` |
+| `/api/v1/attendance/leave/quotas/{employeeId}` | GET | `HR_ADMIN`, `MANAGER`, `EMPLOYEE` |
+| `/api/v1/attendance/leave/quotas/{id}/entitlements` | POST | `HR_ADMIN` (201 — cấp BONUS/CARRYOVER/ADJUSTMENT) |
+| `/api/v1/attendance/leave/entitlements/{id}` | DELETE | `HR_ADMIN` (204 — chỉ dòng cấp tay) |
 
 ### Swagger UI + Bearer Auth (springdoc)
 
@@ -296,7 +305,12 @@ Mở **http://localhost:5173** → tự redirect Keycloak → đăng nhập `hr`
 | Trang | Route | Quyền |
 |---|---|---|
 | Nhân sự (ProTable CRUD) | `/employees` | `HR_ADMIN` thêm/sửa/nghỉ việc; `MANAGER` xem |
+| Phòng ban / Hợp đồng / Sơ đồ tổ chức | `/departments`, `/contracts`, `/org-chart` | `HR_ADMIN`, `MANAGER` |
+| Hồ sơ nhân viên (3 tab) | `/employees/:id` | theo role xem hợp đồng/lương |
 | Chấm công (projection Kafka) | `/attendance` | `HR_ADMIN`, `MANAGER` |
+| Ngày lễ | `/holidays` | `HR_ADMIN` ghi; `MANAGER`/`EMPLOYEE` đọc |
+| Quỹ phép (admin) | `/leave-quota` | `HR_ADMIN`, `MANAGER` |
+| Quyền phép của tôi | `/my-leave` | mọi user (qua `/employees/me`) |
 
 Smoke test E2E PKCE không cần browser (authorize → login form → code → token → gateway):
 
@@ -391,3 +405,18 @@ docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổ
   gán cả `department.manager_id` + `employees.manager_id` để màn **Sơ đồ tổ chức**
   hiển thị cây ngay. Tạo qua Service → outbox → attendance sync. Verify:
   `scripts/verify-seed-it.sh` (root + 3 cấp + đếm = 8, restart không nhân đôi).
+- [x] **Bước 11A** — Nhân sự nhóm A: mã NV tự sinh, hồ sơ đầy đủ (photo/địa chỉ/liên hệ),
+  i18n VI/EN toàn UI, seed cây tổ chức mẫu (Tập đoàn → khối → ban → phòng).
+- [x] **Contract evolution** — Hợp đồng PENDING (ngày hiệu lực tương lai), gia hạn,
+  thay thế (liên kết `replacesContractId`, giữ lịch sử), phụ lục (upload/download,
+  gắn contractId), cảnh báo hết hạn (`expiring-soon`); FE HopDongPage đầy đủ thao tác.
+- [x] **Module ngày lễ** — `holiday-calendars` + `holidays` (nửa ngày, nhiều ngày,
+  filter năm/từ khóa), gán lịch cho nhân viên, `GET /holidays/my`, `today`;
+  attendance nhận projection qua Kafka event `hrms.holiday.v1`; FE trang Ngày lễ
+  (ProTable + YearCalendar 12 tháng); verify `verify-new-features.sh` (16/16).
+- [x] **Module quỹ phép GĐ1** (`attendance` `leave` package) — Bảng policy theo năm
+  (base 12 ngày, thâm niên +1/năm max 5, trần carryover), quota tính tự động
+  (BASE/SENIORITY/POSITION upsert idempotent — `BigDecimal numeric(8,4)`, chính xác
+  0.1/0.125 ngày), cấp tay BONUS/CARRYOVER/ADJUSTMENT (audit `grantedBy`), nhân viên
+  xem quota của mình qua `GET /api/v1/employees/me`; FE trang Quỹ phép (`/leave-quota`)
+  + Quyền phép của tôi (`/my-leave`); verify section 13 (`verify-identity.sh` 155/155).
