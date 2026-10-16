@@ -1,18 +1,20 @@
 import {
   ApartmentOutlined,
+  BellOutlined,
   CarryOutOutlined,
   ClockCircleOutlined,
   ClusterOutlined,
+  DownOutlined,
   FileTextOutlined,
   GiftOutlined,
-  GlobalOutlined,
   LogoutOutlined,
   ScheduleOutlined,
+  SearchOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd';
+import { Avatar, Badge, Dropdown, Input, Layout, Menu } from 'antd';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -20,6 +22,34 @@ import { useAuth } from '../auth/AuthContext';
 import { LANGUAGES, setLanguage } from '../i18n';
 
 const { Header, Sider, Content } = Layout;
+
+/** Logo kim cương gradient (SVG inline) — giống mockup GlobalTech */
+function BrandMark() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true">
+      <defs>
+        <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#36cfc9" />
+          <stop offset="50%" stopColor="#1677ff" />
+          <stop offset="100%" stopColor="#722ed1" />
+        </linearGradient>
+      </defs>
+      <path d="M20 2 L36 20 L20 38 L4 20 Z" fill="url(#brand-grad)" />
+      <path d="M20 10 L29 20 L20 30 L11 20 Z" fill="#fff" opacity="0.9" />
+      <path d="M20 2 L36 20 L20 20 Z" fill="#fff" opacity="0.25" />
+    </svg>
+  );
+}
+
+const FLAG_VI = (
+  <svg width="18" height="13" viewBox="0 0 18 13" aria-hidden="true">
+    <rect width="18" height="13" rx="2" fill="#da251d" />
+    <path
+      d="M9 2.2l1.2 3.7h3.9l-3.1 2.3 1.2 3.7L9 9.6l-3.2 2.3 1.2-3.7-3.1-2.3h3.9z"
+      fill="#ff0"
+    />
+  </svg>
+);
 
 export default function AppLayout() {
   const auth = useAuth();
@@ -75,73 +105,81 @@ export default function AppLayout() {
     },
   ].filter(Boolean) as { key: string; icon: ReactNode; label: string }[];
 
+  const roleLabel = auth.hasRole('HR_ADMIN')
+    ? t('role.HR_ADMIN')
+    : auth.hasRole('MANAGER')
+      ? t('role.MANAGER')
+      : t('role.EMPLOYEE');
+
+  const langShort = i18n.language === 'en' ? 'EN' : 'VI';
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider breakpoint="lg" collapsedWidth={64}>
-        <div
-          style={{
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 700,
-            letterSpacing: 1,
-          }}
-        >
-          {t('brand')}
+      <Sider className="hr-sider" breakpoint="lg" collapsedWidth={64} width={240}>
+        <div className="hr-brand">
+          <BrandMark />
+          <div className="hr-brand-text">
+            <span className="hr-brand-name">{t('brand')}</span>
+            <span className="hr-brand-tag">{t('brandTagline')}</span>
+          </div>
         </div>
         <Menu
-          theme="dark"
+          className="hr-menu"
           mode="inline"
           selectedKeys={[`/${location.pathname.split('/')[1]}`]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
-      <Layout>
-        <Header
-          style={{
-            background: '#fff',
-            padding: '0 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 12,
-            boxShadow: '0 1px 4px rgba(0,21,41,0.08)',
-          }}
-        >
-          <Dropdown
-            menu={{
-              items: Object.entries(LANGUAGES).map(([key, label]) => ({ key, label })),
-              selectedKeys: [i18n.language],
-              onClick: ({ key }) => setLanguage(key === 'en' ? 'en' : 'vi'),
-            }}
-          >
-            <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <GlobalOutlined />
-              <Typography.Text>{LANGUAGES[i18n.language] ?? LANGUAGES.vi}</Typography.Text>
-            </span>
-          </Dropdown>
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'logout',
-                  icon: <LogoutOutlined />,
-                  label: t('logout'),
-                  onClick: auth.logout,
-                },
-              ],
-            }}
-          >
-            <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Avatar size="small" icon={<UserOutlined />} />
-              <Typography.Text>{auth.username}</Typography.Text>
-            </span>
-          </Dropdown>
+      <Layout className="hr-body">
+        <Header className="hr-header">
+          <Input
+            className="hr-search"
+            allowClear
+            prefix={<SearchOutlined className="hr-search-icon" />}
+            placeholder={t('searchPlaceholder')}
+          />
+          <div className="hr-header-right">
+            <Badge dot offset={[-2, 4]}>
+              <BellOutlined className="hr-bell" title={t('notifications')} />
+            </Badge>
+            <Dropdown
+              menu={{
+                items: Object.entries(LANGUAGES).map(([key, label]) => ({ key, label })),
+                selectedKeys: [i18n.language],
+                onClick: ({ key }) => setLanguage(key === 'en' ? 'en' : 'vi'),
+              }}
+            >
+              <span className="hr-lang">
+                {FLAG_VI}
+                <span className="hr-lang-code">{langShort}</span>
+                <DownOutlined className="hr-lang-arrow" />
+              </span>
+            </Dropdown>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'logout',
+                    icon: <LogoutOutlined />,
+                    label: t('logout'),
+                    onClick: auth.logout,
+                  },
+                ],
+              }}
+            >
+              <span className="hr-user">
+                <Avatar size={36} icon={<UserOutlined />} className="hr-user-avatar" />
+                <span className="hr-user-meta">
+                  <span className="hr-user-name">{auth.username}</span>
+                  <span className="hr-user-role">{roleLabel}</span>
+                </span>
+                <DownOutlined className="hr-user-arrow" />
+              </span>
+            </Dropdown>
+          </div>
         </Header>
-        <Content style={{ margin: 24 }}>
+        <Content className="hr-content">
           <Outlet />
         </Content>
       </Layout>

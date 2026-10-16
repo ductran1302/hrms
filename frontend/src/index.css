@@ -5,6 +5,214 @@ body,
   margin: 0;
 }
 
+/* ==== App shell: sidebar trắng + header search theo mockup ==== */
+.hr-sider {
+  background: #fff !important;
+  border-right: 1px solid #eef0f3;
+}
+
+.hr-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 12px;
+}
+
+.hr-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hr-brand-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.hr-brand-tag {
+  font-size: 10px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* menu: chữ/icon xám, selected nền xanh nhạt + bo tròn (mockup) */
+.hr-menu {
+  border-inline-end: none !important;
+  background: transparent;
+  padding: 0 12px;
+}
+
+.hr-menu .ant-menu-item {
+  margin: 4px 0;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.hr-menu .ant-menu-item .anticon {
+  color: #6b7280;
+}
+
+.hr-menu .ant-menu-item:hover {
+  background: #f3f4f6;
+}
+
+.hr-menu .ant-menu-item-selected {
+  background: #e6f4ff;
+  color: #1677ff;
+  font-weight: 600;
+}
+
+.hr-menu .ant-menu-item-selected .anticon {
+  color: #1677ff;
+}
+
+/* header: search trái + bell/lang/user phải */
+.hr-body {
+  background: #f5f7fa;
+}
+
+.hr-header {
+  background: #fff;
+  height: 64px;
+  line-height: normal;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #eef0f3;
+  box-shadow: none;
+}
+
+.hr-search {
+  width: min(480px, 42vw);
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.hr-search:hover,
+.hr-search:focus-within {
+  background: #eef1f5;
+}
+
+.hr-search .ant-input {
+  background: transparent;
+}
+
+.hr-search-icon {
+  color: #9ca3af;
+}
+
+.hr-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.hr-bell {
+  font-size: 18px;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.hr-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.hr-lang:hover {
+  background: #f9fafb;
+}
+
+.hr-lang-code {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.hr-lang-arrow,
+.hr-user-arrow {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.hr-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.hr-user:hover {
+  background: #f3f4f6;
+}
+
+.hr-user-avatar {
+  background: #e6f4ff;
+  color: #1677ff;
+  flex-shrink: 0;
+}
+
+.hr-user-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.hr-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hr-user-role {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.hr-content {
+  margin: 24px;
+  min-height: auto;
+}
+
+/* sider collapsed: chỉ còn icon, ẩn brand text */
+.hr-sider.ant-layout-sider-collapsed .hr-brand {
+  justify-content: center;
+  padding: 16px 0 12px;
+}
+
+.hr-sider.ant-layout-sider-collapsed .hr-brand-text {
+  display: none;
+}
+
+.hr-sider.ant-layout-sider-collapsed .hr-menu {
+  padding: 0 8px;
+}
+
 /* ==== Trang sơ đồ tổ chức ==== */
 .org-page {
   display: flex;

@@ -12,5 +12,13 @@
   },
   "logout": "Log out",
   "language": "Language",
-  "brand": "HRMS"
+  "brand": "HRMS",
+  "brandTagline": "Better People, A Greater Tomorrow",
+  "searchPlaceholder": "Search employees, departments, positions...",
+  "notifications": "Notifications",
+  "role": {
+    "HR_ADMIN": "HR Admin",
+    "MANAGER": "Manager",
+    "EMPLOYEE": "Employee"
+  }
 }

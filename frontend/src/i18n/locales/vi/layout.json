@@ -12,5 +12,13 @@
   },
   "logout": "Đăng xuất",
   "language": "Ngôn ngữ",
-  "brand": "HRMS"
+  "brand": "HRMS",
+  "brandTagline": "Con người tốt hơn, tương lai tốt hơn",
+  "searchPlaceholder": "Tìm kiếm nhân viên, phòng ban, chức danh...",
+  "notifications": "Thông báo",
+  "role": {
+    "HR_ADMIN": "HR Admin",
+    "MANAGER": "Quản lý",
+    "EMPLOYEE": "Nhân viên"
+  }
 }
