@@ -360,7 +360,7 @@ check "PATCH gan lich nghi le" 200 "$(code_of "$R")"
 check_has "response co calendarId" "$(has "$R" "$CAL")" yes
 R=$(req GET "$HR" "/api/v1/employees/$LE_ID")
 check_has "GET NV co calendarId" "$(has "$R" "$CAL")" yes
-LE_TOK=$(token "$LE_CODE" 'hrms@123')
+LE_TOK=$(token "$LE_CODE" "${LE_CODE}@hrms")
 check "token NV moi" 0 "$([ -n "$LE_TOK" ] && echo 0 || echo missing)"
 R=$(req GET "$LE_TOK" "/api/v1/holidays/my?year=2026")
 check "GET my-holidays (NV gan lich)" 200 "$(code_of "$R")"
@@ -411,7 +411,7 @@ QP_CODE="nvq$SUF"
 R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$QP_CODE\",\"fullName\":\"NV Quy Phep $SUF\",\"email\":\"qp$SUF@hrms.vn\"}")
 check "POST tao NV verify quy phep" 201 "$(code_of "$R")"
 QP_ID=$(id_of "$R")
-QP_TOK=$(token "$QP_CODE" 'hrms@123')
+QP_TOK=$(token "$QP_CODE" "${QP_CODE}@hrms")
 check "token NV quy phep" 0 "$([ -n "$QP_TOK" ] && echo 0 || echo missing)"
 # cho attendance projection nhan employee.created (outbox poll ~1-2s)
 sleep 3
@@ -491,7 +491,7 @@ R=$(areq GET "$HR" "/api/v1/attendance/shift-assignments?q=$NVW_CODE")
 check "GET assignments list (q ma NV)" 200 "$(code_of "$R")"
 check_has "list co ca da gan" "$(has "$R" "Ca verify $SUF v2")" yes
 # e. xem ca cua minh (NV auto-provision username = ma NV)
-NVW_TOK=$(token "$NVW_CODE" 'hrms@123')
+NVW_TOK=$(token "$NVW_CODE" "${NVW_CODE}@hrms")
 check "token NV ca" 0 "$([ -n "$NVW_TOK" ] && echo 0 || echo missing)"
 R=$(areq GET "$NVW_TOK" "/api/v1/attendance/shift-assignments/my")
 check "GET my shift" 200 "$(code_of "$R")"
@@ -513,6 +513,59 @@ R=$(areq DELETE "$HR" "/api/v1/attendance/work-shifts/$FLEX_ID")
 check "DELETE ca flexible" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$NVW_ID?reason=cleanup")
 check "cleanup NV ca lam viec" 204 "$(code_of "$R")"
+
+echo "== 15. Tai khoan (Cai dat: danh sach / doi mat khau / reset / enable-disable)"
+# a. tao NV -> tai khoan tu tao, mat khau mac dinh <ma>@hrms
+ACC_CODE="ac$SUF"
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$ACC_CODE\",\"fullName\":\"NV Tai Khoan $SUF\",\"email\":\"acct$SUF@hrms.vn\"}")
+check "POST tao NV cho verify tai khoan" 201 "$(code_of "$R")"
+ACC_ID=$(id_of "$R")
+ACC_TOK=$(token "$ACC_CODE" "${ACC_CODE}@hrms")
+check "token NV bang <ma>@hrms" 0 "$([ -n "$ACC_TOK" ] && echo 0 || echo missing)"
+# b. RBAC + noi dung danh sach tai khoan
+R=$(req GET "" "/api/v1/accounts")
+check "GET accounts khong token" 401 "$(code_of "$R")"
+R=$(req GET "$EMP" "/api/v1/accounts")
+check "GET accounts (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/accounts?q=$ACC_CODE&size=5")
+check "GET accounts (HR_ADMIN)" 200 "$(code_of "$R")"
+check_has "accounts tim thay NV verify" "$(has "$R" "$ACC_CODE")" yes
+check_has "accounts co roles" "$(has "$R" '"roles"')" yes
+check_has "accounts co audit createdBy" "$(has "$R" '"createdBy"')" yes
+check_has "accounts enabled=true" "$(has "$R" '"enabled":true')" yes
+# c. tu doi mat khau: sai mat khau cu -> 422, dung -> 204, login bang mat khau moi
+R=$(req POST "$ACC_TOK" "/api/v1/accounts/change-password" '{"currentPassword":"sai-mat-khau-1","newPassword":"tkmoi@1234"}')
+check "change-password sai mat khau hien tai" 422 "$(code_of "$R")"
+R=$(req POST "$ACC_TOK" "/api/v1/accounts/change-password" '{"currentPassword":"'"${ACC_CODE}"'@hrms","newPassword":"tkmoi@1234"}')
+check "change-password dung mat khau cu" 204 "$(code_of "$R")"
+T=$(token "$ACC_CODE" 'tkmoi@1234')
+check "login bang mat khau moi" 0 "$([ -n "$T" ] && echo 0 || echo missing)"
+# d. admin dat lai mat khau
+R=$(req PATCH "$HR" "/api/v1/accounts/$ACC_CODE/password" '{"newPassword":"reset1234"}')
+check "admin reset mat khau" 204 "$(code_of "$R")"
+T=$(token "$ACC_CODE" 'reset1234')
+check "login bang mat khau admin reset" 0 "$([ -n "$T" ] && echo 0 || echo missing)"
+# e. admin tat/bat tai khoan
+R=$(req PATCH "$HR" "/api/v1/accounts/$ACC_CODE/enabled" '{"enabled":false}')
+check "admin tat tai khoan" 204 "$(code_of "$R")"
+T=$(token "$ACC_CODE" 'reset1234')
+check "tai khoan tat khong login duoc" "$([ -z "$T" ] && echo yes || echo no)" yes
+R=$(req PATCH "$HR" "/api/v1/accounts/$ACC_CODE/enabled" '{"enabled":true}')
+check "admin bat lai tai khoan" 204 "$(code_of "$R")"
+T=$(token "$ACC_CODE" 'reset1234')
+check "login lai sau khi bat" 0 "$([ -n "$T" ] && echo 0 || echo missing)"
+# f. quy tac + validation
+R=$(req PATCH "$HR" "/api/v1/accounts/hr/enabled" '{"enabled":false}')
+check "admin khong tat duoc tai khoan minh" 422 "$(code_of "$R")"
+R=$(req PATCH "$EMP" "/api/v1/accounts/$ACC_CODE/password" '{"newPassword":"reset1234"}')
+check "reset mat khau (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/accounts/$ACC_CODE/password" '{"newPassword":"1234567"}')
+check "mat khau qua ngan bi 400" 400 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/accounts/khong-ton-tai/password" '{"newPassword":"reset1234"}')
+check "reset tai khoan khong ton tai" 404 "$(code_of "$R")"
+# g. cleanup
+R=$(req DELETE "$HR" "/api/v1/employees/$ACC_ID?reason=cleanup")
+check "cleanup NV tai khoan" 204 "$(code_of "$R")"
 
 echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

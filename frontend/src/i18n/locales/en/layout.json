@@ -8,7 +8,10 @@
     "holidays": "Holidays",
     "leaveQuotas": "Leave quota",
     "workShifts": "Work shifts",
-    "myLeave": "My leave"
+    "myLeave": "My leave",
+    "settings": "Settings",
+    "settingsAccounts": "Accounts",
+    "settingsSecurity": "Security"
   },
   "logout": "Log out",
   "language": "Language",

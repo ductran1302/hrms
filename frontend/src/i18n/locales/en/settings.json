@@ -1,0 +1,50 @@
+{
+  "accounts": {
+    "title": "Account management",
+    "subtitle": "Login accounts (Keycloak) — reset passwords, enable/disable accounts.",
+    "searchPlaceholder": "Search by username, name, email...",
+    "column": {
+      "username": "Username",
+      "fullName": "Full name",
+      "email": "Email",
+      "roles": "Roles",
+      "enabled": "Status",
+      "created": "Created",
+      "updated": "Last updated"
+    },
+    "status": {
+      "enabled": "Active",
+      "disabled": "Locked"
+    },
+    "action": {
+      "resetPassword": "Reset password",
+      "disable": "Disable account",
+      "enable": "Enable account",
+      "confirmDisable": "Disable this account? The user will not be able to sign in.",
+      "confirmEnable": "Enable this account again?"
+    },
+    "resetModal": {
+      "title": "Reset password",
+      "newPassword": "New password",
+      "confirm": "Reset",
+      "hint": "At least 8 characters — send it back to the user to sign in."
+    },
+    "empty": "No accounts found",
+    "resetSuccess": "Password has been reset"
+  },
+  "security": {
+    "title": "Security",
+    "subtitle": "Change your sign-in password. The default password on account creation is <username>@hrms.",
+    "account": "Account",
+    "roles": "Roles",
+    "usernameHint": "Username = employee code",
+    "card": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Change password",
+    "success": "Password changed — use the new password on your next sign-in",
+    "mismatch": "Password confirmation does not match",
+    "minLength": "Password must be at least 8 characters"
+  }
+}

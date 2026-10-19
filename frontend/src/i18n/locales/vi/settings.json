@@ -1,0 +1,50 @@
+{
+  "accounts": {
+    "title": "Quản lý tài khoản",
+    "subtitle": "Tài khoản đăng nhập (Keycloak) — đặt lại mật khẩu, bật/tắt tài khoản.",
+    "searchPlaceholder": "Tìm theo username, họ tên, email...",
+    "column": {
+      "username": "Username",
+      "fullName": "Họ và tên",
+      "email": "Email",
+      "roles": "Vai trò",
+      "enabled": "Trạng thái",
+      "created": "Ngày tạo",
+      "updated": "Cập nhật gần nhất"
+    },
+    "status": {
+      "enabled": "Hoạt động",
+      "disabled": "Đã khóa"
+    },
+    "action": {
+      "resetPassword": "Đặt lại mật khẩu",
+      "disable": "Tắt tài khoản",
+      "enable": "Bật tài khoản",
+      "confirmDisable": "Tắt tài khoản này? Người dùng sẽ không đăng nhập được.",
+      "confirmEnable": "Bật lại tài khoản này?"
+    },
+    "resetModal": {
+      "title": "Đặt lại mật khẩu",
+      "newPassword": "Mật khẩu mới",
+      "confirm": "Đặt lại",
+      "hint": "Mật khẩu tối thiểu 8 ký tự — gửi lại cho người dùng để đăng nhập."
+    },
+    "empty": "Không có tài khoản nào",
+    "resetSuccess": "Đã đặt lại mật khẩu"
+  },
+  "security": {
+    "title": "Bảo mật",
+    "subtitle": "Đổi mật khẩu đăng nhập của bạn. Mật khẩu mặc định khi tạo tài khoản là <username>@hrms.",
+    "account": "Tài khoản",
+    "roles": "Vai trò",
+    "usernameHint": "Username = mã nhân viên",
+    "card": "Đổi mật khẩu",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "submit": "Đổi mật khẩu",
+    "success": "Đã đổi mật khẩu — dùng mật khẩu mới ở lần đăng nhập sau",
+    "mismatch": "Mật khẩu xác nhận không khớp",
+    "minLength": "Mật khẩu tối thiểu 8 ký tự"
+  }
+}

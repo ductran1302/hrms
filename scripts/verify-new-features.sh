@@ -61,9 +61,9 @@ CODE1=$(fld "$R" employeeCode); ID1=$(fld "$R" id)
 echo "code1=$CODE1 id1=$ID1"
 case "$CODE1" in nthieu*) ck "ma1 bat dau 'nthieu'" yes yes;; *) ck "ma1 bat dau 'nthieu'" "$CODE1" "nthieu*";; esac
 
-echo "== B. Dang nhap bang ma sinh ra + mat khau mac dinh"
-T=$(token "$CODE1" 'hrms@123')
-ck "login ma NV + hrms@123" "$([ -n "$T" ] && echo yes || echo no)" yes
+echo "== B. Dang nhap bang ma sinh ra + mat khau mac dinh <ma>@hrms"
+T=$(token "$CODE1" "${CODE1}@hrms")
+ck "login ma NV + <ma>@hrms" "$([ -n "$T" ] && echo yes || echo no)" yes
 
 echo "== C. Trung ho ten -> them hau to"
 R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"\",\"fullName\":\"$NAME\"}")
@@ -72,7 +72,7 @@ CODE2=$(fld "$R" employeeCode); ID2=$(fld "$R" id)
 echo "code2=$CODE2 id2=$ID2"
 if [ -n "$CODE2" ] && [ "$CODE2" != "$CODE1" ]; then ck "ma2 khac ma1" yes yes
 else ck "ma2 khac ma1" "$CODE2" "$CODE1+suffix"; fi
-T2=$(token "$CODE2" 'hrms@123')
+T2=$(token "$CODE2" "${CODE2}@hrms")
 ck "login code2" "$([ -n "$T2" ] && echo yes || echo no)" yes
 
 echo "== D. Nhap ma da co (NVIT001) -> 409"
@@ -82,7 +82,7 @@ check "POST trung ma NVIT001" 409 "$(code_of "$R")"
 echo "== E. Nghi viec -> disable user Keycloak + luu ly do vao history"
 R=$(req DELETE "$HR" "/api/v1/employees/$ID1?reason=T%E1%BB%B1%20nguy%E1%BB%87n%20chuy%E1%BB%83n%20c%C3%B4ng%20ty")
 check "DELETE nghi viec NV1" 204 "$(code_of "$R")"
-T=$(token "$CODE1" 'hrms@123')
+T=$(token "$CODE1" "${CODE1}@hrms")
 ck "login sau nghi viec bi chan" "$([ -z "$T" ] && echo yes || echo no)" yes
 CK=$(kc_user "$CODE1")
 ck "user KC truong enabled=false" "$(has "$CK" '"enabled":false')" yes
@@ -96,7 +96,7 @@ case "$H" in *'"field":"status"'*) ck "history co muc status=TERMINATED" yes yes
 echo "== F. Cleanup"
 R=$(req DELETE "$HR" "/api/v1/employees/$ID2")
 check "DELETE nghi viec NV2" 204 "$(code_of "$R")"
-T2=$(token "$CODE2" 'hrms@123')
+T2=$(token "$CODE2" "${CODE2}@hrms")
 ck "login NV2 bi chan" "$([ -z "$T2" ] && echo yes || echo no)" yes
 
 echo "== RESULT: PASS=$PASS FAIL=$FAIL"

@@ -13,7 +13,8 @@ services:
       DOCS_DIR: /app/data/documents
       # Fail-fast: secret lấy từ .env (không còn default trong git)
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env}
-      HRMS_DEFAULT_PASSWORD: ${HRMS_DEFAULT_PASSWORD:?HRMS_DEFAULT_PASSWORD chưa được set — copy .env.example thành .env}
+      # Mật khẩu mặc định NV mới = <username><suffix> (vd thduc1@hrms)
+      HRMS_PASSWORD_SUFFIX: ${HRMS_PASSWORD_SUFFIX:-@hrms}
       HRMS_IDENTITY_CLIENT_SECRET: ${HRMS_IDENTITY_CLIENT_SECRET:?HRMS_IDENTITY_CLIENT_SECRET chưa được set — copy .env.example thành .env}
       # Tắt Swagger ngoài dev (SecurityConfig vẫn permitAll nhưng springdoc trả 404)
       SPRINGDOC_API_DOCS: ${SPRINGDOC_API_DOCS:-false}

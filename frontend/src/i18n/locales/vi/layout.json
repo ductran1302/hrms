@@ -8,7 +8,10 @@
     "holidays": "Ngày lễ",
     "leaveQuotas": "Quỹ phép",
     "workShifts": "Ca làm việc",
-    "myLeave": "Phép của tôi"
+    "myLeave": "Phép của tôi",
+    "settings": "Cài đặt",
+    "settingsAccounts": "Tài khoản",
+    "settingsSecurity": "Bảo mật"
   },
   "logout": "Đăng xuất",
   "language": "Ngôn ngữ",

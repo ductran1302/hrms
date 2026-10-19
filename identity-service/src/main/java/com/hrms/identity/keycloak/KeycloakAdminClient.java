@@ -3,7 +3,9 @@ package com.hrms.identity.keycloak;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
+import com.hrms.common.exception.ResourceNotFoundException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +14,9 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -20,14 +25,19 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 /**
- * Gọi Keycloak Admin API — tạo user khi tạo nhân viên (mã NV = username đăng nhập),
- * kiểm tra username trùng, bật/tắt tài khoản khi nghỉ việc.
+ * Gọi Keycloak Admin API — tạo user khi tạo nhân viên/hợp đồng (mã NV = username đăng nhập),
+ * kiểm tra username trùng, bật/tắt tài khoản khi nghỉ việc và quản lý tài khoản ở màn Cài đặt
+ * (danh sách, đặt lại mật khẩu, xác thực mật khẩu).
  *
  * <p>Admin token lấy qua {@code client_credentials} của client confidential
  * {@code hrms-identity} (service account gắn realm-management role trong realm
  * {@code hrms}) và cache đến khi gần hết hạn — không dùng master admin password
  * (password-grant {@code admin-cli} đã bỏ). Lỗi mạng được retry 3 lần rồi ném
  * {@link BusinessRuleException}.
+ *
+ * <p>KC không lưu actor/thời điểm cập nhật → ghi vào user attributes
+ * ({@code createdBy}/{@code updatedBy}/{@code updatedAt}); actor lấy từ JWT
+ * ({@code preferred_username}) — seeder/test không có request → để rỗng.
  */
 @Slf4j
 @Service
@@ -39,7 +49,8 @@ public class KeycloakAdminClient {
   private final String realm;
   private final String clientId;
   private final String clientSecret;
-  private final String defaultPassword;
+  private final String passwordSuffix;
+  private final String spaClientId;
 
   private volatile String adminToken;
   private volatile Instant adminTokenExpiresAt = Instant.EPOCH;
@@ -49,23 +60,25 @@ public class KeycloakAdminClient {
       @Value("${hrms.keycloak.admin.realm:hrms}") String realm,
       @Value("${hrms.keycloak.admin.client-id:hrms-identity}") String clientId,
       @Value("${hrms.keycloak.admin.client-secret:}") String clientSecret,
-      @Value("${hrms.keycloak.admin.default-password:}") String defaultPassword) {
+      @Value("${hrms.keycloak.admin.password-suffix:@hrms}") String passwordSuffix,
+      @Value("${hrms.keycloak.admin.spa-client-id:hrms-spa}") String spaClientId) {
     if (clientSecret == null || clientSecret.isBlank()) {
       throw new IllegalStateException(
           "hrms.keycloak.admin.client-secret chưa được cấu hình — "
               + "copy .env.example thành .env và set HRMS_IDENTITY_CLIENT_SECRET "
               + "(phải khớp secret của client hrms-identity trong keycloak/realm-hrms.json)");
     }
-    if (defaultPassword == null || defaultPassword.isBlank()) {
-      throw new IllegalStateException(
-          "hrms.keycloak.admin.default-password chưa được cấu hình — "
-              + "copy .env.example thành .env và set HRMS_DEFAULT_PASSWORD");
-    }
     this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     this.realm = realm;
     this.clientId = clientId;
     this.clientSecret = clientSecret;
-    this.defaultPassword = defaultPassword;
+    this.passwordSuffix = passwordSuffix;
+    this.spaClientId = spaClientId;
+  }
+
+  /** Mật khẩu mặc định khi tạo tài khoản: {@code <username>} + suffix — vd {@code thduc1@hrms}. */
+  public String defaultPassword(String username) {
+    return username + passwordSuffix;
   }
 
   /** Username đã tồn tại trong Keycloak chưa (exact match). */
@@ -97,9 +110,10 @@ public class KeycloakAdminClient {
     body.put("emailVerified", true);
     body.put("credentials", List.of(Map.of(
         "type", "password",
-        "value", defaultPassword,
+        "value", defaultPassword(username),
         "temporary", false)));
     body.put("realmRoles", List.of("EMPLOYEE"));
+    body.put("attributes", auditOnCreate());
 
     try {
       withRetry("tạo user " + username, () -> restClient.post()
@@ -119,6 +133,140 @@ public class KeycloakAdminClient {
     // phải gán qua endpoint role-mappings/realm riêng.
     assignRealmRole(username, "EMPLOYEE");
     log.info("Đã tạo tài khoản Keycloak '{}' (role EMPLOYEE)", username);
+  }
+
+  /** Đếm user theo search term (rỗng = tất cả). */
+  public long countUsers(String search) {
+    String q = search == null ? "" : search.trim();
+    String body = withRetry("đếm user", () -> {
+      if (q.isEmpty()) {
+        return restClient.get()
+            .uri("/admin/realms/{realm}/users/count", realm)
+            .header("Authorization", "Bearer " + adminToken())
+            .retrieve()
+            .body(String.class);
+      }
+      return restClient.get()
+          .uri("/admin/realms/{realm}/users/count?search={search}", realm, q)
+          .header("Authorization", "Bearer " + adminToken())
+          .retrieve()
+          .body(String.class);
+    });
+    try {
+      return Long.parseLong(body == null ? "0" : body.trim());
+    } catch (NumberFormatException ex) {
+      throw new BusinessRuleException("Keycloak không trả về số user hợp lệ");
+    }
+  }
+
+  /**
+   * Danh sách user theo search term (username/họ tên/email), phân trang theo
+   * {@code first}/{@code max} — kèm realm roles và audit attributes cho màn Cài đặt.
+   */
+  public List<AccountSnapshot> listUsers(String search, int first, int max) {
+    String q = search == null ? "" : search.trim();
+    String base = "/admin/realms/{realm}/users?briefRepresentation=false&first={first}&max={max}";
+    User[] users = withRetry("liệt kê user", () -> {
+      if (q.isEmpty()) {
+        return restClient.get()
+            .uri(base, realm, first, max)
+            .header("Authorization", "Bearer " + adminToken())
+            .retrieve()
+            .body(User[].class);
+      }
+      return restClient.get()
+          .uri(base + "&search={search}", realm, first, max, q)
+          .header("Authorization", "Bearer " + adminToken())
+          .retrieve()
+          .body(User[].class);
+    });
+    List<AccountSnapshot> snapshots = new ArrayList<>();
+    if (users == null) {
+      return snapshots;
+    }
+    for (User user : users) {
+      snapshots.add(new AccountSnapshot(
+          user.getId(),
+          user.getUsername(),
+          fullName(user),
+          user.getEmail(),
+          user.isEnabled(),
+          user.getCreatedTimestamp(),
+          realmRoles(user.getId()),
+          attribute(user, "createdBy"),
+          attribute(user, "updatedBy"),
+          attribute(user, "updatedAt")));
+    }
+    return snapshots;
+  }
+
+  /**
+   * Realm roles của 1 user — soft-fail: lỗi mạng trả về list rỗng
+   * (không chặn danh sách tài khoản chỉ vì 1 user đọc role lỗi).
+   */
+  public List<String> realmRoles(String userId) {
+    try {
+      RoleName[] roles = withRetry("đọc role user " + userId, () -> restClient.get()
+          .uri("/admin/realms/{realm}/users/{id}/role-mappings/realm", realm, userId)
+          .header("Authorization", "Bearer " + adminToken())
+          .retrieve()
+          .body(RoleName[].class));
+      if (roles == null) {
+        return List.of();
+      }
+      return Arrays.stream(roles)
+          .map(RoleName::name)
+          .filter(name -> name != null && !name.isBlank())
+          .toList();
+    } catch (Exception ex) {
+      log.warn("Chưa đọc được realm role của user {}: {}", userId, ex.getMessage());
+      return List.of();
+    }
+  }
+
+  /**
+   * Xác thực mật khẩu của user qua password-grant ({@code hrms-spa}).
+   *
+   * @return true nếu KC cấp token (mật khẩu đúng, user enabled); false nếu sai mật khẩu
+   *     / user bị khóa hoặc tắt (401/400)
+   */
+  public boolean verifyUserPassword(String username, String password) {
+    MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+    form.add("grant_type", "password");
+    form.add("client_id", spaClientId);
+    form.add("username", username);
+    form.add("password", password);
+    form.add("scope", "openid");
+    try {
+      withRetry("xác thực mật khẩu " + username, () -> restClient.post()
+          .uri("/realms/{realm}/protocol/openid-connect/token", realm)
+          .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+          .body(form)
+          .retrieve()
+          .toBodilessEntity());
+      return true;
+    } catch (HttpClientErrorException ex) {
+      return false;
+    }
+  }
+
+  /** Đặt lại mật khẩu (admin reset / tự đổi) — không temporary, ghi audit updatedBy/updatedAt. */
+  public void resetPassword(String username, String newPassword) {
+    User user = requireUser(username);
+    touchAudit(user);
+    saveUser(user);
+    Map<String, Object> credential = new HashMap<>();
+    credential.put("type", "password");
+    credential.put("value", newPassword);
+    credential.put("temporary", false);
+    withRetry("đặt lại mật khẩu " + username, () -> restClient.put()
+        .uri("/admin/realms/{realm}/users/{id}/reset-password", realm, user.getId())
+        .contentType(MediaType.APPLICATION_JSON)
+        .header("Authorization", "Bearer " + adminToken())
+        .body(credential)
+        .retrieve()
+        .toBodilessEntity());
+    log.info("Đã đặt lại mật khẩu Keycloak '{}'", username);
   }
 
   /**
@@ -163,29 +311,104 @@ public class KeycloakAdminClient {
 
   /** Bật/tắt tài khoản (nghỉ việc → disabled). Không ném lỗi nếu user không tìm thấy. */
   public void setUserEnabled(String username, boolean enabled) {
+    User full;
+    try {
+      full = requireUser(username);
+    } catch (ResourceNotFoundException ex) {
+      log.warn("Không tìm thấy user Keycloak '{}' để {}", username, enabled ? "bật" : "tắt");
+      return;
+    }
+    full.setEnabled(enabled);
+    touchAudit(full);
+    saveUser(full);
+    log.info("Đã {} tài khoản Keycloak '{}'", enabled ? "bật" : "tắt", username);
+  }
+
+  /** Đọc full user (có attributes — cần cho audit). Ném 404 nếu username không tồn tại. */
+  private User requireUser(String username) {
     User[] matches = withRetry("tìm user " + username, () -> restClient.get()
         .uri("/admin/realms/{realm}/users?username={username}&exact=true", realm, username)
         .header("Authorization", "Bearer " + adminToken())
         .retrieve()
         .body(User[].class));
     if (matches == null || matches.length == 0) {
-      log.warn("Không tìm thấy user Keycloak '{}' để {}", username, enabled ? "bật" : "tắt");
-      return;
+      throw new ResourceNotFoundException("Tài khoản", username);
     }
-    User full = withRetry("đọc user " + username, () -> restClient.get()
-        .uri("/admin/realms/{realm}/users/{id}", realm, matches[0].getId())
+    return withRetry("đọc user " + username, () -> restClient.get()
+        .uri("/admin/realms/{realm}/users/{id}?briefRepresentation=false", realm,
+            matches[0].getId())
         .header("Authorization", "Bearer " + adminToken())
         .retrieve()
         .body(User.class));
-    full.setEnabled(enabled);
-    withRetry("cập nhật user " + username, () -> restClient.put()
-        .uri("/admin/realms/{realm}/users/{id}", realm, full.getId())
+  }
+
+  private void saveUser(User user) {
+    withRetry("cập nhật user " + user.getUsername(), () -> restClient.put()
+        .uri("/admin/realms/{realm}/users/{id}", realm, user.getId())
         .contentType(MediaType.APPLICATION_JSON)
         .header("Authorization", "Bearer " + adminToken())
-        .body(full)
+        .body(user)
         .retrieve()
         .toBodilessEntity());
-    log.info("Đã {} tài khoản Keycloak '{}'", enabled ? "bật" : "tắt", username);
+  }
+
+  /** Ghi audit updatedBy/updatedAt vào attributes của user sắp PUT (giữ nguyên attributes cũ). */
+  private void touchAudit(User user) {
+    Map<String, List<String>> attributes = user.getAttributes() == null
+        ? new HashMap<>()
+        : new HashMap<>(user.getAttributes());
+    attributes.put("updatedAt", List.of(Instant.now().toString()));
+    String actor = currentActor();
+    if (actor != null) {
+      attributes.put("updatedBy", List.of(actor));
+    }
+    user.setAttributes(attributes);
+  }
+
+  /** Audit khi tạo user: createdBy/updatedBy = người thao tác (nếu có request), updatedAt = now. */
+  private Map<String, List<String>> auditOnCreate() {
+    Map<String, List<String>> attributes = new HashMap<>();
+    String actor = currentActor();
+    if (actor != null) {
+      attributes.put("createdBy", List.of(actor));
+      attributes.put("updatedBy", List.of(actor));
+    }
+    attributes.put("updatedAt", List.of(Instant.now().toString()));
+    return attributes;
+  }
+
+  /** preferred_username của JWT hiện tại — null khi không có request (seeder/test). */
+  private static String currentActor() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication == null
+        || !(authentication.getPrincipal() instanceof Jwt jwt)) {
+      return null;
+    }
+    String preferred = jwt.getClaimAsString("preferred_username");
+    return preferred != null ? preferred : jwt.getSubject();
+  }
+
+  /** Đọc attribute theo key — KC có thể chuẩn hóa key về lower-case → so khớp không phân biệt. */
+  private static String attribute(User user, String key) {
+    if (user.getAttributes() == null) {
+      return null;
+    }
+    List<String> values = user.getAttributes().get(key);
+    if (values == null) {
+      for (Map.Entry<String, List<String>> entry : user.getAttributes().entrySet()) {
+        if (entry.getKey().equalsIgnoreCase(key)) {
+          values = entry.getValue();
+          break;
+        }
+      }
+    }
+    return values == null || values.isEmpty() ? null : values.get(0);
+  }
+
+  private static String fullName(User user) {
+    String family = user.getLastName() == null ? "" : user.getLastName();
+    String given = user.getFirstName() == null ? "" : user.getFirstName();
+    return (family + " " + given).trim();
   }
 
   private synchronized String adminToken() {
@@ -245,8 +468,24 @@ public class KeycloakAdminClient {
     return new String[] {family, given};
   }
 
+  /** Ảnh chụp tài khoản cho màn Cài đặt — roles + audit lấy từ KC. */
+  public record AccountSnapshot(
+      String id,
+      String username,
+      String fullName,
+      String email,
+      boolean enabled,
+      Long createdTimestamp,
+      List<String> roles,
+      String createdBy,
+      String updatedBy,
+      String updatedAt) {}
+
   @JsonIgnoreProperties(ignoreUnknown = true)
   record TokenResponse(String access_token, long expires_in) {}
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  record RoleName(String name) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   static class User {
@@ -256,6 +495,8 @@ public class KeycloakAdminClient {
     private String lastName;
     private String email;
     private boolean enabled;
+    private Long createdTimestamp;
+    private Map<String, List<String>> attributes;
 
     public String getId() {
       return id;
@@ -303,6 +544,22 @@ public class KeycloakAdminClient {
 
     public void setEnabled(boolean enabled) {
       this.enabled = enabled;
+    }
+
+    public Long getCreatedTimestamp() {
+      return createdTimestamp;
+    }
+
+    public void setCreatedTimestamp(Long createdTimestamp) {
+      this.createdTimestamp = createdTimestamp;
+    }
+
+    public Map<String, List<String>> getAttributes() {
+      return attributes;
+    }
+
+    public void setAttributes(Map<String, List<String>> attributes) {
+      this.attributes = attributes;
     }
   }
 }

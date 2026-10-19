@@ -10,6 +10,8 @@ import HolidayPage from './pages/HolidayPage';
 import LeaveQuotaPage from './pages/LeaveQuotaPage';
 import MyLeavePage from './pages/MyLeavePage';
 import OrgChartPage from './pages/OrgChartPage';
+import SettingsAccountsPage from './pages/SettingsAccountsPage';
+import SettingsSecurityPage from './pages/SettingsSecurityPage';
 import WorkShiftPage from './pages/WorkShiftPage';
 
 const STAFF_ROLES = ['HR_ADMIN', 'MANAGER'];
@@ -107,6 +109,23 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="settings/accounts"
+            element={
+              <ProtectedRoute roles={['HR_ADMIN']}>
+                <SettingsAccountsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/security"
+            element={
+              <ProtectedRoute>
+                <SettingsSecurityPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="settings" element={<Navigate to="/settings/security" replace />} />
           {/* redirect URL cũ (tiếng Việt không dấu) */}
           <Route path="nhan-su" element={<Navigate to="/employees" replace />} />
           <Route path="nhan-su/:id" element={<Navigate to="/employees" replace />} />

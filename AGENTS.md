@@ -18,16 +18,18 @@ docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
 # Build 1 module (skip test)
 docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean install -DskipTests -pl identity-service
 
-# Chạy service dev (background)
-docker exec -d hrms-dev bash -lc "java -jar /workspaces/HRMS/identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+# Chạy service dev (background) — PHẢI cd /workspaces/HRMS để DOCS_DIR data/documents đúng (xem §7.7)
+# + nạp .env (container hrms-dev cũ không env_file; thiếu DB_PASSWORD/HRMS_IDENTITY_CLIENT_SECRET → start fail, xem §7.8)
+docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
 
 # Xem log
 docker exec hrms-dev tail -f /tmp/identity.log
 
-# Smoke test
-docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
-docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-attendance.sh
-docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-gateway-routes.sh
+# Smoke test (verify-p1-scoping TRỨC TIẾP đọc env HRMS_IDENTITY_CLIENT_SECRET → nạp .env trước)
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-identity.sh"
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-p1-scoping.sh"
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-attendance.sh"
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-gateway-routes.sh"
 
 # Frontend (dev)
 docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run build"
@@ -595,6 +597,8 @@ echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 
 **Test accounts:** `hr/hr@123`, `manager1/manager@123`, `employee1/emp@123`
 
+**Tài khoản NV auto-provision:** mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `hrms.keycloak.password-suffix`, env `HRMS_PASSWORD_SUFFIX`); tạo khi Tạo nhân viên + idempotent khi Tạo hợp đồng. API Cài đặt: `GET /api/v1/accounts`, `POST /api/v1/accounts/change-password`, `PATCH /api/v1/accounts/{username}/password|enabled`.
+
 ---
 
 ## 7. Common Pitfalls & Notes
@@ -646,6 +650,33 @@ Khi retry → cùng eventId → consumer dedupe không xử lý lại.
 ```
 Double underscore: V3__employee_photo.sql (KHÔNG PHẢI V3_employee_photo.sql)
 Append-only: KHÔNG sửa migration đã chạy → tạo V<n+1> mới.
+```
+
+### 7.7 Dev identity phải start từ /workspaces/HRMS
+
+```
+LỖI: upload tài liệu -> 500 "Không ghi được file: /data"
+NGUYÊN NHÂN: java -jar chạy với cwd=/ (docker exec default) → DOCS_DIR data/documents
+             resolve thành /data/documents (không tồn tại/permission)
+FIX: docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+```
+
+### 7.8 Dev jar thiếu env + CRLF/EOL
+
+```
+LỖI (env): start dev identity fail — Flyway "password authentication failed for user hrms"
+           (application.yml P0: DB_PASSWORD/HRMS_IDENTITY_CLIENT_SECRET dùng ${VAR:?...} —
+           container hrms-dev cũ không nạp env_file .env; THIẾU var → lỗi DB auth khó hiểu,
+           KHÔNG hiện message fail-fast)
+FIX: nạp .env trước khi chạy (xem §1): set -a && . ./.env && set +a
+
+LỖI (EOL): bash scripts/*.sh báo "$'\r': command not found" / syntax error
+NGUYÊN NHÂN: core.autocrlf=true trên Windows → checkout CRLF; container Linux+Git
+             KHÔNG chấp nhận \r trong .sh
+FIX: GIỮ NGUYÊN `.gitattributes` (`* text=auto eol=lf`) — không xóa file này;
+     sau khi pull/chuyển nhánh: `git ls-files --eol | grep w/crlf` phải rỗng
+     (nếu không: git checkout -- . hoặc sed -i 's/\r$//' file CRLF)
+LƯU Ý: .env cũng phải LF (docker compose đọc được CRLF nhưng `bash source` thì không)
 ```
 
 ---

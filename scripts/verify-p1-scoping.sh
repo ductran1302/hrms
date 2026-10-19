@@ -3,14 +3,14 @@
 #
 # Flow: HR tạo 3 NV (quản lý / thuộc cấp / NV ngoài phạm vi) → gán role MANAGER
 # cho user quản lý qua client service-account (hrms-identity) → login bằng mật
-# khẩu mặc định → assert:
+# khẩu mặc định <ma>@hrms → assert:
 #   - list chỉ thấy self + trực thuộc (total=2), không thấy NV ngoài phạm vi
 #   - PII của thuộc cấp bị mask (nationalId ****xxxx, address/emergencyPhone ***)
 #   - xem chính mình / /me vẫn đầy đủ; chi tiết/history ngoài phạm vi → 403
 #   - dọn dẹp: nghỉ việc cả 3 NV (tắt luôn user Keycloak)
 #
 # Env (fail-fast, devcontainer/app stack nạp từ .env):
-#   HRMS_IDENTITY_CLIENT_SECRET, HRMS_DEFAULT_PASSWORD
+#   HRMS_IDENTITY_CLIENT_SECRET
 # Override mạng (mặc định như các script khác):
 #   API, KC, KC_BASE
 # Chạy trong hrms-dev:
@@ -24,7 +24,6 @@ PASS=0
 FAIL=0
 
 CLIENT_SECRET=${HRMS_IDENTITY_CLIENT_SECRET:?HRMS_IDENTITY_CLIENT_SECRET chưa set - nạp .env}
-DEFAULT_PASSWORD=${HRMS_DEFAULT_PASSWORD:?HRMS_DEFAULT_PASSWORD chưa set - nạp .env}
 
 token() { # username password
   curl -s -X POST "$KC/protocol/openid-connect/token" \
@@ -108,7 +107,7 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
 check "gan realm role MANAGER" 204 "$CODE"
 
 echo "== 3. Login bang quan ly + assert scoping/mask"
-MGR_TOK=$(token "$MGR_CODE" "$DEFAULT_PASSWORD")
+MGR_TOK=$(token "$MGR_CODE" "$MGR_CODE@hrms")
 echo "manager token len=${#MGR_TOK}"
 check "login quan ly (mat khau mac dinh)" 40 "$([ ${#MGR_TOK} -gt 100 ] && echo 40 || echo 0)"
 

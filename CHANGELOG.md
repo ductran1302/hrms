@@ -1,5 +1,76 @@
 # CHANGELOG
 
+## [Cài đặt — Tài khoản/Bảo mật + auto-provision tài khoản NV] 2026-10-19
+
+Màn **Cài đặt** (2 trang *Tài khoản* + *Bảo mật*), tự tạo tài khoản Keycloak khi
+tạo nhân viên với mật khẩu mặc định `<ma>@hrms`, API quản lý tài khoản/đổi mật
+khẩu/reset. Ghép nhánh với 2 commit bảo mật P0/P1 trước đó (giữ nguyên
+client_credentials của P0).
+
+### Nội dung thay đổi
+
+**1. Backend — Accounts API (mới, `identity-service` package `account`)**
+- `AccountController` (`/api/v1/accounts`): `GET` danh sách (HR_ADMIN),
+  `POST /change-password` (self, cần mật khẩu hiện tại),
+  `PATCH /{username}/password` + `PATCH /{username}/enabled` (HR_ADMIN;
+  không tự tắt/tự reset chính mình → 422; reset EMPLOYEE không phải mình → 403).
+- `AccountService`: gọi Keycloak Admin API; validate mật khẩu mới ≥ 8 ký tự.
+- DTOs: `AccountResponse`, `ChangePasswordRequest`, `ResetPasswordRequest`,
+  `SetEnabledRequest` (records + validation).
+- `ContractService.ensureAccount()` idempotent: tạo hợp đồng cho NV thiếu tài
+  khoản → tạo bù (không lỗi khi đã có).
+
+**2. Auto-provision tài khoản khi tạo nhân viên**
+- `KeycloakAdminClient`: thêm `password-suffix` (`hrms.keycloak.admin.password-suffix`,
+  env `HRMS_PASSWORD_SUFFIX`, default `@hrms`) — mật khẩu mặc định = `<ma>@hrms`;
+  methods `ensureEmployeeAccount` (tạo user + realm role theo level, đã có → bỏ qua),
+  `resetPassword`, `setEnabled`.
+- **Đổi design so với P0**: bỏ `HRMS_DEFAULT_PASSWORD` (một mật khẩu chung) →
+  suffix theo username; cập nhật `.env.example`, `docker-compose.app.yml`
+  (env `HRMS_PASSWORD_SUFFIX`), `verify-p1-scoping.sh` (login `$MGR_CODE@hrms`).
+- `KeycloakAdminClient` hợp nhất với P0: constructor nhận thêm `passwordSuffix`,
+  vẫn dùng client_credentials qua client `hrms-identity` (không revert P0).
+
+**3. Frontend — màn Cài đặt**
+- `pages/SettingsAccountsPage.tsx` (bảng tài khoản, reset mật khẩu, bật/tắt
+  tài khoản — chỉ `HR_ADMIN`), `pages/SettingsSecurityPage.tsx` (đổi mật khẩu
+  của chính mình).
+- `api/accounts.ts`, routes `/settings/accounts|security` trong `App.tsx` với
+  `ProtectedRoute`, menu **Cài đặt** mọi role — con *Tài khoản* chỉ HR_ADMIN;
+  i18n `i18n/locales/{vi,en}/settings.json`.
+
+**4. Quyết định đã chốt (Q&A)**
+- Q1: menu Cài đặt mọi role, trang *Tài khoản* chỉ HR_ADMIN.
+- Q2: tự đổi mật khẩu (self) + admin reset (đúng khả năng tách endpoint).
+- Q3: giữ tạo tài khoản ở Tạo nhân viên + idempotent khi Tạo hợp đồng
+  (không chờ hợp đồng làm trigger).
+- Không thêm realm `passwordPolicy` — validate tối thiểu 8 ký tự ở API.
+
+**5. Smoke + hạ tầng dev**
+- `verify-identity.sh`: section 15 accounts (23 check) + login `<ma>@hrms`
+  cho NV sinh ra; `verify-new-features.sh`: section B login `<ma>@hrms`.
+- `.gitattributes` (mới): `* text=auto eol=lf` — `core.autocrlf=true` trên
+  Windows từng checkout `.sh` ra CRLF → bash trong container báo
+  `$'\r': command not found`; `.env` cũng phải LF (compose đọc được nhưng
+  `bash source` thì không).
+- KC running (volume cũ, không re-import realm): đã patch client
+  `hrms-identity` + service-account realm-admin qua admin API (script tạm đã
+  xóa; volume mới chỉ cần import `keycloak/realm-hrms.json`).
+- Dev identity (`hrms-dev`): container cũ không nạp `env_file` → PHẢI start
+  với env (`set -a && . ./.env && set +a`, xem AGENTS §1/§7.7).
+
+### ✅ Kết quả verify (chạy thật trên merged stack P0+P1+feature)
+
+- `mvn clean verify` (JDK 21 container): **BUILD SUCCESS** — identity **82 tests**
+  (18 test mới: `AccountServiceTest` + `AccountControllerTest`)
+- `tsc --noEmit` + `vite build`: **PASS**
+- Smoke: `verify-identity` **222/222**, `verify-new-features` **16/16**,
+  `verify-p1-scoping` **32/32**, `verify-gateway-routes` **ALL OK**
+  (`GW=http://gateway:8080`), `verify-attendance` **PASS**
+  (`ATT_URL/GW_URL` override — dev gateway 8085/attendance 8086 không chạy)
+- App stack: rebuild 4 image (`identity/gateway/attendance/frontend`) + `up -d` OK
+  (`.env` fail-fast, KC `client_credentials` hoạt động — token OK)
+
 ## [P1 — Mask PII + MANAGER scoping] 2026-10-19
 
 Nhóm fix bảo mật P1 cho `/api/v1/employees` (backend) + refresh token (frontend).

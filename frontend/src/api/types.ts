@@ -433,3 +433,20 @@ export interface ApiError {
   correlationId?: string;
   fieldErrors?: { field: string; message: string }[];
 }
+
+export interface Account {
+  username: string;
+  fullName: string;
+  email: string | null;
+  enabled: boolean;
+  roles: string[];
+  createdTimestamp: number | null; // epoch ms (KC createdTimestamp)
+  createdBy: string | null;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}

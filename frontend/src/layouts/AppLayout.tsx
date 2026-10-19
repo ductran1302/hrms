@@ -11,13 +11,14 @@ import {
   MoonOutlined,
   ScheduleOutlined,
   SearchOutlined,
+  SettingOutlined,
   SunOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Badge, Button, Dropdown, Input, Layout, Menu } from 'antd';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -25,6 +26,9 @@ import { LANGUAGES, setLanguage } from '../i18n';
 import { useTheme } from '../theme/ThemeContext';
 
 const { Header, Sider, Content } = Layout;
+
+type NavChild = { key: string; label: string };
+type NavItem = { key: string; icon?: ReactNode; label: string; children?: NavChild[] };
 
 /** Logo kim cương gradient (SVG inline) — giống mockup GlobalTech */
 function BrandMark() {
@@ -72,6 +76,13 @@ export default function AppLayout() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
 
+  // Submenu (Cài đặt) tự mở khi đang ở trang con; user vẫn đóng/mở tay được
+  const [openKeys, setOpenKeys] = useState<string[]>([]);
+  useEffect(() => {
+    const parentKey = `/${location.pathname.split('/')[1]}`;
+    setOpenKeys((prev) => (prev.includes(parentKey) ? prev : [...prev, parentKey]));
+  }, [location.pathname]);
+
   const menuItems = [
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
       key: '/employees',
@@ -118,7 +129,17 @@ export default function AppLayout() {
       icon: <CarryOutOutlined />,
       label: t('menu.myLeave'),
     },
-  ].filter(Boolean) as { key: string; icon: ReactNode; label: string }[];
+    // Cài đặt thấy mọi role; màn Tài khoản chỉ HR_ADMIN (Q&A chốt)
+    {
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: t('menu.settings'),
+      children: [
+        auth.hasRole('HR_ADMIN') && { key: '/settings/accounts', label: t('menu.settingsAccounts') },
+        { key: '/settings/security', label: t('menu.settingsSecurity') },
+      ].filter(Boolean) as NavChild[],
+    },
+  ].filter(Boolean) as NavItem[];
 
   const roleLabel = auth.hasRole('HR_ADMIN')
     ? t('role.HR_ADMIN')
@@ -142,7 +163,13 @@ export default function AppLayout() {
         <Menu
           className="hr-menu"
           mode="inline"
-          selectedKeys={[`/${location.pathname.split('/')[1]}`]}
+          openKeys={openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+          selectedKeys={[
+            menuItems.some((i) => i.key === `/${location.pathname.split('/')[1]}` && i.children)
+              ? location.pathname
+              : `/${location.pathname.split('/')[1]}`,
+          ]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

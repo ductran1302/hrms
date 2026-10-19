@@ -10,10 +10,12 @@ import com.hrms.identity.contract.dto.ContractUpdateRequest;
 import com.hrms.identity.employee.Employee;
 import com.hrms.identity.employee.EmployeeRepository;
 import com.hrms.identity.history.JobHistoryService;
+import com.hrms.identity.keycloak.KeycloakAdminClient;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  * chưa có hiệu lực; ACTIVE quá ngày hết hạn chờ job {@code ContractExpiryJob} chuyển EXPIRED.
  * Lương chỉ trả về cho HR_ADMIN (che tại service, không phụ thuộc FE).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContractService {
@@ -37,6 +40,7 @@ public class ContractService {
   private final ContractRepository contractRepository;
   private final EmployeeRepository employeeRepository;
   private final JobHistoryService jobHistoryService;
+  private final KeycloakAdminClient keycloakAdminClient;
 
   @Transactional
   public ContractResponse create(UUID employeeId, ContractCreateRequest request) {
@@ -69,7 +73,24 @@ public class ContractService {
         request.salary() == null ? null : String.valueOf(request.salary()), currentActor());
     jobHistoryService.record(employeeId, "contract.status", null,
         contract.getStatus().name(), currentActor());
+    // Best-effort: ký hợp đồng → đảm bảo nhân viên có tài khoản đăng nhập (username = mã NV).
+    // Tạo nhân viên đã tạo sẵn; chỉ tạo thêm khi thiếu (idempotent). Lỗi Keycloak KHÔNG chặn
+    // ký hợp đồng — log warn để HR tạo lại/sửa tay.
+    ensureAccount(employee);
     return toResponse(contract, isHrAdmin());
+  }
+
+  private void ensureAccount(Employee employee) {
+    String employeeCode = employee.getEmployeeCode();
+    try {
+      if (!keycloakAdminClient.userExists(employeeCode)) {
+        keycloakAdminClient.createUser(
+            employeeCode, employee.getFullName(), employee.getEmail());
+      }
+    } catch (Exception ex) {
+      log.warn("Chưa tạo được tài khoản Keycloak cho nhân viên {}: {}",
+          employeeCode, ex.getMessage());
+    }
   }
 
   @Transactional(readOnly = true)

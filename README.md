@@ -94,6 +94,10 @@ Mở:
 | `manager1` | `manager@123` | `MANAGER`, `EMPLOYEE` |
 | `employee1` | `emp@123` | `EMPLOYEE` |
 
+> Nhân viên tạo mới (Tạo nhân viên / Tạo hợp đồng) được tự tạo tài khoản Keycloak với
+> mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `HRMS_PASSWORD_SUFFIX`).
+> Đổi mật khẩu: màn **Cài đặt → Bảo mật**; admin đặt lại/bật-tắt: **Cài đặt → Tài khoản**.
+
 OAuth client:
 - `hrms-spa` (public + PKCE S256) — FE đăng nhập, redirect `http://localhost:5173/*`.
 - `hrms-identity` (confidential + service account) — identity-service gọi Admin API bằng
@@ -201,7 +205,9 @@ docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
 docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean install -DskipTests
 
 # chạy nền + xem log (port 8080 trong dev container, không publish ra host)
-docker exec -d hrms-dev bash -lc "java -jar /workspaces/HRMS/identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+# - cd /workspaces/HRMS: DOCS_DIR data/documents resolve đúng (xem AGENTS §7.7)
+# - nạp .env: container hrms-dev cũ không env_file — thiếu DB_PASSWORD/HRMS_IDENTITY_CLIENT_SECRET → start fail (AGENTS §7.8)
+docker exec -d hrms-dev bash -lc "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
 docker exec hrms-dev tail -f /tmp/identity.log
 
 # smoke test: 401/403/201/409/422 + outbox → Kafka (cần hạ tầng đang chạy)
@@ -254,7 +260,8 @@ nhân sự được giữ) và ghi projection vào `attendance_db`. Idempotent t
 `byte[]` gốc (không chết container).
 
 ```powershell
-docker exec -d hrms-dev bash -lc "SERVER_PORT=8086 java -jar /workspaces/HRMS/attendance-service/target/attendance-service-0.1.0-SNAPSHOT.jar > /tmp/attendance.log 2>&1"
+# nạp .env: attendance cũng dùng ${DB_PASSWORD:?} fail-fast (xem AGENTS §7.8)
+docker exec -d hrms-dev bash -lc "set -a && . /workspaces/HRMS/.env && set +a && SERVER_PORT=8086 java -jar /workspaces/HRMS/attendance-service/target/attendance-service-0.1.0-SNAPSHOT.jar > /tmp/attendance.log 2>&1"
 docker exec hrms-dev tail -f /tmp/attendance.log
 
 # smoke test: RBAC 401/200/403 + E2E tạo nhân viên qua gateway → projection (cần hạ tầng + identity + gateway đang chạy)

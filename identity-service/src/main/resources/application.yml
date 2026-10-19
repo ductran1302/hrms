@@ -44,8 +44,10 @@ hrms:
       client-id: ${HRMS_IDENTITY_CLIENT_ID:hrms-identity}
       # PHẢI khớp "secret" của client hrms-identity trong keycloak/realm-hrms.json
       client-secret: ${HRMS_IDENTITY_CLIENT_SECRET:?HRMS_IDENTITY_CLIENT_SECRET chưa được set — copy .env.example thành .env}
-      # Mật khẩu mặc định gán cho nhân viên mới (verify-*.sh dùng đúng giá trị này)
-      default-password: ${HRMS_DEFAULT_PASSWORD:?HRMS_DEFAULT_PASSWORD chưa được set — copy .env.example thành .env}
+      # Mật khẩu mặc định khi tạo tài khoản = <username><suffix> (vd thduc1@hrms)
+      password-suffix: ${HRMS_PASSWORD_SUFFIX:@hrms}
+      # Client dùng password-grant để tự xác thực mật khẩu khi đổi mật khẩu
+      spa-client-id: ${HRMS_SPA_CLIENT_ID:hrms-spa}
   storage:
     # Thư mục lưu tài liệu đính kèm (relative tới working dir nếu không phải absolute)
     documents-dir: ${DOCS_DIR:data/documents}
