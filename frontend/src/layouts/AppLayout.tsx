@@ -51,6 +51,17 @@ const FLAG_VI = (
   </svg>
 );
 
+/** Cờ Union Jack (Anh) cho ngôn ngữ EN */
+const FLAG_EN = (
+  <svg width="18" height="13" viewBox="0 0 60 40" aria-hidden="true">
+    <rect width="60" height="40" fill="#012169" />
+    <path d="M0 0l60 40M60 0L0 40" stroke="#fff" strokeWidth="8" />
+    <path d="M0 0l60 40M60 0L0 40" stroke="#C8102E" strokeWidth="4" />
+    <path d="M30 0v40M0 20h60" stroke="#fff" strokeWidth="14" />
+    <path d="M30 0v40M0 20h60" stroke="#C8102E" strokeWidth="8" />
+  </svg>
+);
+
 export default function AppLayout() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -112,6 +123,7 @@ export default function AppLayout() {
       : t('role.EMPLOYEE');
 
   const langShort = i18n.language === 'en' ? 'EN' : 'VI';
+  const langFlag = i18n.language === 'en' ? FLAG_EN : FLAG_VI;
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -151,7 +163,7 @@ export default function AppLayout() {
               }}
             >
               <span className="hr-lang">
-                {FLAG_VI}
+                {langFlag}
                 <span className="hr-lang-code">{langShort}</span>
                 <DownOutlined className="hr-lang-arrow" />
               </span>
