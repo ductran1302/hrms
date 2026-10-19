@@ -790,9 +790,9 @@ body,
 
 /* ==== Org chart dark ==== */
 .dark .org-stat {
-  background: #16191f;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+  background: #1e232b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .dark .org-stat-label {
@@ -837,9 +837,9 @@ body,
 }
 
 .dark .org-panel {
-  background: #16191f;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+  background: #1e232b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .dark .org-toolbar-right .ant-segmented {
@@ -881,9 +881,9 @@ body,
 }
 
 .dark .org-card {
-  background: #16191f;
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
+  background: #1e232b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .dark .org-card-name {
@@ -934,9 +934,9 @@ body,
 
 /* ==== YearCalendar dark ==== */
 .dark .hol-cal-month {
-  background: #16191f;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+  background: #1e232b;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .dark .hol-cal-day {
