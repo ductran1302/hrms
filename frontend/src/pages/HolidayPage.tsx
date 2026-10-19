@@ -97,30 +97,13 @@ function YearCalendar({
         ];
         while (cells.length % 7 !== 0) cells.push(null);
         return (
-          <div
-            key={m}
-            style={{
-              background: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
-              padding: 8,
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-            }}
-          >
-            <Text strong style={{ display: 'block', textAlign: 'center', marginBottom: 4 }}>
+          <div key={m} className="hol-cal-month">
+            <Text strong className="hol-cal-title">
               {first.format('MM/YYYY')}
             </Text>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
-                gap: 2,
-                textAlign: 'center',
-                fontSize: 11,
-              }}
-            >
+            <div className="hol-cal-grid">
               {WEEKDAYS.map((w) => (
-                <Text key={w} type="secondary" style={{ fontSize: 10 }}>
+                <Text key={w} type="secondary" className="hol-cal-weekday">
                   {w}
                 </Text>
               ))}
@@ -129,19 +112,18 @@ function YearCalendar({
                 const key = day.format('YYYY-MM-DD');
                 const hits = byDate.get(key);
                 const isToday = key === today;
+                const cls = [
+                  'hol-cal-day',
+                  hits?.length ? 'hol-cal-day--holiday' : '',
+                  isToday ? 'hol-cal-day--today' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
                 const cell = (
                   <div
                     key={i}
+                    className={cls}
                     onClick={hits && onPickDate ? () => onPickDate(key) : undefined}
-                    style={{
-                      padding: '2px 0',
-                      borderRadius: 4,
-                      cursor: hits ? 'pointer' : 'default',
-                      background: hits?.length ? '#fff1f0' : undefined,
-                      border: isToday ? '1px solid #1677ff' : undefined,
-                      fontWeight: hits?.length ? 600 : undefined,
-                      color: hits?.length ? '#cf1322' : undefined,
-                    }}
                   >
                     {day.date()}
                   </div>
