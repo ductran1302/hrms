@@ -23,8 +23,11 @@ import org.springframework.web.client.RestClient;
  * Gọi Keycloak Admin API — tạo user khi tạo nhân viên (mã NV = username đăng nhập),
  * kiểm tra username trùng, bật/tắt tài khoản khi nghỉ việc.
  *
- * <p>Admin token lấy qua password-grant {@code admin-cli} (realm master) và cache đến
- * khi gần hết hạn. Lỗi mạng được retry 3 lần rồi ném {@link BusinessRuleException}.
+ * <p>Admin token lấy qua {@code client_credentials} của client confidential
+ * {@code hrms-identity} (service account gắn realm-management role trong realm
+ * {@code hrms}) và cache đến khi gần hết hạn — không dùng master admin password
+ * (password-grant {@code admin-cli} đã bỏ). Lỗi mạng được retry 3 lần rồi ném
+ * {@link BusinessRuleException}.
  */
 @Slf4j
 @Service
@@ -34,8 +37,8 @@ public class KeycloakAdminClient {
 
   private final RestClient restClient;
   private final String realm;
-  private final String adminUsername;
-  private final String adminPassword;
+  private final String clientId;
+  private final String clientSecret;
   private final String defaultPassword;
 
   private volatile String adminToken;
@@ -44,13 +47,24 @@ public class KeycloakAdminClient {
   public KeycloakAdminClient(
       @Value("${hrms.keycloak.admin.base-url:http://keycloak:8080}") String baseUrl,
       @Value("${hrms.keycloak.admin.realm:hrms}") String realm,
-      @Value("${hrms.keycloak.admin.username:admin}") String adminUsername,
-      @Value("${hrms.keycloak.admin.password:admin}") String adminPassword,
-      @Value("${hrms.keycloak.admin.default-password:hrms@123}") String defaultPassword) {
+      @Value("${hrms.keycloak.admin.client-id:hrms-identity}") String clientId,
+      @Value("${hrms.keycloak.admin.client-secret:}") String clientSecret,
+      @Value("${hrms.keycloak.admin.default-password:}") String defaultPassword) {
+    if (clientSecret == null || clientSecret.isBlank()) {
+      throw new IllegalStateException(
+          "hrms.keycloak.admin.client-secret chưa được cấu hình — "
+              + "copy .env.example thành .env và set HRMS_IDENTITY_CLIENT_SECRET "
+              + "(phải khớp secret của client hrms-identity trong keycloak/realm-hrms.json)");
+    }
+    if (defaultPassword == null || defaultPassword.isBlank()) {
+      throw new IllegalStateException(
+          "hrms.keycloak.admin.default-password chưa được cấu hình — "
+              + "copy .env.example thành .env và set HRMS_DEFAULT_PASSWORD");
+    }
     this.restClient = RestClient.builder().baseUrl(baseUrl).build();
     this.realm = realm;
-    this.adminUsername = adminUsername;
-    this.adminPassword = adminPassword;
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
     this.defaultPassword = defaultPassword;
   }
 
@@ -178,13 +192,13 @@ public class KeycloakAdminClient {
     if (adminToken != null && Instant.now().isBefore(adminTokenExpiresAt)) {
       return adminToken;
     }
+    // client_credentials: service account của client hrms-identity (realm-management)
     MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-    form.add("grant_type", "password");
-    form.add("client_id", "admin-cli");
-    form.add("username", adminUsername);
-    form.add("password", adminPassword);
+    form.add("grant_type", "client_credentials");
+    form.add("client_id", clientId);
+    form.add("client_secret", clientSecret);
     TokenResponse token = withRetry("lấy admin token", () -> restClient.post()
-        .uri("/realms/master/protocol/openid-connect/token")
+        .uri("/realms/{realm}/protocol/openid-connect/token", realm)
         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
         .body(form)
         .retrieve()

@@ -37,3 +37,4 @@ data/
 
 # Exported opencode sessions (không thuộc source)
 session-*.mdx
+session-*.md

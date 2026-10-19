@@ -7,7 +7,8 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/identity_db
     username: ${DB_USER:hrms}
-    password: ${DB_PASSWORD:hrms_dev_pw}
+    # Fail-fast: secret lấy từ env (.env khi dev) — không còn default trong git
+    password: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env (devcontainer/app stack tự nạp)}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -34,12 +35,17 @@ hrms:
     # Issuer cố định trong token (Keycloak cấu hình KC_HOSTNAME=http://localhost:8081)
     issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
     admin:
-      # Admin API: tạo/tắt user khi tạo/nghỉ việc (mã NV = username đăng nhập)
+      # Admin API: tạo/tắt user khi tạo/nghỉ việc (mã NV = username đăng nhập).
+      # Thay password-grant admin-cli bằng client_credentials qua client
+      # "hrms-identity" (service account, realm-management) — không giữ
+      # master admin password trong service nữa.
       base-url: ${KEYCLOAK_ADMIN_URL:http://keycloak:8080}
       realm: ${KEYCLOAK_REALM:hrms}
-      username: ${KEYCLOAK_ADMIN:admin}
-      password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
-      default-password: ${HRMS_DEFAULT_PASSWORD:hrms@123}
+      client-id: ${HRMS_IDENTITY_CLIENT_ID:hrms-identity}
+      # PHẢI khớp "secret" của client hrms-identity trong keycloak/realm-hrms.json
+      client-secret: ${HRMS_IDENTITY_CLIENT_SECRET:?HRMS_IDENTITY_CLIENT_SECRET chưa được set — copy .env.example thành .env}
+      # Mật khẩu mặc định gán cho nhân viên mới (verify-*.sh dùng đúng giá trị này)
+      default-password: ${HRMS_DEFAULT_PASSWORD:?HRMS_DEFAULT_PASSWORD chưa được set — copy .env.example thành .env}
   storage:
     # Thư mục lưu tài liệu đính kèm (relative tới working dir nếu không phải absolute)
     documents-dir: ${DOCS_DIR:data/documents}
@@ -52,6 +58,13 @@ hrms:
 logging:
   pattern:
     correlation: "[identity-service,%X{traceId:-},%X{spanId:-},%X{correlationId:-}] "
+
+# Swagger: chỉ mở ở dev — app stack đặt SPRINGDOC_API_DOCS/UI=false (xem docker-compose.app.yml)
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_UI:true}
 
 management:
   zipkin:

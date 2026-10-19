@@ -9,6 +9,9 @@
 ## 1. Quick Commands
 
 ```bash
+# Lần đầu: tạo .env (compose + application.yml đã fail-fast — không còn secret default trong git)
+cp .env.example .env
+
 # Build toàn bộ (chạy trong dev container)
 docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
 

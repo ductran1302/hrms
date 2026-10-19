@@ -42,10 +42,11 @@ HR=$(token hr 'hr@123')
 NAME='Nguyễn Trung Hiếu'
 [ -n "$HR" ] || { echo "FAIL  lay token HR"; exit 1; }
 
-# admin token (kiem tra enabled trong Keycloak)
+# admin token (kiem tra enabled trong Keycloak) — credential lấy từ env
+# (devcontainer nạp .env; fail-fast nếu thiếu — không còn default trong git)
 ADMIN=$(curl -s -X POST "$KC_BASE/realms/master/protocol/openid-connect/token" \
   -H 'Content-Type: application/x-www-form-urlencoded' \
-  -d 'grant_type=password&client_id=admin-cli&username=admin&password=admin' \
+  -d "grant_type=password&client_id=admin-cli&username=${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN chưa set - nạp .env}&password=${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chưa set - nạp .env}" \
   | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
 kc_user() { # username -> json user
   curl -s -H "Authorization: Bearer $ADMIN" \

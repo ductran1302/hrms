@@ -38,7 +38,9 @@
     "deleteTitle": "Delete this document?",
     "deleteDesc": "The file on disk will also be deleted.",
     "deleted": "Document deleted",
-    "empty": "No attached documents yet"
+    "empty": "No attached documents yet",
+    "invalidType": "Unsupported file — only PDF, images, Word, Excel, PowerPoint, TXT/CSV, RTF, ZIP allowed",
+    "fileTooLarge": "File exceeds the 10MB limit"
   },
   "contract": {
     "type": "Contract type",

@@ -11,8 +11,13 @@ services:
     restart: unless-stopped
     environment:
       DOCS_DIR: /app/data/documents
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Fail-fast: secret lấy từ .env (không còn default trong git)
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env}
+      HRMS_DEFAULT_PASSWORD: ${HRMS_DEFAULT_PASSWORD:?HRMS_DEFAULT_PASSWORD chưa được set — copy .env.example thành .env}
+      HRMS_IDENTITY_CLIENT_SECRET: ${HRMS_IDENTITY_CLIENT_SECRET:?HRMS_IDENTITY_CLIENT_SECRET chưa được set — copy .env.example thành .env}
+      # Tắt Swagger ngoài dev (SecurityConfig vẫn permitAll nhưng springdoc trả 404)
+      SPRINGDOC_API_DOCS: ${SPRINGDOC_API_DOCS:-false}
+      SPRINGDOC_UI: ${SPRINGDOC_UI:-false}
     volumes:
       - hrms-documents:/app/data/documents
 
@@ -21,6 +26,10 @@ services:
       context: .
       dockerfile: attendance-service/Dockerfile
     restart: unless-stopped
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env}
+      SPRINGDOC_API_DOCS: ${SPRINGDOC_API_DOCS:-false}
+      SPRINGDOC_UI: ${SPRINGDOC_UI:-false}
 
   gateway:
     build:

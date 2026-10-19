@@ -34,6 +34,43 @@ const STATUS_COLOR: Record<Employee['status'], string> = {
   TERMINATED: 'red',
 };
 
+/** Giới hạn upload tài liệu (khớp backend EmployeeDocumentService — 10MB). */
+const MAX_DOC_SIZE = 10 * 1024 * 1024;
+/** MIME whitelist — chặn file thực thi/script (svg/html cũng bị loại để tránh XSS). */
+const ALLOWED_DOC_MIME = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+  'application/rtf',
+  'application/zip',
+  'application/x-zip-compressed',
+]);
+/** Backup theo extension khi browser không khai báo MIME (file.type rỗng/không chuẩn). */
+const ALLOWED_DOC_EXT = new Set([
+  'pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+  'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'txt', 'csv', 'rtf', 'zip',
+]);
+
+/** true nếu file hợp lệ (MIME hoặc extension khớp whitelist) và ≤ 10MB. */
+function isAllowedDocFile(file: File): boolean {
+  const mime = (file.type.split(';')[0] ?? '').trim().toLowerCase();
+  const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
+  const typeOk = (mime !== '' && ALLOWED_DOC_MIME.has(mime)) || ALLOWED_DOC_EXT.has(ext);
+  return typeOk && file.size <= MAX_DOC_SIZE;
+}
+
 export default function EmployeeProfile() {
   const { t } = useTranslation();
   const { id = '' } = useParams();
@@ -129,6 +166,15 @@ export default function EmployeeProfile() {
           <Upload
             showUploadList={false}
             beforeUpload={(file) => {
+              // Validate phía client trước khi gửi (backend cũng chặn >10MB)
+              if (file.size > MAX_DOC_SIZE) {
+                message.error(t('profile.docs.fileTooLarge'));
+                return false;
+              }
+              if (!isAllowedDocFile(file)) {
+                message.error(t('profile.docs.invalidType'));
+                return false;
+              }
               uploadDocument(id, file, docType)
                 .then(() => {
                   message.success(t('profile.uploaded'));

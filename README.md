@@ -54,6 +54,10 @@ docker compose logs -f           # log hạ tầng (chạy ở host)
 ## Bắt đầu nhanh
 
 ```powershell
+# 0. Lần đầu (hoặc sau khi pull thay đổi bảo mật): tạo .env cục bộ
+#    — compose + application.yml đã fail-fast, KHÔNG còn secret default trong git
+cp .env.example .env
+
 # 1. Khởi động hạ tầng — chạy từ HOST (6 container)
 docker compose up -d
 docker compose ps          # tất cả healthy
@@ -90,7 +94,11 @@ Mở:
 | `manager1` | `manager@123` | `MANAGER`, `EMPLOYEE` |
 | `employee1` | `emp@123` | `EMPLOYEE` |
 
-OAuth client: `hrms-spa` (public + PKCE), redirect `http://localhost:5173/*`.
+OAuth client:
+- `hrms-spa` (public + PKCE S256) — FE đăng nhập, redirect `http://localhost:5173/*`.
+- `hrms-identity` (confidential + service account) — identity-service gọi Admin API bằng
+  `client_credentials` (không còn password-grant admin-cli / master admin password).
+  Secret khớp `HRMS_IDENTITY_CLIENT_SECRET` trong `.env`.
 
 ### Lấy token (dùng cho việc test API)
 
@@ -132,6 +140,11 @@ Realm chỉ được import khi chưa tồn tại. Muốn import lại:
 docker compose down -v
 docker compose up -d --wait
 ```
+
+> **Migration bảo mật (P0):** phiên bản hiện tại thêm client `hrms-identity` (service account)
+> vào `keycloak/realm-hrms.json`. Máy đã có volume Keycloak cũ → **bắt buộc** `docker compose down -v`
+> một lần để realm import lại (không có client này, identity-service không lấy được admin token →
+> tạo nhân viên thất bại). Các volume postgres/kafka cũng reset theo → seed lại data nếu cần.
 
 ## Cấu trúc thư mục
 

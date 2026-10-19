@@ -7,7 +7,8 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/attendance_db
     username: ${DB_USER:hrms}
-    password: ${DB_PASSWORD:hrms_dev_pw}
+    # Fail-fast: secret lấy từ env (.env khi dev) — không còn default trong git
+    password: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env (devcontainer/app stack tự nạp)}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -38,6 +39,13 @@ hrms:
 logging:
   pattern:
     correlation: "[attendance-service,%X{traceId:-},%X{spanId:-},%X{correlationId:-}] "
+
+# Swagger: chỉ mở ở dev — app stack đặt SPRINGDOC_API_DOCS/UI=false (xem docker-compose.app.yml)
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_UI:true}
 
 management:
   zipkin:

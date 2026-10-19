@@ -38,7 +38,9 @@
     "deleteTitle": "Xóa tài liệu này?",
     "deleteDesc": "File trên đĩa cũng sẽ bị xóa.",
     "deleted": "Đã xóa tài liệu",
-    "empty": "Chưa có tài liệu đính kèm"
+    "empty": "Chưa có tài liệu đính kèm",
+    "invalidType": "File không được hỗ trợ — chỉ nhận PDF, ảnh, Word, Excel, PowerPoint, TXT/CSV, RTF, ZIP",
+    "fileTooLarge": "File vượt quá giới hạn 10MB"
   },
   "contract": {
     "type": "Loại HĐ",

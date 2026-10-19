@@ -83,9 +83,34 @@
         "offline_access",
         "microprofile-jwt"
       ]
+    },
+    {
+      "clientId": "hrms-identity",
+      "name": "Identity Service (service account)",
+      "description": "Confidential client — client_credentials gọi Admin API (thay password-grant admin-cli, không giữ master admin password)",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "secret": "identity-dev-secret-change-me",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
     }
   ],
   "users": [
+    {
+      "username": "service-account-hrms-identity",
+      "enabled": true,
+      "serviceAccountClientId": "hrms-identity",
+      "clientRoles": {
+        "realm-management": ["realm-admin"]
+      }
+    },
     {
       "username": "hr",
       "enabled": true,

@@ -15,6 +15,11 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MAVEN_OPTS: -Dmaven.repo.local=/home/vscode/.m2/repository
+    # Nạp secret từ .env gốc repo (docker-compose.yml/application.yml đã fail-fast `:?`,
+    # không còn default) — jar identity chạy trong container đọc được biến khi start.
+    env_file:
+      - path: ../.env
+        required: false
     networks:
       - default
 

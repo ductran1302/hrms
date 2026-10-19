@@ -17,6 +17,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 /**
  * Resource server: validate JWT Keycloak (JWKS in-network), map role realm sang ROLE_xxx.
@@ -46,7 +47,11 @@ public class SecurityConfig {
             .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
             .anyRequest().authenticated())
         .oauth2ResourceServer(oauth2 -> oauth2
-            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+            .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+        // Security headers: Spring defaults đã bật nosniff/X-Frame-Options/Cache-Control,
+        // bổ sung Referrer-Policy (không bật CSP — service trả JSON, CSP cho SPA ở nginx)
+        .headers(headers -> headers.referrerPolicy(
+            ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
     return http.build();
   }
 
