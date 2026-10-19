@@ -3,8 +3,9 @@
 # auth/RBAC + departments + contracts (salary gating) + history + org chart + search
 # Idempotent: dùng mã ngẫu nhiên mỗi lần chạy. Chạy trong hrms-dev:
 #   docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
-API=http://localhost:8080
-KC=http://keycloak:8080/realms/hrms
+# API/KC override được qua env (mặc định giữ nguyên như cũ).
+API=${API:-http://localhost:8080}
+KC=${KC:-http://keycloak:8080/realms/hrms}
 PASS=0
 FAIL=0
 
@@ -59,6 +60,8 @@ R=$(req GET "" /api/v1/employees);               check "GET list khong token" 40
 R=$(req GET "$EMP" /api/v1/employees);           check "GET list employee1" 403 "$(code_of "$R")"
 R=$(req GET "$MGR" "/api/v1/employees?size=5");  check "GET list manager1" 200 "$(code_of "$R")"
 check_has "PageResponse co items/total" "$(has "$R" '"items"')" yes
+# P1 scoping: manager1 khong co ho so nhan vien -> fail-closed, khong thay ai
+check_has "MANAGER khong gan ho so NV -> total=0" "$(has "$R" '"total":0')" yes
 
 echo "== 2. Departments (CRUD + RBAC)"
 R=$(req POST "$HR" /api/v1/departments "{\"code\":\"$DEPT_CODE\",\"name\":\"Phòng QA $SUF\"}")
@@ -89,6 +92,12 @@ R=$(req GET "$HR" "/api/v1/employees?office=Khong%20Ton%20Tai")
 check_has "office khong ton tai -> khong co NV" "$(has "$R" "$EMP_CODE")" no
 R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"$EMP_CODE\",\"fullName\":\"Trùng Mã\"}")
 check "POST trung ma" 409 "$(code_of "$R")"
+
+echo "== 3b. P1 scoping: MANAGER ngoai pham vi -> 403"
+R=$(req GET "$MGR" "/api/v1/employees/$EMP_ID")
+check "GET chi tiet NV ngoai pham vi boi MANAGER" 403 "$(code_of "$R")"
+R=$(req GET "$MGR" "/api/v1/employees/$EMP_ID/history")
+check "GET history ngoai pham vi boi MANAGER" 403 "$(code_of "$R")"
 
 echo "== 4. PATCH nang cao (history + clear)"
 R=$(req PATCH "$HR" "/api/v1/employees/$EMP_ID" '{"position":"Senior Tester"}')

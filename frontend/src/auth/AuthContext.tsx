@@ -34,7 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<InitState>(initial);
 
   useEffect(() => {
-    let refreshTimer: number | undefined;
     keycloak
       .init({ onLoad: 'login-required', pkceMethod: 'S256' })
       .then(() => {
@@ -45,14 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: keycloak.tokenParsed?.preferred_username ?? '',
           roles: (keycloak.tokenParsed?.realm_access as { roles?: string[] } | undefined)?.roles ?? [],
         });
-        refreshTimer = window.setInterval(() => {
-          keycloak.updateToken(30).catch(() => undefined);
-        }, 30_000);
+        // Không refresh theo interval (P1): 2 luồng refresh đồng thời (interval +
+        // axios interceptor) có thể đua nhau gây refresh token lỗi. Chỉ refresh
+        // lazy ngay trước mỗi request qua axios interceptor (api/client.ts).
       })
       .catch(() => setState((s) => ({ ...s, initialized: true, initFailed: true })));
-    return () => {
-      if (refreshTimer !== undefined) window.clearInterval(refreshTimer);
-    };
   }, []);
 
   const value = useMemo<AuthContextValue>(

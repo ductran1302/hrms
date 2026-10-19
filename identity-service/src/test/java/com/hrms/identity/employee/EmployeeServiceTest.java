@@ -41,6 +41,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
 class EmployeeServiceTest {
@@ -205,13 +206,13 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     EmployeeResponse response = sampleResponse();
     when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""), eq(""),
-        any())).thenReturn(List.of(employee));
+        isNull(), isNull(), any())).thenReturn(List.of(employee));
     when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
-        eq(""))).thenReturn(1L);
+        eq(""), isNull(), isNull())).thenReturn(1L);
     when(mapper.toResponse(employee)).thenReturn(response);
 
     PageResponse<EmployeeResponse> result =
-        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null, null);
+        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null, null, hrViewer());
 
     assertEquals(1, result.items().size());
     assertEquals(1L, result.total());
@@ -221,7 +222,115 @@ class EmployeeServiceTest {
   @Test
   void get_notFound_throwsResourceNotFound() {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
-    assertThrows(ResourceNotFoundException.class, () -> service.get(employeeId));
+    assertThrows(ResourceNotFoundException.class, () -> service.get(employeeId, hrViewer()));
+  }
+
+  // ---- P1: MANAGER scoping + mask PII ----
+
+  @Test
+  void search_manager_scopesToDirectReportsAndMasksPii() {
+    Employee self = employeeWithStatus(EmployeeStatus.ACTIVE);
+    Employee report = new Employee();
+    report.setId(UUID.randomUUID());
+    report.setEmployeeCode("NV0002");
+
+    when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.of(self));
+    when(employeeRepository.search(any(), any(), any(), any(), any(), eq(employeeId),
+        eq(employeeId), any())).thenReturn(List.of(self, report));
+    when(employeeRepository.countSearch(any(), any(), any(), any(), any(), eq(employeeId),
+        eq(employeeId))).thenReturn(2L);
+    when(mapper.toResponse(self)).thenReturn(piiResponse("NV0001"));
+    when(mapper.toResponse(report)).thenReturn(piiResponse("NV0002"));
+
+    PageResponse<EmployeeResponse> result =
+        service.search(0, 20, null, null, null, null, null, managerViewer());
+
+    assertEquals(2, result.items().size());
+    assertEquals(2L, result.total());
+    // chính mình trong danh sách → đầy đủ
+    assertEquals("012345678901", result.items().get(0).nationalId());
+    // nhân viên trực thuộc → PII bị mask, trường thường giữ nguyên
+    EmployeeResponse masked = result.items().get(1);
+    assertEquals("NV0002", masked.employeeCode());
+    assertEquals("Nguyễn Văn A", masked.fullName());
+    assertEquals("****8901", masked.nationalId());
+    assertEquals("***", masked.address());
+    assertEquals("***", masked.emergencyContactPhone());
+  }
+
+  @Test
+  void search_managerWithoutEmployeeRecord_returnsEmptyPageAndSkipsQuery() {
+    when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.empty());
+    when(employeeRepository.findFirstByEmail("manager1@hrms.vn")).thenReturn(Optional.empty());
+
+    PageResponse<EmployeeResponse> result =
+        service.search(0, 20, null, null, null, null, null, managerViewer());
+
+    assertTrue(result.items().isEmpty());
+    assertEquals(0L, result.total());
+    // fail-closed: không chạy query khi không xác định được người xem
+    verify(employeeRepository, never()).search(any(), any(), any(), any(), any(), any(), any(),
+        any());
+  }
+
+  @Test
+  void get_hrAdmin_returnsFullPii() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(mapper.toResponse(employee)).thenReturn(piiResponse("NV0001"));
+
+    EmployeeResponse result = service.get(employeeId, hrViewer());
+
+    assertEquals("012345678901", result.nationalId());
+    assertEquals("0900000002", result.emergencyContactPhone());
+  }
+
+  @Test
+  void get_selfByManager_returnsFullPii() {
+    Employee self = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(self));
+    when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.of(self));
+    when(mapper.toResponse(self)).thenReturn(piiResponse("NV0001"));
+
+    EmployeeResponse result = service.get(employeeId, managerViewer());
+
+    assertEquals("012345678901", result.nationalId());
+    assertEquals("12 Phố Huế, Hà Nội", result.address());
+  }
+
+  @Test
+  void get_managerViewingDirectReport_masksPii() {
+    Employee report = new Employee();
+    report.setId(UUID.randomUUID());
+    report.setEmployeeCode("NV0002");
+    report.setManagerId(employeeId);
+    when(employeeRepository.findById(report.getId())).thenReturn(Optional.of(report));
+    when(employeeRepository.findByEmployeeCode("manager1"))
+        .thenReturn(Optional.of(employeeWithStatus(EmployeeStatus.ACTIVE)));
+    when(mapper.toResponse(report)).thenReturn(piiResponse("NV0002"));
+
+    EmployeeResponse result = service.get(report.getId(), managerViewer());
+
+    assertEquals("****8901", result.nationalId());
+    assertEquals("***", result.address());
+    assertEquals("***", result.emergencyContactPhone());
+    // phone + tên người liên hệ giữ cho quan hệ công việc
+    assertEquals("0912345678", result.phone());
+    assertEquals("Nguyễn Văn B", result.emergencyContactName());
+  }
+
+  @Test
+  void get_managerOutsideScope_throwsAccessDenied() {
+    Employee other = new Employee();
+    other.setId(UUID.randomUUID());
+    other.setEmployeeCode("NV0003");
+    when(employeeRepository.findById(other.getId())).thenReturn(Optional.of(other));
+    when(employeeRepository.findByEmployeeCode("manager1"))
+        .thenReturn(Optional.of(employeeWithStatus(EmployeeStatus.ACTIVE)));
+
+    assertThrows(AccessDeniedException.class,
+        () -> service.get(other.getId(), managerViewer()));
+    verify(mapper, never()).toResponse(other);
   }
 
   @Test
@@ -464,6 +573,23 @@ class EmployeeServiceTest {
         employeeId, code, "Nguyễn Văn A", null, null, null, null, null, EmployeeStatus.ACTIVE,
         null, null, null, null, null, null, null, null, null, null, null, null, null, calendarId,
         null, null, 0L);
+  }
+
+  /** Response có đủ PII để assert mask (nationalId/address/emergencyContactPhone). */
+  private EmployeeResponse piiResponse(String code) {
+    return new EmployeeResponse(
+        employeeId, code, "Nguyễn Văn A", "a@hrms.vn", null, null, "Backend", null,
+        EmployeeStatus.ACTIVE, null, null, null, "0912345678", "012345678901",
+        "12 Phố Huế, Hà Nội", null, null, null, "Nguyễn Văn B", "0900000002", "Vợ",
+        null, null, null, null, 0L);
+  }
+
+  private static EmployeeViewer hrViewer() {
+    return new EmployeeViewer("hr", "hr@hrms.vn", true);
+  }
+
+  private static EmployeeViewer managerViewer() {
+    return new EmployeeViewer("manager1", "manager1@hrms.vn", false);
   }
 
   /** PATCH toàn null (19 trường) — dùng cho case "không có trường nào để cập nhật". */

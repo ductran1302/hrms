@@ -69,7 +69,7 @@ class EmployeeControllerTest {
   @Test
   void list_withHrAdmin_returns200PageResponse() throws Exception {
     when(employeeService.search(anyInt(), anyInt(), isNull(), isNull(), isNull(), isNull(),
-        isNull())).thenReturn(PageResponse.of(List.of(sampleResponse()), 0, 20, 1));
+        isNull(), any())).thenReturn(PageResponse.of(List.of(sampleResponse()), 0, 20, 1));
 
     mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(HR_ADMIN)))
         .andExpect(status().isOk())
@@ -82,7 +82,15 @@ class EmployeeControllerTest {
     mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(EMPLOYEE)))
         .andExpect(status().isForbidden());
     verify(employeeService, never()).search(anyInt(), anyInt(), any(), any(), any(), any(),
-        any());
+        any(), any());
+  }
+
+  @Test
+  void detail_withEmployeeRole_returns403() throws Exception {
+    mockMvc.perform(get("/api/v1/employees/{id}", UUID.randomUUID())
+            .with(jwt().authorities(EMPLOYEE)))
+        .andExpect(status().isForbidden());
+    verify(employeeService, never()).get(any(UUID.class), any());
   }
 
   @Test

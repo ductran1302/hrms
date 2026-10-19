@@ -34,6 +34,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
   long countByCreatedAtAfter(java.time.Instant cutoff);
 
+  /**
+   * Tìm kiếm nhân viên có scoping (P1): {@code managerScope} khác null → chỉ trả nhân viên
+   * trực thuộc manager đó ({@code managerId = managerScope}) hoặc chính manager
+   * ({@code id = viewerId}); {@code managerScope = null} → không giới hạn (HR_ADMIN).
+   */
   @Query("""
       select e from Employee e
       where (:status is null or e.status = :status)
@@ -46,14 +51,20 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
              or lower(e.employeeCode) like lower(concat('%', :q, '%'))
              or lower(e.fullName) like lower(concat('%', :q, '%'))
              or lower(coalesce(e.email, '')) like lower(concat('%', :q, '%')))
+        and (:managerScope is null
+             or e.managerId = :managerScope
+             or e.id = :viewerId)
       """)
   List<Employee> search(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
       @Param("position") String position,
       @Param("office") String office,
       @Param("q") String q,
+      @Param("managerScope") UUID managerScope,
+      @Param("viewerId") UUID viewerId,
       Pageable pageable);
 
+  /** Count song song với {@link #search} — cùng mệnh đề scoping {@code managerScope}. */
   @Query("""
       select count(e) from Employee e
       where (:status is null or e.status = :status)
@@ -66,10 +77,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
              or lower(e.employeeCode) like lower(concat('%', :q, '%'))
              or lower(e.fullName) like lower(concat('%', :q, '%'))
              or lower(coalesce(e.email, '')) like lower(concat('%', :q, '%')))
+        and (:managerScope is null
+             or e.managerId = :managerScope
+             or e.id = :viewerId)
       """)
   long countSearch(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
       @Param("position") String position,
       @Param("office") String office,
-      @Param("q") String q);
+      @Param("q") String q,
+      @Param("managerScope") UUID managerScope,
+      @Param("viewerId") UUID viewerId);
 }

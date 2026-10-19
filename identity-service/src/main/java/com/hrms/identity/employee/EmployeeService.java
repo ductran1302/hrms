@@ -23,11 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -104,25 +106,60 @@ public class EmployeeService {
    * Danh sách phân trang + tìm kiếm/tìm lọc.
    * Bước 9: đổi từ list phẳng ({@code List}) sang {@code PageResponse} — FE/verify scripts
    * đọc field {@code items}.
+   *
+   * <p><b>P1 scoping:</b> HR_ADMIN thấy toàn bộ; MANAGER chỉ thấy nhân viên trực thuộc
+   * (managerId = mình) + chính mình và PII nhạy cảm bị mask. MANAGER không khớp hồ sơ
+   * nhân viên nào → danh sách rỗng (fail-closed, không mở mặc định).
    */
   @Transactional(readOnly = true)
   public PageResponse<EmployeeResponse> search(int page, int size, EmployeeStatus status,
-      UUID departmentId, String position, String office, String q) {
+      UUID departmentId, String position, String office, String q, EmployeeViewer viewer) {
     String query = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase(Locale.ROOT);
     String pos = (position == null || position.isBlank()) ? "" : position.trim();
     String off = (office == null || office.isBlank()) ? "" : office.trim();
     PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-    List<EmployeeResponse> items =
-        employeeRepository.search(status, departmentId, pos, off, query, pageable).stream()
-            .map(mapper::toResponse)
-            .toList();
-    long total = employeeRepository.countSearch(status, departmentId, pos, off, query);
+
+    if (!viewer.hrAdmin()) {
+      Optional<Employee> self = resolveViewer(viewer);
+      if (self.isEmpty()) {
+        return PageResponse.of(List.of(), page, size, 0);
+      }
+      UUID selfId = self.get().getId();
+      List<EmployeeResponse> items = employeeRepository
+          .search(status, departmentId, pos, off, query, selfId, selfId, pageable).stream()
+          .map(employee -> toViewerResponse(employee, selfId))
+          .toList();
+      long total =
+          employeeRepository.countSearch(status, departmentId, pos, off, query, selfId, selfId);
+      return PageResponse.of(items, page, size, total);
+    }
+
+    List<EmployeeResponse> items = employeeRepository
+        .search(status, departmentId, pos, off, query, null, null, pageable).stream()
+        .map(mapper::toResponse)
+        .toList();
+    long total = employeeRepository.countSearch(status, departmentId, pos, off, query, null, null);
     return PageResponse.of(items, page, size, total);
   }
 
+  /**
+   * Chi tiết nhân viên có scoping (P1): HR_ADMIN toàn bộ; caller khác chỉ xem được
+   * chính mình (đầy đủ) hoặc nhân viên trực thuộc (mask PII); ngoài phạm vi → 403.
+   */
   @Transactional(readOnly = true)
-  public EmployeeResponse get(UUID id) {
-    return mapper.toResponse(find(id));
+  public EmployeeResponse get(UUID id, EmployeeViewer viewer) {
+    Employee employee = find(id);
+    if (viewer.hrAdmin()) {
+      return mapper.toResponse(employee);
+    }
+    Optional<Employee> self = resolveViewer(viewer);
+    if (self.isPresent() && self.get().getId().equals(id)) {
+      return mapper.toResponse(employee);
+    }
+    if (self.isEmpty() || !Objects.equals(employee.getManagerId(), self.get().getId())) {
+      throw new AccessDeniedException("Bạn không có quyền xem nhân viên này");
+    }
+    return maskSensitive(mapper.toResponse(employee));
   }
 
   /**
@@ -131,16 +168,56 @@ public class EmployeeService {
    */
   @Transactional(readOnly = true)
   public EmployeeResponse me(String preferredUsername, String email) {
-    java.util.Optional<Employee> employee =
-        preferredUsername == null || preferredUsername.isBlank()
-            ? java.util.Optional.empty()
-            : employeeRepository.findByEmployeeCode(preferredUsername);
-    if (employee.isEmpty() && email != null && !email.isBlank()) {
-      employee = employeeRepository.findFirstByEmail(email);
-    }
-    Employee found = employee.orElseThrow(() -> new ResourceNotFoundException(
-        "Nhân viên (username/email " + preferredUsername + ")"));
+    Employee found = resolveViewer(new EmployeeViewer(preferredUsername, email, true))
+        .orElseThrow(() -> new ResourceNotFoundException(
+            "Nhân viên (username/email " + preferredUsername + ")"));
     return mapper.toResponse(found);
+  }
+
+  /** Khớp user đăng nhập với hồ sơ NV: username = employeeCode trước, fallback email. */
+  private Optional<Employee> resolveViewer(EmployeeViewer viewer) {
+    if (!isBlank(viewer.username())) {
+      Optional<Employee> byCode = employeeRepository.findByEmployeeCode(viewer.username());
+      if (byCode.isPresent()) {
+        return byCode;
+      }
+    }
+    return isBlank(viewer.email())
+        ? Optional.empty()
+        : employeeRepository.findFirstByEmail(viewer.email());
+  }
+
+  /** Response trong danh sách cho MANAGER: chính mình đầy đủ, nhân viên trực thuộc mask. */
+  private EmployeeResponse toViewerResponse(Employee employee, UUID viewerEmployeeId) {
+    EmployeeResponse response = mapper.toResponse(employee);
+    return Objects.equals(employee.getId(), viewerEmployeeId) ? response : maskSensitive(response);
+  }
+
+  /**
+   * Mask PII nhạy cảm cho người xem không phải HR_ADMIN/chính chủ:
+   * {@code nationalId} → {@code ****} + 4 số cuối; {@code address},
+   * {@code emergencyContactPhone} → {@code ***}.
+   * {@code phone} giữ nguyên (quan hệ công việc với nhân viên trực thuộc).
+   */
+  private EmployeeResponse maskSensitive(EmployeeResponse r) {
+    return new EmployeeResponse(
+        r.id(), r.employeeCode(), r.fullName(), r.email(), r.departmentId(), r.departmentName(),
+        r.position(), r.managerId(), r.status(), r.hiredAt(), r.birthDate(), r.gender(), r.phone(),
+        maskLast4(r.nationalId()), maskText(r.address()), r.office(), r.educationLevel(),
+        r.skills(), r.emergencyContactName(), maskText(r.emergencyContactPhone()),
+        r.emergencyContactRelation(), r.photoUrl(), r.calendarId(), r.createdAt(), r.updatedAt(),
+        r.version());
+  }
+
+  private static String maskLast4(String value) {
+    if (value == null || value.isBlank()) {
+      return value;
+    }
+    return value.length() <= 4 ? "****" : "****" + value.substring(value.length() - 4);
+  }
+
+  private static String maskText(String value) {
+    return (value == null || value.isBlank()) ? value : "***";
   }
 
   @Transactional

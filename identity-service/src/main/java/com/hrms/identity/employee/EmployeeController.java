@@ -14,6 +14,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +31,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * API nhân viên — HR-facing. Mọi endpoint yêu cầu JWT hợp lệ;
  * ghi (create/update/terminate) chỉ {@code HR_ADMIN}, đọc thêm {@code MANAGER}.
+ *
+ * <p>P1 scoping: MANAGER đọc được phạm vi nhân viên trực thuộc + chính mình
+ * (chi tiết ngoài phạm vi → 403), PII nhạy cảm bị mask (xem {@link EmployeeViewer}).
  */
 @Tag(name = "Employees")
 @RestController
@@ -59,8 +63,11 @@ public class EmployeeController {
       @RequestParam(name = "departmentId", required = false) UUID departmentId,
       @RequestParam(name = "position", required = false) String position,
       @RequestParam(name = "office", required = false) String office,
-      @RequestParam(name = "q", required = false) String q) {
-    return employeeService.search(page, Math.max(size, 1), status, departmentId, position, office, q);
+      @RequestParam(name = "q", required = false) String q,
+      @AuthenticationPrincipal Jwt jwt,
+      Authentication authentication) {
+    return employeeService.search(page, Math.max(size, 1), status, departmentId, position, office,
+        q, viewer(jwt, authentication));
   }
 
   @GetMapping("/me")
@@ -72,16 +79,20 @@ public class EmployeeController {
 
   @GetMapping("/{id}")
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
-  @Operation(summary = "Chi tiết nhân viên")
-  public EmployeeResponse get(@PathVariable UUID id) {
-    return employeeService.get(id);
+  @Operation(summary = "Chi tiết nhân viên (MANAGER: chỉ trực thuộc/ chính mình, PII được mask)")
+  public EmployeeResponse get(@PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      Authentication authentication) {
+    return employeeService.get(id, viewer(jwt, authentication));
   }
 
   @GetMapping("/{id}/history")
   @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
   @Operation(summary = "Lịch sử thay đổi job info của nhân viên (mới nhất trước)")
-  public List<JobHistoryResponse> history(@PathVariable UUID id) {
-    employeeService.get(id);
+  public List<JobHistoryResponse> history(@PathVariable UUID id,
+      @AuthenticationPrincipal Jwt jwt,
+      Authentication authentication) {
+    employeeService.get(id, viewer(jwt, authentication));
     return jobHistoryService.listByEmployee(id);
   }
 
@@ -110,5 +121,18 @@ public class EmployeeController {
       @RequestParam(name = "reason", required = false) String reason,
       @AuthenticationPrincipal Jwt jwt) {
     employeeService.terminate(id, jwt.getSubject(), reason);
+  }
+
+  /**
+   * Xây viewer cho endpoint đọc: username/email lấy từ JWT claim, role HR_ADMIN lấy từ
+   * {@code Authentication} (cùng nguồn authority với {@code @PreAuthorize}).
+   */
+  private EmployeeViewer viewer(Jwt jwt, Authentication authentication) {
+    boolean hrAdmin = authentication.getAuthorities().stream()
+        .anyMatch(authority -> "ROLE_HR_ADMIN".equals(authority.getAuthority()));
+    return new EmployeeViewer(
+        jwt.getClaimAsString("preferred_username"),
+        jwt.getClaimAsString("email"),
+        hrAdmin);
   }
 }

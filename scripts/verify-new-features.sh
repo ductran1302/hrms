@@ -2,9 +2,10 @@
 # Kiem tra 2 tinh nang moi: (1) ma NV = username Keycloak, sinh tu ho ten
 # (2) dong voi login/nghi viec -> disable user. Chay trong hrms-dev:
 #   docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-new-features.sh
-API=http://localhost:8080
-KC=http://keycloak:8080/realms/hrms
-KC_BASE=http://keycloak:8080
+# API/KC override được qua env (mặc định giữ nguyên như cũ).
+API=${API:-http://localhost:8080}
+KC=${KC:-http://keycloak:8080/realms/hrms}
+KC_BASE=${KC_BASE:-http://keycloak:8080}
 PASS=0
 FAIL=0
 
