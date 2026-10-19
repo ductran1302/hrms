@@ -126,6 +126,16 @@ body,
   cursor: pointer;
 }
 
+.hr-theme-toggle {
+  color: #4b5563;
+  font-size: 16px;
+}
+
+.hr-theme-toggle:hover {
+  background: #f3f4f6;
+  color: #1677ff;
+}
+
 .hr-lang {
   display: inline-flex;
   align-items: center;
@@ -620,4 +630,259 @@ body,
   gap: 4px;
   color: rgba(0, 0, 0, 0.65);
   flex-shrink: 0;
+}
+
+/* ============================================================
+   DARK MODE — override custom classes khi <html> có class .dark
+   (AntD component đã tự tối qua darkAlgorithm; chỉ cần sửa CSS custom)
+   Palette: page #0f1115 · sider/header #1a1d24 · card #16191f
+   ============================================================ */
+.dark .hr-sider {
+  background: #1a1d24 !important;
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .hr-brand-name {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .hr-brand-tag {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .hr-menu .ant-menu-item .anticon {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.dark .hr-menu .ant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .hr-menu .ant-menu-item-selected {
+  background: rgba(22, 119, 255, 0.18);
+  color: #4096ff;
+}
+
+.dark .hr-menu .ant-menu-item-selected .anticon {
+  color: #4096ff;
+}
+
+.dark .hr-body {
+  background: #0f1115;
+}
+
+.dark .hr-header {
+  background: #1a1d24;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .hr-search {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .hr-search:hover,
+.dark .hr-search:focus-within {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark .hr-search .ant-input,
+.dark .hr-search .ant-input-affix-wrapper {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .hr-search .ant-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.dark .hr-search-icon {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.dark .hr-bell {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dark .hr-theme-toggle {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dark .hr-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #faad14;
+}
+
+.dark .hr-lang {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.dark .hr-lang:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .hr-lang-code {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .hr-user:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dark .hr-user-name {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .hr-user-role {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.dark .hr-user-avatar {
+  background: rgba(22, 119, 255, 0.2);
+  color: #4096ff;
+}
+
+/* ==== Org chart dark ==== */
+.dark .org-stat {
+  background: #16191f;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.dark .org-stat-label {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.dark .org-stat-value {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .org-stat-caption {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .org-stat-delta {
+  color: #73d13d;
+}
+
+.dark .org-stat-hint--ok .org-stat-delta {
+  color: #73d13d;
+}
+
+/* icon tint: giữ màu nhưng giảm độ sáng nền để không chói */
+.dark .org-stats .org-stat:nth-child(1) .org-stat-icon {
+  background: rgba(22, 119, 255, 0.18);
+  color: #4096ff;
+}
+
+.dark .org-stats .org-stat:nth-child(2) .org-stat-icon {
+  background: rgba(114, 46, 209, 0.18);
+  color: #b37feb;
+}
+
+.dark .org-stats .org-stat:nth-child(3) .org-stat-icon {
+  background: rgba(19, 194, 194, 0.18);
+  color: #36cfc9;
+}
+
+.dark .org-stats .org-stat:nth-child(4) .org-stat-icon {
+  background: rgba(82, 196, 26, 0.18);
+  color: #73d13d;
+}
+
+.dark .org-panel {
+  background: #16191f;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.dark .org-toolbar-right .ant-segmented {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .org-toolbar-right .ant-segmented .ant-segmented-item-label {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dark .org-toolbar-right .ant-segmented .ant-segmented-item:hover:not(.ant-segmented-item-selected)
+  .ant-segmented-item-label {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .org-toolbar-right .ant-segmented .ant-segmented-item-selected {
+  background: #1677ff;
+}
+
+.dark .org-toolbar-right .ant-segmented .ant-segmented-item-selected .ant-segmented-item-label {
+  color: #fff;
+}
+
+.dark .org-zoom {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .org-zoom .ant-btn {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dark .org-zoom-value {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dark .org-chart-scroll {
+  background: transparent;
+}
+
+.dark .org-card {
+  background: #16191f;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+.dark .org-card-name {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dark .org-card-code {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .org-card-chevron {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .org-card-pos {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.dark .org-card-dept {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dark .org-card-dept .anticon {
+  color: #4096ff;
+}
+
+.dark .org-card-foot {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.dark .org-card-count {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.dark .org-tree > li > .org-card {
+  border-color: #1677ff;
+  box-shadow: 0 2px 12px rgba(22, 119, 255, 0.25);
+}
+
+/* connector lines xanh nhạt hơn trên nền tối */
+.dark .org-tree ul::before,
+.dark .org-tree li::before,
+.dark .org-tree li::after,
+.dark .org-tree li:last-child::before {
+  border-color: rgba(64, 150, 255, 0.45);
 }

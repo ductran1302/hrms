@@ -8,18 +8,21 @@ import {
   FileTextOutlined,
   GiftOutlined,
   LogoutOutlined,
+  MoonOutlined,
   ScheduleOutlined,
   SearchOutlined,
+  SunOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { Avatar, Badge, Dropdown, Input, Layout, Menu } from 'antd';
+import { Avatar, Badge, Button, Dropdown, Input, Layout, Menu } from 'antd';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { LANGUAGES, setLanguage } from '../i18n';
+import { useTheme } from '../theme/ThemeContext';
 
 const { Header, Sider, Content } = Layout;
 
@@ -67,6 +70,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
 
   const menuItems = [
     auth.hasRole('HR_ADMIN', 'MANAGER') && {
@@ -155,6 +159,14 @@ export default function AppLayout() {
             <Badge dot offset={[-2, 4]}>
               <BellOutlined className="hr-bell" title={t('notifications')} />
             </Badge>
+            <Button
+              type="text"
+              className="hr-theme-toggle"
+              aria-label={theme === 'dark' ? t('theme.light') : t('theme.dark')}
+              title={theme === 'dark' ? t('theme.light') : t('theme.dark')}
+              icon={theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggleTheme}
+            />
             <Dropdown
               menu={{
                 items: Object.entries(LANGUAGES).map(([key, label]) => ({ key, label })),

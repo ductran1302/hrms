@@ -16,6 +16,10 @@
   "brandTagline": "Better People, A Greater Tomorrow",
   "searchPlaceholder": "Search employees, departments, positions...",
   "notifications": "Notifications",
+  "theme": {
+    "dark": "Dark mode",
+    "light": "Light mode"
+  },
   "role": {
     "HR_ADMIN": "HR Admin",
     "MANAGER": "Manager",

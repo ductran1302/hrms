@@ -16,6 +16,10 @@
   "brandTagline": "Con người tốt hơn, tương lai tốt hơn",
   "searchPlaceholder": "Tìm kiếm nhân viên, phòng ban, chức danh...",
   "notifications": "Thông báo",
+  "theme": {
+    "dark": "Chế độ tối",
+    "light": "Chế độ sáng"
+  },
   "role": {
     "HR_ADMIN": "HR Admin",
     "MANAGER": "Quản lý",
