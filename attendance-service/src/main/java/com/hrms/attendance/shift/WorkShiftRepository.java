@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface WorkShiftRepository extends JpaRepository<WorkShift, UUID> {
 
@@ -15,13 +14,11 @@ public interface WorkShiftRepository extends JpaRepository<WorkShift, UUID> {
 
   Optional<WorkShift> findByName(String name);
 
-  @Query("""
-      select s from WorkShift s
-      where (:type is null or s.shiftType = :type)
-        and (:active is null or s.active = :active)
-        and (:q is null or lower(s.name) like lower(concat('%', :q, '%')))
-      order by s.createdAt desc
-      """)
-  List<WorkShift> search(
-      @Param("type") ShiftType type, @Param("active") Boolean active, @Param("q") String q);
+  /**
+   * Lấy toàn bộ danh sách theo createdAt giảm dần — filter type/active/q làm ở service
+   * (in-memory, bảng danh mục nhỏ). KHÔNG dùng query param null/empty cùng lúc
+   * (bind param null gây lỗi PG "lower(bytea) does not exist" với lower(name) search).
+   */
+  @Query("select s from WorkShift s order by s.createdAt desc")
+  List<WorkShift> findAllOrdered();
 }

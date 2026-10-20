@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
+import com.hrms.attendance.leave.LeaveEntitlementRepository;
+import com.hrms.attendance.shift.ShiftAssignmentRepository;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
 import com.hrms.common.avro.employee.EmployeeUpdatedEvent;
@@ -29,6 +31,12 @@ class EmployeeServiceTest {
 
   @Mock
   private ProcessedEventRepository processedEventRepository;
+
+  @Mock
+  private ShiftAssignmentRepository shiftAssignmentRepository;
+
+  @Mock
+  private LeaveEntitlementRepository leaveEntitlementRepository;
 
   @InjectMocks
   private EmployeeService employeeService;
@@ -55,6 +63,28 @@ class EmployeeServiceTest {
 
     verify(employeeRepository, never()).save(any());
     verify(processedEventRepository, never()).save(any());
+  }
+
+  @Test
+  void applyCreated_sameCodeNewId_rekeysProjectionAndForeignKeys() {
+    String oldId = UUID.randomUUID().toString();
+    Employee existing = new Employee();
+    existing.setEmployeeId(oldId);
+    existing.setEmployeeCode("NV0001");
+    existing.setStatus("ACTIVE");
+
+    when(processedEventRepository.existsById(eventId)).thenReturn(false);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
+    when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(existing));
+    when(shiftAssignmentRepository.rekeyEmployee(oldId, employeeId)).thenReturn(2);
+    when(leaveEntitlementRepository.rekeyEmployee(oldId, employeeId)).thenReturn(1);
+
+    employeeService.applyCreated(createdEvent());
+
+    assertEquals(employeeId, existing.getEmployeeId());
+    verify(shiftAssignmentRepository).rekeyEmployee(oldId, employeeId);
+    verify(leaveEntitlementRepository).rekeyEmployee(oldId, employeeId);
+    verify(employeeRepository).save(existing);
   }
 
   @Test

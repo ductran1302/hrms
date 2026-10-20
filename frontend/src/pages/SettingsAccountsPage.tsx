@@ -92,7 +92,12 @@ export default function SettingsAccountsPage() {
   };
 
   const submitReset = async () => {
-    const values = await resetForm.validateFields();
+    let values: ResetFormValues;
+    try {
+      values = await resetForm.validateFields();
+    } catch {
+      return; // form chưa hợp lệ — antd đã hiện lỗi dưới ô (không phải lỗi API)
+    }
     if (!resetTarget) return;
     try {
       await resetAccountPassword(resetTarget.username, values.newPassword);
@@ -121,7 +126,12 @@ export default function SettingsAccountsPage() {
   };
 
   const submitRoles = async () => {
-    const values = await roleForm.validateFields();
+    let values: RoleFormValues;
+    try {
+      values = await roleForm.validateFields();
+    } catch {
+      return; // form chưa hợp lệ — antd đã hiện lỗi dưới ô (không phải lỗi API)
+    }
     if (!roleTarget) return;
     try {
       await updateAccountRoles(roleTarget.username, values.roles);
@@ -341,7 +351,14 @@ export default function SettingsAccountsPage() {
         <Form form={roleForm} layout="vertical" style={{ marginTop: 12 }}>
           <Form.Item
             name="roles"
-            rules={[{ required: true, min: 1, message: t('settings.accounts.roleModal.minOne') }]}
+            rules={[
+              {
+                type: 'array',
+                required: true,
+                min: 1,
+                message: t('settings.accounts.roleModal.minOne'),
+              },
+            ]}
           >
             <Checkbox.Group>
               <Space direction="vertical">

@@ -3,6 +3,8 @@ package com.hrms.attendance.employee;
 import com.hrms.attendance.department.DepartmentService;
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
+import com.hrms.attendance.leave.LeaveEntitlementRepository;
+import com.hrms.attendance.shift.ShiftAssignmentRepository;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
 import com.hrms.common.avro.employee.EmployeeUpdatedEvent;
@@ -12,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  * phòng mình quản lý (gồm nhánh con) + trực thuộc + self — fail-closed khi
  * không khớp hồ sơ.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
@@ -37,6 +41,8 @@ public class EmployeeService {
   private final EmployeeRepository employeeRepository;
   private final ProcessedEventRepository processedEventRepository;
   private final DepartmentService departmentService;
+  private final ShiftAssignmentRepository shiftAssignmentRepository;
+  private final LeaveEntitlementRepository leaveEntitlementRepository;
 
   @Transactional
   public void applyCreated(EmployeeCreatedEvent event) {
@@ -146,6 +152,22 @@ public class EmployeeService {
     Optional<Employee> existing = employeeRepository.findById(employeeId);
     if (existing.isPresent()) {
       return existing.get();
+    }
+    // Identity t?o l?i nh?n vi?n (id m?i, c?ng employeeCode) — kh?ng insert m?i
+    // (vi ph?m uq_attendance_emp_code) m? re-key d?ng c? + FK g?n c? tham chi?u id c?.
+    Optional<Employee> byCode = employeeRepository.findByEmployeeCode(employeeCode);
+    if (byCode.isPresent()) {
+      Employee employee = byCode.get();
+      String oldId = employee.getEmployeeId();
+      if (!oldId.equals(employeeId)) {
+        int movedAssignments = shiftAssignmentRepository.rekeyEmployee(oldId, employeeId);
+        int movedEntitlements = leaveEntitlementRepository.rekeyEmployee(oldId, employeeId);
+        employee.setEmployeeId(employeeId);
+        log.warn(
+            "Re-key attendance nhân sự {} ({} -> {}) — {} gán ca, {} quota phép dời theo",
+            employeeCode, oldId, employeeId, movedAssignments, movedEntitlements);
+      }
+      return employee;
     }
     Employee employee = new Employee();
     employee.setEmployeeId(employeeId);

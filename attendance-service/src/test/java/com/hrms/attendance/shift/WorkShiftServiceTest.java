@@ -249,12 +249,30 @@ class WorkShiftServiceTest {
 
   @Test
   void list_withKeywordAndType_filters() {
-    when(workShiftRepository.search(ShiftType.FIXED, true, "8:00"))
+    when(workShiftRepository.findAllOrdered())
         .thenReturn(java.util.List.of(existing));
 
     var result = service.list("8:00", "fixed", true);
 
     assertEquals(1, result.size());
     assertFalse(result.get(0).shiftType().equals("FLEXIBLE"));
+  }
+
+  @Test
+  void list_withoutParams_returnsAll() {
+    when(workShiftRepository.findAllOrdered())
+        .thenReturn(java.util.List.of(existing));
+
+    var result = service.list(null, null, null);
+
+    assertEquals(1, result.size());
+  }
+
+  @Test
+  void list_keywordNotMatching_returnsEmpty() {
+    when(workShiftRepository.findAllOrdered())
+        .thenReturn(java.util.List.of(existing));
+
+    assertTrue(service.list("khong-cos", null, null).isEmpty());
   }
 }

@@ -30,9 +30,12 @@ public class WorkShiftService {
 
   @Transactional(readOnly = true)
   public List<WorkShiftResponse> list(String q, String type, Boolean active) {
-    String keyword = q == null || q.isBlank() ? null : q.trim();
+    String keyword = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
     ShiftType shiftType = type == null || type.isBlank() ? null : parseType(type);
-    return workShiftRepository.search(shiftType, active, keyword).stream()
+    return workShiftRepository.findAllOrdered().stream()
+        .filter(s -> shiftType == null || s.getShiftType() == shiftType)
+        .filter(s -> active == null || s.isActive() == active)
+        .filter(s -> keyword == null || s.getName().toLowerCase(Locale.ROOT).contains(keyword))
         .map(WorkShiftResponse::from)
         .toList();
   }
