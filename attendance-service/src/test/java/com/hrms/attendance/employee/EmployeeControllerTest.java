@@ -1,6 +1,8 @@
 package com.hrms.attendance.employee;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.hrms.attendance.config.SecurityConfig;
+import com.hrms.common.security.EmployeeScope;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -34,8 +37,8 @@ class EmployeeControllerTest {
   @MockBean
   private EmployeeService employeeService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -56,30 +59,32 @@ class EmployeeControllerTest {
     employee.setStatus("ACTIVE");
     employee.setCreatedAt(Instant.now());
     employee.setUpdatedAt(Instant.now());
-    when(employeeService.list(null)).thenReturn(List.of(employee));
+    when(employeeService.list(isNull(), eq(EmployeeScope.ALL), any()))
+        .thenReturn(List.of(employee));
 
-    mockMvc.perform(get("/api/v1/attendance/employees").with(jwt().authorities(HR_ADMIN)))
+    mockMvc.perform(get("/api/v1/attendance/employees").with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].employeeCode").value("NV0001"));
   }
 
   @Test
   void list_withManagerRole_returns200() throws Exception {
-    when(employeeService.list("ACTIVE")).thenReturn(List.of());
+    when(employeeService.list(eq("ACTIVE"), eq(EmployeeScope.SELF), any()))
+        .thenReturn(List.of());
 
     mockMvc.perform(get("/api/v1/attendance/employees")
             .param("status", "ACTIVE")
             .with(jwt().authorities(MANAGER)))
         .andExpect(status().isOk());
 
-    verify(employeeService).list("ACTIVE");
+    verify(employeeService).list(eq("ACTIVE"), eq(EmployeeScope.SELF), any());
   }
 
   @Test
   void list_withEmployeeRole_returns403() throws Exception {
     mockMvc.perform(get("/api/v1/attendance/employees").with(jwt().authorities(EMPLOYEE)))
         .andExpect(status().isForbidden());
-    verify(employeeService, never()).list(any());
+    verify(employeeService, never()).list(any(), any(), any());
   }
 
   @Test
@@ -89,9 +94,10 @@ class EmployeeControllerTest {
     employee.setEmployeeCode("NV0001");
     employee.setFullName("Nguyễn Văn A");
     employee.setStatus("ACTIVE");
-    when(employeeService.getByCode("NV0001")).thenReturn(employee);
+    when(employeeService.getByCode(eq("NV0001"), eq(EmployeeScope.ALL), any()))
+        .thenReturn(employee);
 
-    mockMvc.perform(get("/api/v1/attendance/employees/NV0001").with(jwt().authorities(HR_ADMIN)))
+    mockMvc.perform(get("/api/v1/attendance/employees/NV0001").with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.employeeCode").value("NV0001"));
   }

@@ -20,11 +20,15 @@ export default function SettingsSecurityPage() {
   const [form] = Form.useForm<SecurityFormValues>();
   const [saving, setSaving] = useState(false);
 
-  const roleLabel = auth.hasRole('HR_ADMIN')
-    ? t('role.HR_ADMIN')
-    : auth.hasRole('MANAGER')
-      ? t('role.MANAGER')
-      : t('role.EMPLOYEE');
+  const roleLabel = auth.hasRole('ADMIN')
+    ? t('role.ADMIN')
+    : auth.hasRole('GLOBAL_LEAD')
+      ? t('role.GLOBAL_LEAD')
+      : auth.hasRole('DEPT_LEAD')
+        ? t('role.DEPT_LEAD')
+        : auth.hasRole('MANAGER')
+          ? t('role.MANAGER')
+          : t('role.EMPLOYEE');
 
   const submit = async () => {
     const values = await form.validateFields();

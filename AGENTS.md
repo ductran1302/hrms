@@ -26,10 +26,16 @@ docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && se
 docker exec hrms-dev tail -f /tmp/identity.log
 
 # Smoke test (verify-p1-scoping TRỨC TIẾP đọc env HRMS_IDENTITY_CLIENT_SECRET → nạp .env trước)
+# + các script API mặc định localhost:8080 — khi app stack chạy và dev identity KHÔNG chạy,
+#   override API=http://gateway:8080 (xem §7.2)
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-identity.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-p1-scoping.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-attendance.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-gateway-routes.sh"
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-roles.sh"
+
+# 5-role setup cho KC đã chạy (rename HR_ADMIN→ADMIN + tạo GLOBAL_LEAD/DEPT_LEAD + group HR; idempotent)
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/kc-init-roles.sh"
 
 # Frontend (dev)
 docker exec hrms-dev bash -lc "cd /workspaces/HRMS/frontend && npm run build"
@@ -117,7 +123,7 @@ public class EmployeeController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)  // 201 for create
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")  // tạo NV = ADMIN duy nhất (xem §4.14)
   @Operation(summary = "Tạo nhân viên mới")
   public EmployeeResponse create(@Valid @RequestBody EmployeeCreateRequest request,
                                  @AuthenticationPrincipal Jwt jwt) {
@@ -125,7 +131,7 @@ public class EmployeeController {
   }
 
   @PatchMapping("/{id}")  // Partial update → PATCH, not PUT
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD')")  // ghi = 3 role cao (không MANAGER)
   public EmployeeResponse update(@PathVariable UUID id,
                                  @Valid @RequestBody EmployeeUpdateRequest request,
                                  @AuthenticationPrincipal Jwt jwt) {
@@ -376,6 +382,7 @@ public void applyCreated(EmployeeCreatedEvent event) {
 public class KafkaTopics {
   public static final String EMPLOYEE_V1 = "hrms.employee.v1";
   public static final String HOLIDAY_V1 = "hrms.holiday.v1";
+  public static final String DEPARTMENT_V1 = "hrms.department.v1";
   
   public static String dlq(String topic) {
     return topic + ".DLQ";
@@ -384,6 +391,35 @@ public class KafkaTopics {
 ```
 
 **Pattern:** `hrms.<aggregate>.v1` (version suffix), RecordNameStrategy → nhiều event types chung 1 topic.
+
+### 4.14 Roles & Scoping (5 role — Q&A đã chốt)
+
+| Role | Level | Scope đọc NV | Ghi NV | Salary hợp đồng | Tạo NV |
+|---|---|---|---|---|---|
+| `ADMIN` | 4 (rename HR_ADMIN) | ALL | ALL | ✓ | ✓ duy nhất |
+| `GLOBAL_LEAD` | 3 | ALL | ALL | ✓ | ✗ |
+| `DEPT_LEAD` | 2 | subtree dept mình ql ∪ reports ∪ self | như scope (KHÔNG self — chống tự mở quyền) | ✗ (mask) | ✗ |
+| `MANAGER` | 1 | self ∪ reports (mask non-self) | ✗ (chỉ HR admin ghi trước đây) | ✗ | ✗ |
+| `EMPLOYEE` | 0 | self | ✗ | ✗ | ✗ |
+
+- **Constants:** `Roles.java` (hrms-common) — `all()`, `level()`, `maxLevel()`; KHÔNG thêm role khác.
+- **`EmployeeScope`** (common/security, dùng chung identity + attendance): `ALL`/`DEPARTMENT`/`SELF`,
+  `fromAuthorities(jwt)` đọc từ authorities (fail-closed = `SELF` khi không nhận ra).
+- **`EmployeeViewer`** (identity): wrap username/email/scope — `unrestricted()`/`maskOthers()`;
+  EmployeeService: `departmentScope(...)` BFS descendants + `assertWriteScope` (DEPT_LEAD không ghi self).
+- **@PreAuthorize matrix:** reads = `ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER` (+EMPLOYEE cho my-*,
+  holiday đọc), writes = `ADMIN` (+`GLOBAL_LEAD/DEPT_LEAD` cho employee update), tạo NV = `ADMIN`.
+- **Auto-assign role (creation-only):** `RoleAssignmentService.resolveDefaultRole` —
+  manager dept parent=null ACTIVE → `GLOBAL_LEAD` > manager dept ACTIVE bất kỳ → `DEPT_LEAD` >
+  có reports ACTIVE → `MANAGER` > `EMPLOYEE`. Gọi lúc tạo NV + idempotent khi tạo hợp đồng.
+- **PATCH `/api/v1/accounts/{username}/roles`** (ADMIN, 204): validate subset `Roles.all()` (422),
+  chặn tự hạ mình khi target==actor (422). KC running đã có HR_ADMIN → chạy `scripts/kc-init-roles.sh`
+  (rename + tạo role + group HR; idempotent).
+- **Attendance scope:** `DEPT_LEAD` → `DepartmentService.managedSubtreeIds` (projection
+  `departments` table, event `hrms.department.v1` idempotent qua `processed_events`);
+  ALL/SELF full như cũ (MANAGER giữ hành vi).
+- **KC realm:** `keycloak/realm-hrms.json` 5 roles + groups HR/Board/DeptLeads/Managers;
+  user `hr` realmRoles `["ADMIN"]`.
 
 ---
 
@@ -463,7 +499,8 @@ import { searchEmployees } from '../api/employees';
 export default function EmployeePage() {
   const { t } = useTranslation('employee');
   const { hasRole } = useAuth();
-  const canWrite = hasRole('HR_ADMIN');
+  const canEdit = hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD');
+  const canCreate = hasRole('ADMIN');  // tạo NV = ADMIN duy nhất (§4.14)
   const actionRef = useRef<ActionType>();
   const [searchValue, setSearchValue] = useState('');
 
@@ -490,7 +527,7 @@ export default function EmployeePage() {
 **Rules:**
 - Page components: `*Page.tsx`, default export
 - All strings via `useTranslation()`, không hardcode
-- Role gating: `const canWrite = hasRole('HR_ADMIN')`
+- Role gating: `hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', ...)` — xem matrix §4.14
 - Message: `AntApp.useApp()` → `message.success()`, không import trực tiếp
 
 ### 5.5 Routing & Auth
@@ -500,7 +537,7 @@ export default function EmployeePage() {
 <Route path="/" element={<ProtectedRoute><AppLayout/></ProtectedRoute>}>
   <Route index element={<Navigate to="/employees" replace/>}/>
   <Route path="employees" element={
-    <ProtectedRoute roles={['HR_ADMIN', 'MANAGER']}>
+    <ProtectedRoute roles={['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER']}>
       <EmployeePage/>
     </ProtectedRoute>
   }/>
@@ -617,6 +654,11 @@ FIX: Thêm package vào org.apache.avro.SERIALIZABLE_PACKAGES=com.hrms trong roo
 ```
 Khi docker-compose.app.yml đang chạy:
 - localhost:8080 = app gateway (KHÔNG phải identity dev)
+- TỪ TRONG dev container: localhost:8080 KHÔNG trỏ app gateway
+  (không host-network) → smoke scripts (mặc định localhost:8080/8085)
+  PHẢI override: API=http://gateway:8080
+  (verify-attendance: ATT_URL=http://attendance:8080 GW_URL=http://gateway:8080;
+   verify-gateway-routes: GW=http://gateway:8080)
 - identity dev chỉ truy cập từ trong dev container:
   docker exec hrms-dev curl http://localhost:8080/swagger-ui/index.html
 ```
@@ -719,7 +761,7 @@ LƯU Ý: .env cũng phải LF (docker compose đọc được CRLF nhưng `bash 
 - [ ] Page component `pages/<Feature>Page.tsx`
 - [ ] i18n strings `i18n/locales/{vi,en}/<feature>.json`
 - [ ] Route trong `App.tsx` với `ProtectedRoute`
-- [ ] Role gating: `hasRole('HR_ADMIN')`
+- [ ] Role gating theo matrix §4.14 (`hasRole('ADMIN', ...)`)
 
 ### Verification
 - [ ] Build: `docker exec hrms-dev mvn clean verify`

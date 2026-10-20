@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "DepartmentCreatedEvent",
+  "namespace": "com.hrms.common.avro.department",
+  "doc": "Emitted by identity-service when a department is created. Topic: hrms.department.v1, subject strategy: RecordNameStrategy.",
+  "fields": [
+    { "name": "eventId", "type": "string", "doc": "UUID of the event - used by consumers for idempotency" },
+    { "name": "eventType", "type": "string", "default": "department.created" },
+    { "name": "occurredAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "departmentId", "type": "string", "doc": "UUID of the department" },
+    { "name": "code", "type": "string", "doc": "Department code, e.g. IT" },
+    { "name": "name", "type": "string" },
+    { "name": "parentId", "type": ["null", "string"], "default": null, "doc": "UUID of parent department - null for root" },
+    { "name": "managerId", "type": ["null", "string"], "default": null, "doc": "UUID of the department manager (employee id)" },
+    { "name": "status", "type": "string", "doc": "ACTIVE | INACTIVE" },
+    { "name": "actorId", "type": ["null", "string"], "default": null, "doc": "user id of the admin performing the operation" }
+  ]
+}

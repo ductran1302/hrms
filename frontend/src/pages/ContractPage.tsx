@@ -96,7 +96,7 @@ export default function ContractPage() {
   const [docs, setDocs] = useState<EmployeeDocument[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canWrite = auth.hasRole('ADMIN');
 
   useEffect(() => {
     searchEmployees({ size: 500 })

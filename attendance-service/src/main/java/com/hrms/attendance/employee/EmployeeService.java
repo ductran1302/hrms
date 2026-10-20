@@ -1,14 +1,18 @@
 package com.hrms.attendance.employee;
 
+import com.hrms.attendance.department.DepartmentService;
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
 import com.hrms.common.avro.employee.EmployeeUpdatedEvent;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Thứ tự event theo employee được đảm bảo (cùng partition key) nên không cần
  * so version khi upsert.
+ *
+ * <p>Scoping (5-role): ALL (ADMIN/GLOBAL_LEAD) và SELF (MANAGER) → toàn bộ
+ * (giữ nguyên hành vi attendance); DEPARTMENT (DEPT_LEAD) → chỉ nhân sự thuộc
+ * phòng mình quản lý (gồm nhánh con) + trực thuộc + self — fail-closed khi
+ * không khớp hồ sơ.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,6 +36,7 @@ public class EmployeeService {
 
   private final EmployeeRepository employeeRepository;
   private final ProcessedEventRepository processedEventRepository;
+  private final DepartmentService departmentService;
 
   @Transactional
   public void applyCreated(EmployeeCreatedEvent event) {
@@ -78,19 +88,58 @@ public class EmployeeService {
     markProcessed(event.getEventId(), event.getEventType());
   }
 
+  /** Danh sách nhân sự theo scope của người gọi (xem class javadoc). */
   @Transactional(readOnly = true)
-  public List<Employee> list(String status) {
+  public List<Employee> list(String status, EmployeeScope scope, String username) {
+    List<Employee> all;
     if (status == null || status.isBlank()) {
-      return employeeRepository.findAll();
+      all = employeeRepository.findAll();
+    } else {
+      all = employeeRepository.findByStatusOrderByFullNameAsc(status);
     }
-    return employeeRepository.findByStatusOrderByFullNameAsc(status);
+    if (scope != EmployeeScope.DEPARTMENT) {
+      return all;
+    }
+    Optional<Employee> self = resolveSelf(username);
+    if (self.isEmpty()) {
+      return List.of(); // fail-closed: không khớp hồ sơ → không thấy ai
+    }
+    String selfId = self.get().getEmployeeId();
+    Set<String> deptIds = departmentService.managedSubtreeIds(selfId);
+    return all.stream()
+        .filter(e -> deptIds.contains(e.getDepartmentId())
+            || selfId.equals(e.getManagerId())
+            || selfId.equals(e.getEmployeeId()))
+        .toList();
   }
 
   @Transactional(readOnly = true)
-  public Employee getByCode(String employeeCode) {
-    return employeeRepository
+  public Employee getByCode(String employeeCode, EmployeeScope scope, String username) {
+    Employee employee = employeeRepository
         .findByEmployeeCode(employeeCode)
         .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeCode));
+    if (scope == EmployeeScope.DEPARTMENT) {
+      Optional<Employee> self = resolveSelf(username);
+      if (self.isEmpty()) {
+        throw new AccessDeniedException("Bạn không có quyền xem nhân sự này");
+      }
+      String selfId = self.get().getEmployeeId();
+      boolean inScope = selfId.equals(employee.getEmployeeId())
+          || selfId.equals(employee.getManagerId())
+          || departmentService.managedSubtreeIds(selfId).contains(employee.getDepartmentId());
+      if (!inScope) {
+        throw new AccessDeniedException("Bạn không có quyền xem nhân sự này");
+      }
+    }
+    return employee;
+  }
+
+  /** Khớp username đăng nhập (= employeeCode) với projection — không khớp → rỗng. */
+  private Optional<Employee> resolveSelf(String username) {
+    if (username == null || username.isBlank()) {
+      return Optional.empty();
+    }
+    return employeeRepository.findByEmployeeCode(username);
   }
 
   private Employee findOrCreate(String employeeId, String employeeCode) {

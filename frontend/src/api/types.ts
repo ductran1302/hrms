@@ -170,7 +170,7 @@ export interface Contract {
   startDate: string;
   endDate: string | null;
   position: string | null;
-  /** null khi caller không phải HR_ADMIN (backend che lương) */
+  /** null khi caller không phải ADMIN/GLOBAL_LEAD (backend che lương) */
   salary: number | null;
   signDate: string | null;
   note: string | null;

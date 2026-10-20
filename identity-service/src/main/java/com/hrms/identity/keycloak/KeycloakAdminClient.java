@@ -92,11 +92,12 @@ public class KeycloakAdminClient {
   }
 
   /**
-   * Tạo user Keycloak: role EMPLOYEE, mật khẩu mặc định (không temporary).
+   * Tạo user Keycloak với realm role mặc định (auto-assign: ADMIN/GLOBAL_LEAD/DEPT_LEAD/
+   * MANAGER/EMPLOYEE — do {@code RoleAssignmentService} suy ra), mật khẩu mặc định.
    *
    * @throws ConflictException nếu username đã tồn tại trong Keycloak
    */
-  public void createUser(String username, String fullName, String email) {
+  public void createUser(String username, String fullName, String email, String defaultRole) {
     String[] familyGiven = splitFamilyGiven(fullName);
     Map<String, Object> body = new HashMap<>();
     body.put("username", username);
@@ -112,7 +113,7 @@ public class KeycloakAdminClient {
         "type", "password",
         "value", defaultPassword(username),
         "temporary", false)));
-    body.put("realmRoles", List.of("EMPLOYEE"));
+    body.put("realmRoles", List.of(defaultRole));
     body.put("attributes", auditOnCreate());
 
     try {
@@ -131,8 +132,8 @@ public class KeycloakAdminClient {
     }
     // KC bỏ qua realmRoles trong CreateUserRepresentation khi gọi REST thô —
     // phải gán qua endpoint role-mappings/realm riêng.
-    assignRealmRole(username, "EMPLOYEE");
-    log.info("Đã tạo tài khoản Keycloak '{}' (role EMPLOYEE)", username);
+    assignRealmRole(username, defaultRole);
+    log.info("Đã tạo tài khoản Keycloak '{}' (role {})", username, defaultRole);
   }
 
   /** Đếm user theo search term (rỗng = tất cả). */
@@ -217,6 +218,8 @@ public class KeycloakAdminClient {
       return Arrays.stream(roles)
           .map(RoleName::name)
           .filter(name -> name != null && !name.isBlank())
+          // bỏ default-roles-* (realm role mặc định Keycloak gán mọi user, không phải role HRMS)
+          .filter(name -> !name.startsWith("default-roles"))
           .toList();
     } catch (Exception ex) {
       log.warn("Chưa đọc được realm role của user {}: {}", userId, ex.getMessage());
@@ -306,6 +309,72 @@ public class KeycloakAdminClient {
     } catch (Exception ex) {
       // Không chặn tạo nhân viên nếu gán role lỗi — sẽ thử lại ở lần tạo user sau / manual
       log.warn("Chưa gán được role {} cho '{}': {}", roleName, username, ex.getMessage());
+    }
+  }
+
+  /**
+   * Realm roles của 1 user theo username — hard-fail (ném BusinessRuleException nếu lỗi mạng)
+   * — dùng chặn tự hạ role trước khi ghi (không được đọc nhầm rỗng).
+   */
+  public List<String> realmRolesByUsername(String username) {
+    return realmRoles(requireUser(username).getId());
+  }
+
+  /**
+   * Đồng bộ realm roles của user về {@code desiredRoles} (màn Cài đặt → Tài khoản):
+   * diff add/remove qua role-mappings/realm, ghi audit updatedBy/updatedAt.
+   * Role không tồn tại trong KC → 422 {@link BusinessRuleException}.
+   */
+  public void updateRealmRoles(String username, List<String> desiredRoles) {
+    User user = requireUser(username);
+    List<String> desired = desiredRoles == null ? List.of() : desiredRoles.stream()
+        .filter(r -> r != null && !r.isBlank())
+        .map(String::trim)
+        .distinct()
+        .toList();
+    List<String> current = realmRoles(user.getId());
+    List<String> toAdd = desired.stream().filter(r -> !current.contains(r)).toList();
+    List<String> toRemove = current.stream().filter(r -> !desired.contains(r)).toList();
+    if (toAdd.isEmpty() && toRemove.isEmpty()) {
+      return;
+    }
+    if (!toAdd.isEmpty()) {
+      List<Map<String, Object>> roles = toAdd.stream().map(this::requireRole).toList();
+      withRetry("gán role " + toAdd + " cho " + username, () -> restClient.post()
+          .uri("/admin/realms/{realm}/users/{id}/role-mappings/realm", realm, user.getId())
+          .contentType(MediaType.APPLICATION_JSON)
+          .header("Authorization", "Bearer " + adminToken())
+          .body(roles)
+          .retrieve()
+          .toBodilessEntity());
+    }
+    if (!toRemove.isEmpty()) {
+      List<Map<String, Object>> roles = toRemove.stream().map(this::requireRole).toList();
+      withRetry("gỡ role " + toRemove + " của " + username, () -> restClient
+          .method(org.springframework.http.HttpMethod.DELETE)
+          .uri("/admin/realms/{realm}/users/{id}/role-mappings/realm", realm, user.getId())
+          .contentType(MediaType.APPLICATION_JSON)
+          .header("Authorization", "Bearer " + adminToken())
+          .body(roles)
+          .retrieve()
+          .toBodilessEntity());
+    }
+    touchAudit(user);
+    saveUser(user);
+    log.info("Đã đồng bộ roles của '{}': +{} -{} (còn {})", username, toAdd, toRemove, desired);
+  }
+
+  /** Đọc full role representation theo tên (cần id cho role-mappings) — role lạ → 422. */
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> requireRole(String roleName) {
+    try {
+      return withRetry("đọc role " + roleName, () -> restClient.get()
+          .uri("/admin/realms/{realm}/roles/{roleName}", realm, roleName)
+          .header("Authorization", "Bearer " + adminToken())
+          .retrieve()
+          .body(Map.class));
+    } catch (Exception ex) {
+      throw new BusinessRuleException("Role không tồn tại trong Keycloak: " + roleName);
     }
   }
 

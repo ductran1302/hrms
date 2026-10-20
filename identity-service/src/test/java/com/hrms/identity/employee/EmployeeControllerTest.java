@@ -33,7 +33,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Slice test an ninh: 401 khi thiếu token, 403 khi sai role, 201 khi đúng HR_ADMIN.
+ * Slice test an ninh: 401 khi thiếu token, 403 khi sai role, 201 khi đúng ADMIN.
  * Dùng {@code jwt()} post-processor nên không cần Keycloak thật.
  */
 @WebMvcTest(controllers = EmployeeController.class)
@@ -49,8 +49,8 @@ class EmployeeControllerTest {
   @MockBean
   private JobHistoryService jobHistoryService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -67,11 +67,11 @@ class EmployeeControllerTest {
   }
 
   @Test
-  void list_withHrAdmin_returns200PageResponse() throws Exception {
+  void list_withAdmin_returns200PageResponse() throws Exception {
     when(employeeService.search(anyInt(), anyInt(), isNull(), isNull(), isNull(), isNull(),
         isNull(), any())).thenReturn(PageResponse.of(List.of(sampleResponse()), 0, 20, 1));
 
-    mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(HR_ADMIN)))
+    mockMvc.perform(get("/api/v1/employees").with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].employeeCode").value("NV0001"))
         .andExpect(jsonPath("$.total").value(1));
@@ -94,12 +94,12 @@ class EmployeeControllerTest {
   }
 
   @Test
-  void create_withHrAdmin_returns201() throws Exception {
+  void create_withAdmin_returns201() throws Exception {
     when(employeeService.create(any(EmployeeCreateRequest.class), eq("user-1")))
         .thenReturn(sampleResponse());
 
     mockMvc.perform(post("/api/v1/employees")
-            .with(jwt().authorities(HR_ADMIN).jwt(j -> j.subject("user-1")))
+            .with(jwt().authorities(ADMIN).jwt(j -> j.subject("user-1")))
             .contentType(MediaType.APPLICATION_JSON)
             .content(CREATE_BODY))
         .andExpect(status().isCreated())
@@ -118,7 +118,7 @@ class EmployeeControllerTest {
   @Test
   void create_invalidBody_returns400WithCode() throws Exception {
     mockMvc.perform(post("/api/v1/employees")
-            .with(jwt().authorities(HR_ADMIN))
+            .with(jwt().authorities(ADMIN))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"employeeCode\":\"NV0011\"}"))
         .andExpect(status().isBadRequest())
@@ -126,12 +126,12 @@ class EmployeeControllerTest {
   }
 
   @Test
-  void update_withHrAdmin_returns200() throws Exception {
+  void update_withAdmin_returns200() throws Exception {
     when(employeeService.update(any(UUID.class), any(EmployeeUpdateRequest.class),
-        eq("user-1"))).thenReturn(sampleResponse());
+        eq("user-1"), any(EmployeeViewer.class))).thenReturn(sampleResponse());
 
     mockMvc.perform(patch("/api/v1/employees/{id}", UUID.randomUUID())
-            .with(jwt().authorities(HR_ADMIN).jwt(j -> j.subject("user-1")))
+            .with(jwt().authorities(ADMIN).jwt(j -> j.subject("user-1")))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"position\":\"Senior QA\"}"))
         .andExpect(status().isOk());
@@ -147,13 +147,14 @@ class EmployeeControllerTest {
   }
 
   @Test
-  void terminate_withHrAdmin_returns204() throws Exception {
+  void terminate_withAdmin_returns204() throws Exception {
     mockMvc.perform(delete("/api/v1/employees/{id}", UUID.randomUUID())
-            .with(jwt().authorities(HR_ADMIN).jwt(j -> j.subject("user-1")))
+            .with(jwt().authorities(ADMIN).jwt(j -> j.subject("user-1")))
             .param("reason", "Tự nguyện"))
         .andExpect(status().isNoContent());
 
-    verify(employeeService).terminate(any(UUID.class), eq("user-1"), eq("Tự nguyện"));
+    verify(employeeService).terminate(any(UUID.class), eq("user-1"), eq("Tự nguyện"),
+        any(EmployeeViewer.class));
   }
 
   private static EmployeeResponse sampleResponse() {

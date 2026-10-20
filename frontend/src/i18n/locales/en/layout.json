@@ -24,7 +24,9 @@
     "light": "Light mode"
   },
   "role": {
-    "HR_ADMIN": "HR Admin",
+    "ADMIN": "System Admin",
+    "GLOBAL_LEAD": "Global Lead",
+    "DEPT_LEAD": "Department Lead",
     "MANAGER": "Manager",
     "EMPLOYEE": "Employee"
   }

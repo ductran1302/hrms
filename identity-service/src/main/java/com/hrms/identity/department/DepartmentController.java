@@ -12,6 +12,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -32,39 +34,41 @@ public class DepartmentController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tạo phòng ban mới")
-  public DepartmentResponse create(@Valid @RequestBody DepartmentCreateRequest request) {
-    return departmentService.create(request);
+  public DepartmentResponse create(@Valid @RequestBody DepartmentCreateRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return departmentService.create(request, jwt.getSubject());
   }
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh sách phòng ban (phẳng, kèm số nhân viên active)")
   public List<DepartmentResponse> list() {
     return departmentService.list();
   }
 
   @GetMapping("/tree")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Sơ đồ phòng ban (cây theo phòng cha)")
   public List<DepartmentNode> tree() {
     return departmentService.tree();
   }
 
   @PatchMapping("/{id}")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Cập nhật phòng ban (parentId/managerId null = bỏ quan hệ)")
   public DepartmentResponse update(@PathVariable UUID id,
-      @Valid @RequestBody DepartmentUpdateRequest request) {
-    return departmentService.update(id, request);
+      @Valid @RequestBody DepartmentUpdateRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    return departmentService.update(id, request, jwt.getSubject());
   }
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Vô hiệu hóa phòng ban (soft delete)")
-  public void deactivate(@PathVariable UUID id) {
-    departmentService.deactivate(id);
+  public void deactivate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+    departmentService.deactivate(id, jwt.getSubject());
   }
 }

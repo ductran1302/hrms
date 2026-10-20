@@ -25,7 +25,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** Slice test RBAC cho API tài liệu: 401 thiếu token, 403 sai role, 201 đúng HR_ADMIN. */
+/** Slice test RBAC cho API tài liệu: 401 thiếu token, 403 sai role, 201 đúng ADMIN. */
 @WebMvcTest(controllers = EmployeeDocumentController.class)
 @Import(SecurityConfig.class)
 class EmployeeDocumentControllerTest {
@@ -36,8 +36,8 @@ class EmployeeDocumentControllerTest {
   @MockBean
   private EmployeeDocumentService documentService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -75,7 +75,7 @@ class EmployeeDocumentControllerTest {
   }
 
   @Test
-  void upload_withHrAdmin_returns201() throws Exception {
+  void upload_withAdmin_returns201() throws Exception {
     when(documentService.upload(eq(employeeId), any(), eq("CV"), eq("Hồ sơ ứng tuyển"),
         eq("user-1"), org.mockito.ArgumentMatchers.isNull())).thenReturn(sampleResponse());
 
@@ -83,7 +83,7 @@ class EmployeeDocumentControllerTest {
             .file(FILE)
             .param("docType", "CV")
             .param("note", "Hồ sơ ứng tuyển")
-            .with(jwt().authorities(HR_ADMIN).jwt(j -> j.subject("user-1"))))
+            .with(jwt().authorities(ADMIN).jwt(j -> j.subject("user-1"))))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.fileName").value("cv.pdf"));
   }

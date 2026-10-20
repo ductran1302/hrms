@@ -34,7 +34,7 @@ public class HolidayController {
   private final HolidayService holidayService;
 
   @GetMapping("/holiday-calendars/{calendarId}/holidays")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Ngày lễ theo lịch + năm")
   public List<HolidayResponse> listByCalendar(@PathVariable UUID calendarId,
       @RequestParam int year) {
@@ -42,7 +42,7 @@ public class HolidayController {
   }
 
   @GetMapping("/holidays")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Tìm ngày lễ (lọc theo calendarCode/year/tên)")
   public List<HolidayResponse> search(
       @RequestParam(required = false) String calendarCode,
@@ -52,7 +52,7 @@ public class HolidayController {
   }
 
   @GetMapping("/holidays/my")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Ngày lễ của mình trong năm (lịch đã gán, fallback VN)")
   public List<HolidayResponse> myHolidays(@AuthenticationPrincipal Jwt jwt,
       @RequestParam(name = "year", required = false) Integer year) {
@@ -63,7 +63,7 @@ public class HolidayController {
   }
 
   @GetMapping("/holidays/today")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Ngày lễ đang diễn ra hôm nay (mọi lịch)")
   public List<HolidayResponse> todayHolidays() {
     return holidayService.todayHolidays();
@@ -71,7 +71,7 @@ public class HolidayController {
 
   @PostMapping("/holiday-calendars/{calendarId}/holidays")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Thêm ngày lễ (phát holiday.changed → attendance)")
   public HolidayResponse create(@PathVariable UUID calendarId,
       @Valid @RequestBody HolidayCreateRequest request,
@@ -80,7 +80,7 @@ public class HolidayController {
   }
 
   @PatchMapping("/holidays/{id}")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   public HolidayResponse update(@PathVariable UUID id,
       @Valid @RequestBody HolidayUpdateRequest request,
       @AuthenticationPrincipal Jwt jwt) {
@@ -89,7 +89,7 @@ public class HolidayController {
 
   @DeleteMapping("/holidays/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   public void delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
     holidayService.delete(id, jwt.getSubject());
   }

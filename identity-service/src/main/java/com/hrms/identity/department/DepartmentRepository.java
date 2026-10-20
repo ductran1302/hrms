@@ -28,4 +28,13 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
   @Query("select count(e) from Employee e where e.departmentId = :departmentId and e.status <> com.hrms.identity.employee.EmployeeStatus.TERMINATED")
   long countActiveEmployees(UUID departmentId);
+
+  /** Id các phòng đang ACTIVE mà employee là trưởng phòng (scope DEPT_LEAD + auto-assign role). */
+  java.util.List<UUID> findIdsByManager_IdAndStatus(UUID managerId, DepartmentStatus status);
+
+  /** true nếu employee là trưởng phòng cấp root (parent = null) — auto-assign GLOBAL_LEAD. */
+  boolean existsByManager_IdAndParentIsNullAndStatus(UUID managerId, DepartmentStatus status);
+
+  /** true nếu employee là trưởng phòng bất kỳ đang ACTIVE — auto-assign DEPT_LEAD. */
+  boolean existsByManager_IdAndStatus(UUID managerId, DepartmentStatus status);
 }

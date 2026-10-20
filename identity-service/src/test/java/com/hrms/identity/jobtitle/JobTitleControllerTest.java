@@ -28,8 +28,8 @@ class JobTitleControllerTest {
   @MockBean
   private JobTitleService jobTitleService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -59,10 +59,10 @@ class JobTitleControllerTest {
   }
 
   @Test
-  void list_withHrAdmin_returns200() throws Exception {
+  void list_withAdmin_returns200() throws Exception {
     when(jobTitleService.list()).thenReturn(List.of(sample()));
     mockMvc.perform(get("/api/v1/job-titles")
-            .with(jwt().authorities(HR_ADMIN)))
+            .with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].nameEn").value("Chief Technology Officer"))
         .andExpect(jsonPath("$[0].category").value("EXEC"));

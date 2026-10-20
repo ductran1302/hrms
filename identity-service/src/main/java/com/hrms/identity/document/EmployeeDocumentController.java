@@ -28,8 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * API tài liệu đính kèm — upload/xóa {@code HR_ADMIN}, đọc (list/download)
- * {@code HR_ADMIN} + {@code MANAGER}. File ≤ 10MB.
+ * API tài liệu đính kèm — upload/xóa {@code ADMIN}, đọc (list/download)
+ * {@code ADMIN} + {@code GLOBAL_LEAD} + {@code DEPT_LEAD} + {@code MANAGER}. File ≤ 10MB.
  */
 @Tag(name = "Employee Documents")
 @RestController
@@ -41,7 +41,7 @@ public class EmployeeDocumentController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Upload tài liệu (multipart: file, docType?, note?, contractId? — "
       + "kèm contractId = phụ lục hợp đồng, docType mặc định CONTRACT)")
   public EmployeeDocumentResponse upload(@PathVariable UUID employeeId,
@@ -54,7 +54,7 @@ public class EmployeeDocumentController {
   }
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh sách tài liệu của nhân viên (mới nhất trước; contractId? = lọc theo hợp đồng)")
   public List<EmployeeDocumentResponse> list(@PathVariable UUID employeeId,
       @RequestParam(name = "contractId", required = false) UUID contractId) {
@@ -62,7 +62,7 @@ public class EmployeeDocumentController {
   }
 
   @GetMapping("/{documentId}")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Download tài liệu")
   public ResponseEntity<Resource> download(@PathVariable UUID employeeId,
       @PathVariable UUID documentId) {
@@ -87,7 +87,7 @@ public class EmployeeDocumentController {
 
   @DeleteMapping("/{documentId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Xóa tài liệu (xóa cả file trên đĩa)")
   public void delete(@PathVariable UUID employeeId, @PathVariable UUID documentId) {
     documentService.delete(employeeId, documentId);

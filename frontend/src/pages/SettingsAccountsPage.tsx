@@ -1,5 +1,6 @@
-import { KeyOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { KeyOutlined, LockOutlined, TeamOutlined, UnlockOutlined } from '@ant-design/icons';
 import {
+  Checkbox,
   Empty,
   Form,
   Input,
@@ -15,7 +16,12 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { resetAccountPassword, searchAccounts, setAccountEnabled } from '../api/accounts';
+import {
+  resetAccountPassword,
+  searchAccounts,
+  setAccountEnabled,
+  updateAccountRoles,
+} from '../api/accounts';
 import { errorMessage } from '../api/client';
 import type { Account } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -24,13 +30,22 @@ import ActionIcon from '../components/ActionIcon';
 const { Text } = Typography;
 
 const ROLE_COLORS: Record<string, string> = {
-  HR_ADMIN: 'geekblue',
-  MANAGER: 'purple',
+  ADMIN: 'geekblue',
+  GLOBAL_LEAD: 'purple',
+  DEPT_LEAD: 'cyan',
+  MANAGER: 'blue',
   EMPLOYEE: 'default',
 };
 
+/** 5 role chuẩn (Roles.java) — thứ tự theo cấp quyền giảm dần. */
+const ALL_ROLES = ['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER', 'EMPLOYEE'];
+
 interface ResetFormValues {
   newPassword: string;
+}
+
+interface RoleFormValues {
+  roles: string[];
 }
 
 /** Cài đặt > Tài khoản: admin quản lý tài khoản Keycloak (đặt lại MK, bật/tắt). */
@@ -48,6 +63,10 @@ export default function SettingsAccountsPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<Account | null>(null);
   const [resetForm] = Form.useForm<ResetFormValues>();
+
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [roleTarget, setRoleTarget] = useState<Account | null>(null);
+  const [roleForm] = Form.useForm<RoleFormValues>();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +108,25 @@ export default function SettingsAccountsPage() {
     try {
       await setAccountEnabled(account.username, !account.enabled);
       message.success(t('saved'));
+      await load();
+    } catch (e) {
+      message.error(errorMessage(e));
+    }
+  };
+
+  const openRoles = (account: Account) => {
+    setRoleTarget(account);
+    roleForm.setFieldsValue({ roles: account.roles });
+    setRoleOpen(true);
+  };
+
+  const submitRoles = async () => {
+    const values = await roleForm.validateFields();
+    if (!roleTarget) return;
+    try {
+      await updateAccountRoles(roleTarget.username, values.roles);
+      message.success(t('saved'));
+      setRoleOpen(false);
       await load();
     } catch (e) {
       message.error(errorMessage(e));
@@ -179,6 +217,15 @@ export default function SettingsAccountsPage() {
           >
             <KeyOutlined />
           </ActionIcon>
+          {a.username !== auth.username && (
+            <ActionIcon
+              title={t('settings.accounts.action.editRoles')}
+              color="#722ed1"
+              onClick={() => openRoles(a)}
+            >
+              <TeamOutlined />
+            </ActionIcon>
+          )}
           {a.username !== auth.username && (
             <Popconfirm
               title={
@@ -274,6 +321,40 @@ export default function SettingsAccountsPage() {
             ]}
           >
             <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={t('settings.accounts.roleModal.title')}
+        open={roleOpen}
+        onOk={() => void submitRoles()}
+        onCancel={() => setRoleOpen(false)}
+        okText={t('save')}
+        cancelText={t('cancel')}
+        destroyOnClose
+      >
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Text code>{roleTarget?.username}</Text>
+          <Text type="secondary">{t('settings.accounts.roleModal.hint')}</Text>
+        </Space>
+        <Form form={roleForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Form.Item
+            name="roles"
+            rules={[{ required: true, min: 1, message: t('settings.accounts.roleModal.minOne') }]}
+          >
+            <Checkbox.Group>
+              <Space direction="vertical">
+                {ALL_ROLES.map((role) => (
+                  <Checkbox key={role} value={role}>
+                    <Tag color={ROLE_COLORS[role]} style={{ marginRight: 6 }}>
+                      {role}
+                    </Tag>
+                    {t(`role.${role}`)}
+                  </Checkbox>
+                ))}
+              </Space>
+            </Checkbox.Group>
           </Form.Item>
         </Form>
       </Modal>

@@ -53,7 +53,7 @@ class GatewaySecurityTest {
 
     @Test
     void authenticatedRequestPassesAuthAnd404sOnUnknownRoute() {
-        client.mutateWith(mockJwt().authorities(new SimpleGrantedAuthority("ROLE_HR_ADMIN")))
+        client.mutateWith(mockJwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
                 .get().uri("/api/unknown-route")
                 .exchange()
                 .expectStatus().isNotFound();

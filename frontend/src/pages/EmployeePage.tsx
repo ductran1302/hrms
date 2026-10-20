@@ -82,7 +82,8 @@ export default function EmployeePage() {
   const [terminateReason, setTerminateReason] = useState('');
   const suggestedCodeRef = useRef('');
 
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canEdit = auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD');
+  const canCreate = auth.hasRole('ADMIN');
 
   useEffect(() => {
     listDepartments()
@@ -293,7 +294,7 @@ export default function EmployeePage() {
             <FileSearchOutlined />
           </ActionIcon>,
         ];
-        if (canWrite) {
+        if (canEdit) {
           actions.push(
             <ActionIcon key="edit" title={t('edit')} color="#1677ff" onClick={() => openEdit(record)}>
               <EditOutlined />
@@ -401,7 +402,7 @@ export default function EmployeePage() {
               { value: 'TERMINATED', label: t('status.TERMINATED') },
             ]}
           />,
-          canWrite ? (
+          canCreate ? (
             <Button key="create" type="primary" onClick={openCreate}>
               {t('employee.add')}
             </Button>

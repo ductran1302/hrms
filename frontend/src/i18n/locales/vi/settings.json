@@ -20,6 +20,7 @@
       "resetPassword": "Đặt lại mật khẩu",
       "disable": "Tắt tài khoản",
       "enable": "Bật tài khoản",
+      "editRoles": "Sửa vai trò",
       "confirmDisable": "Tắt tài khoản này? Người dùng sẽ không đăng nhập được.",
       "confirmEnable": "Bật lại tài khoản này?"
     },
@@ -28,6 +29,11 @@
       "newPassword": "Mật khẩu mới",
       "confirm": "Đặt lại",
       "hint": "Mật khẩu tối thiểu 8 ký tự — gửi lại cho người dùng để đăng nhập."
+    },
+    "roleModal": {
+      "title": "Sửa vai trò",
+      "hint": "Vai trò quyết định quyền và phạm vi dữ liệu tài khoản thấy được.",
+      "minOne": "Chọn ít nhất một vai trò"
     },
     "empty": "Không có tài khoản nào",
     "resetSuccess": "Đã đặt lại mật khẩu"

@@ -29,3 +29,10 @@ export function setAccountEnabled(username: string, enabled: boolean): Promise<v
     .patch(`/api/v1/accounts/${encodeURIComponent(username)}/enabled`, { enabled })
     .then((r) => r.data);
 }
+
+/** Admin sửa roles của tài khoản (backend validate role hợp lệ + không tự hạ mình). */
+export function updateAccountRoles(username: string, roles: string[]): Promise<void> {
+  return client
+    .patch(`/api/v1/accounts/${encodeURIComponent(username)}/roles`, { roles })
+    .then((r) => r.data);
+}

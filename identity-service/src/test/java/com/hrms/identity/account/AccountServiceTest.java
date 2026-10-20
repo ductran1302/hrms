@@ -46,7 +46,7 @@ class AccountServiceTest {
     AccountResponse first = page.items().get(0);
     assertEquals("nthieu", first.username());
     assertEquals("Nguyễn Trung Hiếu", first.fullName());
-    assertEquals(List.of("HR_ADMIN"), first.roles());
+    assertEquals(List.of("ADMIN"), first.roles());
     assertEquals("hr", first.createdBy());
     assertEquals("hr", first.updatedBy());
   }
@@ -117,6 +117,50 @@ class AccountServiceTest {
     verify(keycloakAdminClient).resetPassword("nthieu", "new-123456");
   }
 
+  // ---- Đổi roles (5-role system) ----
+
+  @Test
+  void updateRoles_validRoles_updatesInKeycloak() {
+    accountService.updateRoles("nthieu", List.of("DEPT_LEAD", "EMPLOYEE"), "hr");
+
+    verify(keycloakAdminClient).updateRealmRoles("nthieu", List.of("DEPT_LEAD", "EMPLOYEE"));
+  }
+
+  @Test
+  void updateRoles_unknownRole_throwsBusinessRule() {
+    assertThrows(BusinessRuleException.class,
+        () -> accountService.updateRoles("nthieu", List.of("SUPER_ADMIN"), "hr"));
+
+    verify(keycloakAdminClient, never()).updateRealmRoles(anyString(), any());
+  }
+
+  @Test
+  void updateRoles_emptyRoles_throwsBusinessRule() {
+    assertThrows(BusinessRuleException.class,
+        () -> accountService.updateRoles("nthieu", List.of(), "hr"));
+
+    verify(keycloakAdminClient, never()).updateRealmRoles(anyString(), any());
+  }
+
+  @Test
+  void updateRoles_selfDemotion_throwsBusinessRule() {
+    when(keycloakAdminClient.realmRolesByUsername("hr")).thenReturn(List.of("ADMIN"));
+
+    assertThrows(BusinessRuleException.class,
+        () -> accountService.updateRoles("hr", List.of("MANAGER"), "hr"));
+
+    verify(keycloakAdminClient, never()).updateRealmRoles(anyString(), any());
+  }
+
+  @Test
+  void updateRoles_selfSameLevelOrHigher_passes() {
+    when(keycloakAdminClient.realmRolesByUsername("lead1")).thenReturn(List.of("DEPT_LEAD"));
+
+    accountService.updateRoles("lead1", List.of("GLOBAL_LEAD", "DEPT_LEAD"), "lead1");
+
+    verify(keycloakAdminClient).updateRealmRoles("lead1", List.of("GLOBAL_LEAD", "DEPT_LEAD"));
+  }
+
   private AccountSnapshot snapshot(String username) {
     return new AccountSnapshot(
         UUID.randomUUID().toString(),
@@ -125,7 +169,7 @@ class AccountServiceTest {
         username + "@hrms.vn",
         true,
         1_700_000_000_000L,
-        List.of("HR_ADMIN"),
+        List.of("ADMIN"),
         "hr",
         "hr",
         "2026-01-01T00:00:00Z");

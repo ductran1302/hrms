@@ -26,7 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * (rule nghiệp vụ, chặn chồng lấn). Trạng thái nghiệp vụ ({@link ContractStatus}) tách khỏi
  * trạng thái hiệu lực tính theo ngày: hợp đồng PENDING đã ký nhưng chưa đến ngày bắt đầu
  * chưa có hiệu lực; ACTIVE quá ngày hết hạn chờ job {@code ContractExpiryJob} chuyển EXPIRED.
- * Lương chỉ trả về cho HR_ADMIN (che tại service, không phụ thuộc FE).
+ * Lương chỉ trả về cho ADMIN/GLOBAL_LEAD (che tại service, không phụ thuộc FE).
  */
 @Slf4j
 @Service
@@ -41,6 +41,7 @@ public class ContractService {
   private final EmployeeRepository employeeRepository;
   private final JobHistoryService jobHistoryService;
   private final KeycloakAdminClient keycloakAdminClient;
+  private final com.hrms.identity.employee.RoleAssignmentService roleAssignmentService;
 
   @Transactional
   public ContractResponse create(UUID employeeId, ContractCreateRequest request) {
@@ -74,18 +75,19 @@ public class ContractService {
     jobHistoryService.record(employeeId, "contract.status", null,
         contract.getStatus().name(), currentActor());
     // Best-effort: ký hợp đồng → đảm bảo nhân viên có tài khoản đăng nhập (username = mã NV).
-    // Tạo nhân viên đã tạo sẵn; chỉ tạo thêm khi thiếu (idempotent). Lỗi Keycloak KHÔNG chặn
-    // ký hợp đồng — log warn để HR tạo lại/sửa tay.
+    // Tạo nhân viên đã tạo sẵn; chỉ tạo thêm khi thiếu (idempotent — role auto-assign).
+    // Lỗi Keycloak KHÔNG chặn ký hợp đồng — log warn để HR tạo lại/sửa tay.
     ensureAccount(employee);
-    return toResponse(contract, isHrAdmin());
+    return toResponse(contract, isSalaryVisible());
   }
 
   private void ensureAccount(Employee employee) {
     String employeeCode = employee.getEmployeeCode();
     try {
       if (!keycloakAdminClient.userExists(employeeCode)) {
+        String role = roleAssignmentService.resolveDefaultRole(employee.getId());
         keycloakAdminClient.createUser(
-            employeeCode, employee.getFullName(), employee.getEmail());
+            employeeCode, employee.getFullName(), employee.getEmail(), role);
       }
     } catch (Exception ex) {
       log.warn("Chưa tạo được tài khoản Keycloak cho nhân viên {}: {}",
@@ -95,7 +97,7 @@ public class ContractService {
 
   @Transactional(readOnly = true)
   public List<ContractResponse> search(UUID employeeId, ContractStatus status) {
-    boolean includeSalary = isHrAdmin();
+    boolean includeSalary = isSalaryVisible();
     return contractRepository.search(employeeId, status).stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
@@ -103,7 +105,7 @@ public class ContractService {
 
   @Transactional(readOnly = true)
   public List<ContractResponse> listByEmployee(UUID employeeId) {
-    boolean includeSalary = isHrAdmin();
+    boolean includeSalary = isSalaryVisible();
     return contractRepository.findByEmployee_IdOrderByStartDateDesc(employeeId).stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
@@ -114,7 +116,7 @@ public class ContractService {
   public List<ContractResponse> expiringSoon(int days) {
     int window = Math.max(1, Math.min(days, 365));
     LocalDate today = LocalDate.now();
-    boolean includeSalary = isHrAdmin();
+    boolean includeSalary = isSalaryVisible();
     return contractRepository
         .findByStatusAndEndDateBetween(ContractStatus.ACTIVE, today, today.plusDays(window))
         .stream()
@@ -178,7 +180,7 @@ public class ContractService {
     }
 
     contractRepository.save(contract);
-    return toResponse(contract, isHrAdmin());
+    return toResponse(contract, isSalaryVisible());
   }
 
   /**
@@ -207,7 +209,7 @@ public class ContractService {
       contract.setNote(request.note());
     }
     contractRepository.save(contract);
-    return toResponse(contract, isHrAdmin());
+    return toResponse(contract, isSalaryVisible());
   }
 
   /**
@@ -252,7 +254,7 @@ public class ContractService {
         request.salary() == null ? null : String.valueOf(request.salary()), currentActor());
     jobHistoryService.record(employeeId, "contract.status", null,
         contract.getStatus().name(), currentActor());
-    return toResponse(contract, isHrAdmin());
+    return toResponse(contract, isSalaryVisible());
   }
 
   /**
@@ -268,7 +270,7 @@ public class ContractService {
         contract.getStatus().name(), ContractStatus.TERMINATED.name(), currentActor(), reason);
     contract.setStatus(ContractStatus.TERMINATED);
     contractRepository.save(contract);
-    return toResponse(contract, isHrAdmin());
+    return toResponse(contract, isSalaryVisible());
   }
 
   /**
@@ -356,10 +358,13 @@ public class ContractService {
         .orElseThrow(() -> new ResourceNotFoundException("Contract", id));
   }
 
-  private boolean isHrAdmin() {
+  /** Lương chỉ trả về cho ADMIN hoặc GLOBAL_LEAD (che tại service, không phụ thuộc FE). */
+  private boolean isSalaryVisible() {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     return auth != null
-        && auth.getAuthorities().stream().anyMatch(a -> "ROLE_HR_ADMIN".equals(a.getAuthority()));
+        && auth.getAuthorities().stream()
+            .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())
+                || "ROLE_GLOBAL_LEAD".equals(a.getAuthority()));
   }
 
   private String currentActor() {

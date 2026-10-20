@@ -32,7 +32,7 @@ public class WorkShiftController {
   private final WorkShiftService workShiftService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh sách ca làm việc (lọc: từ khóa tên, loại FIXED/FLEXIBLE, active)")
   public List<WorkShiftResponse> list(
       @RequestParam(required = false) String q,
@@ -43,14 +43,14 @@ public class WorkShiftController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tạo ca làm việc (workingTime/breakingTime tính bằng phút)")
   public WorkShiftResponse create(@Valid @RequestBody WorkShiftRequest request) {
     return workShiftService.create(request);
   }
 
   @PatchMapping("/{id}")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Sửa ca làm việc (null = giữ nguyên, validate trên bản gộp)")
   public WorkShiftResponse update(@PathVariable UUID id, @RequestBody WorkShiftUpdateRequest request) {
     return workShiftService.update(id, request);
@@ -58,7 +58,7 @@ public class WorkShiftController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Xóa ca (422 nếu còn nhân viên đang gán — dùng active=false để ngưng)")
   public void delete(@PathVariable UUID id) {
     workShiftService.delete(id);

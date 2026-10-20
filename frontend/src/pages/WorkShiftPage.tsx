@@ -77,7 +77,7 @@ const hm = (time: string | null | undefined) => (time ? time.slice(0, 5) : null)
 export default function WorkShiftPage() {
   const { t } = useTranslation();
   const auth = useAuth();
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canWrite = auth.hasRole('ADMIN');
 
   const [tab, setTab] = useState('shifts');
   const [q, setQ] = useState('');

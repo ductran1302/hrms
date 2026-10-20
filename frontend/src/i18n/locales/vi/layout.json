@@ -24,7 +24,9 @@
     "light": "Chế độ sáng"
   },
   "role": {
-    "HR_ADMIN": "HR Admin",
+    "ADMIN": "Quản trị hệ thống",
+    "GLOBAL_LEAD": "Lãnh đạo toàn cầu",
+    "DEPT_LEAD": "Trưởng phòng",
     "MANAGER": "Quản lý",
     "EMPLOYEE": "Nhân viên"
   }

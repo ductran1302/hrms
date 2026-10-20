@@ -1,5 +1,71 @@
 # CHANGELOG
 
+## [5 role ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER/EMPLOYEE + scoping] 2026-10-20
+
+Rename `HR_ADMIN`→`ADMIN`, thêm `GLOBAL_LEAD`/`DEPT_LEAD`, auto-assign role khi tạo
+tài khoản (creation-only), sửa roles ở Cài đặt→Tài khoản, mở rộng scoping đọc NV
+(subtree phòng ban) cho cả identity lẫn attendance (event `hrms.department.v1` +
+projection). Q&A matrix đầy đủ trong AGENTS §4.14.
+
+### Nội dung thay đổi
+
+**1. Roles & scoping (hrms-common + identity)**
+- `Roles.java`: 5 role chuẩn + `all()`/`level()`/`maxLevel()`; sweep `HR_ADMIN`→`ADMIN`
+  toàn bộ backend + FE + realm (KHÔNG còn chỗ nào).
+- `EmployeeScope` (common/security — dùng chung identity + attendance): `ALL`/
+  `DEPARTMENT`/`SELF`, `fromAuthorities(jwt)`, fail-closed `SELF` khi không nhận ra role.
+- `EmployeeViewer` (identity): wrap username/email/scope — `unrestricted()`/`maskOthers()`;
+  EmployeeService: `departmentScope(...)` BFS descendants phòng ACTIVE mình quản lý,
+  `assertWriteScope` (DEPT_LEAD KHÔNG được ghi self — chống tự sửa dept mở rộng quyền;
+  xem self vẫn full PII).
+- `EmployeeRepository.search/countSearch` + `deptScope`; `DepartmentRepository` +
+  queries theo manager; `ContractService.isSalaryVisible` = ADMIN + GLOBAL_LEAD
+  (DEPT_LEAD/MANAGER mask lương hợp đồng).
+- @PreAuthorize matrix toàn bộ controller identity + attendance: reads =
+  ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER (+EMPLOYEE cho my-*), writes = ADMIN
+  (+GLOBAL_LEAD/DEPT_LEAD cho employee update), **tạo NV = ADMIN duy nhất**.
+
+**2. Auto-assign role (creation-only)**
+- `RoleAssignmentService.resolveDefaultRole`: manager dept `parent=null` ACTIVE →
+  `GLOBAL_LEAD` > manager dept ACTIVE bất kỳ → `DEPT_LEAD` > có reports ACTIVE →
+  `MANAGER` > `EMPLOYEE`. Gọi lúc Tạo nhân viên + idempotent khi Tạo hợp đồng.
+
+**3. PATCH `/api/v1/accounts/{username}/roles` (ADMIN, 204)**
+- `KeycloakAdminClient.realmRolesByUsername` (bỏ `default-roles-*`) + `updateRealmRoles`
+  (diff add/remove); service validate subset `Roles.all()` (422) + chặn tự hạ mình
+  khi target==actor (422).
+- FE: `SettingsAccountsPage` modal sửa roles (5 checkbox, chặn self như enable/disable),
+  `updateAccountRoles` API; menu/route Cài đặt→Tài khoản chỉ ADMIN.
+
+**4. DEPARTMENT_V1 event + attendance departments projection**
+- Avro `DepartmentCreatedEvent`/`DepartmentUpdatedEvent` (namespace
+  `com.hrms.common.avro.department`), topic `hrms.department.v1`, outbox từ
+  `DepartmentService` (cùng transaction, actorId = jwt subject).
+- Attendance: Flyway `V7__departments.sql` + entity/repository + `DepartmentService`
+  (`applyCreated/applyUpdated` idempotent qua `processed_events`, `managedSubtreeIds`
+  BFS) + `DepartmentEventConsumer`.
+- Scope attendance list: DEPT_LEAD → subtree ∪ reports ∪ self; ALL/SELF giữ nguyên
+  (MANAGER không đổi hành vi).
+
+**5. KC realm + scripts**
+- `keycloak/realm-hrms.json`: 5 roles + groups HR/Board/DeptLeads/Managers;
+  user `hr` realmRoles `["ADMIN"]`.
+- `scripts/kc-init-roles.sh` (mới): rename HR_ADMIN→ADMIN trên KC đang chạy
+  (giữ role ID) + tạo GLOBAL_LEAD/DEPT_LEAD + group HR=[ADMIN]; idempotent
+  (POST add / DELETE remove — KC không có PUT role-mappings).
+- `scripts/verify-roles.sh` (mới, 22 check): 5 realm roles, auto-assign EMPLOYEE,
+  PATCH 204/422 (role lạ, tự hạ mình)/403 (non-ADMIN), scoping 403/200 identity +
+  attendance.
+
+**6. Regression (2026-10-20)**
+- `mvn clean verify`: 181 tests xanh (18+96+5+62, 0 fail).
+- Smoke qua app stack: verify-roles 22/22, verify-identity 222/222,
+  verify-p1-scoping 32/32, verify-attendance DONE, verify-gateway-routes ALL OK.
+- FE `tsc --noEmit` + `vite build` pass; app stack identity/attendance/frontend
+  đã rebuild image.
+- Pitfall mới (AGENTS §7.2): từ trong dev container smoke PHẢI override
+  `API=http://gateway:8080` (localhost:8080 ≠ app gateway).
+
 ## [Cài đặt — Tài khoản/Bảo mật + auto-provision tài khoản NV] 2026-10-19
 
 Màn **Cài đặt** (2 trang *Tài khoản* + *Bảo mật*), tự tạo tài khoản Keycloak khi

@@ -32,7 +32,7 @@ public class ContractController {
 
   @PostMapping("/employees/{employeeId}/contracts")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tạo hợp đồng (rule: 1 hợp đồng hiệu lực/chờ hiệu lực/nhân viên; "
       + "startDate tương lai → PENDING)")
   public ContractResponse create(@PathVariable UUID employeeId,
@@ -41,8 +41,8 @@ public class ContractController {
   }
 
   @GetMapping("/contracts")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
-  @Operation(summary = "Tìm kiếm hợp đồng (salary chỉ hiện với HR_ADMIN)")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
+  @Operation(summary = "Tìm kiếm hợp đồng (salary chỉ hiện với ADMIN/GLOBAL_LEAD)")
   public List<ContractResponse> search(
       @RequestParam(required = false) UUID employeeId,
       @RequestParam(required = false) String status) {
@@ -50,7 +50,7 @@ public class ContractController {
   }
 
   @GetMapping("/contracts/expiring-soon")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Cảnh báo hợp đồng ACTIVE sắp hết hạn trong N ngày (mặc định 30)")
   public List<ContractResponse> expiringSoon(
       @RequestParam(name = "days", defaultValue = "30") int days) {
@@ -58,14 +58,14 @@ public class ContractController {
   }
 
   @GetMapping("/employees/{employeeId}/contracts")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Hợp đồng của 1 nhân viên (lịch sử — hợp đồng cũ được giữ lại)")
   public List<ContractResponse> listByEmployee(@PathVariable UUID employeeId) {
     return contractService.listByEmployee(employeeId);
   }
 
   @PatchMapping("/contracts/{id}")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Cập nhật hợp đồng (đổi endDate ghi lịch sử contract.endDate)")
   public ContractResponse update(@PathVariable UUID id,
       @Valid @RequestBody ContractUpdateRequest request) {
@@ -73,7 +73,7 @@ public class ContractController {
   }
 
   @PostMapping("/contracts/{id}/extend")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Gia hạn hợp đồng (PENDING/ACTIVE; ngày mới phải sau ngày hết hạn cũ)")
   public ContractResponse extend(@PathVariable UUID id,
       @Valid @RequestBody ContractExtendRequest request) {
@@ -82,7 +82,7 @@ public class ContractController {
 
   @PostMapping("/contracts/{id}/replace")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Thay thế hợp đồng: chấm dứt cũ (giữ lịch sử) + tạo mới linked")
   public ContractResponse replace(@PathVariable UUID id,
       @Valid @RequestBody ContractCreateRequest request) {
@@ -90,7 +90,7 @@ public class ContractController {
   }
 
   @PatchMapping("/contracts/{id}/terminate")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Chấm dứt hợp đồng (lý do lưu vào lịch sử)")
   public ContractResponse terminate(@PathVariable UUID id,
       @RequestParam(name = "reason", required = false) String reason) {

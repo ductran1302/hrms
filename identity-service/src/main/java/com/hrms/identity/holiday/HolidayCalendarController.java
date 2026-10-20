@@ -30,21 +30,21 @@ public class HolidayCalendarController {
   private final HolidayCalendarService calendarService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Danh sách lịch nghỉ lễ (mọi vai trò — FE cần chọn lịch)")
   public List<HolidayCalendarResponse> list() {
     return calendarService.list();
   }
 
   @GetMapping("/{id}")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   public HolidayCalendarResponse get(@PathVariable UUID id) {
     return calendarService.get(id);
   }
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tạo lịch nghỉ lễ (code bất biến, mặc định ACTIVE)")
   public HolidayCalendarResponse create(
       @Valid @RequestBody HolidayCalendarCreateRequest request) {
@@ -52,7 +52,7 @@ public class HolidayCalendarController {
   }
 
   @PatchMapping("/{id}")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Cập nhật lịch (code không đổi — projection join theo code)")
   public HolidayCalendarResponse update(@PathVariable UUID id,
       @RequestBody HolidayCalendarUpdateRequest request) {
@@ -61,7 +61,7 @@ public class HolidayCalendarController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Xóa lịch (chỉ khi trống: không ngày lễ, không nhân viên gắn)")
   public void delete(@PathVariable UUID id) {
     calendarService.delete(id);

@@ -111,8 +111,8 @@ export default function EmployeeProfile() {
     'contract.endDate': t('profile.field.contract.endDate'),
   };
 
-  const canReadDocs = auth.hasRole('HR_ADMIN') || auth.hasRole('MANAGER');
-  const canWriteDocs = auth.hasRole('HR_ADMIN');
+  const canReadDocs = auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER');
+  const canWriteDocs = auth.hasRole('ADMIN');
 
   const loadDocs = useCallback(() => {
     if (!canReadDocs) return Promise.resolve();

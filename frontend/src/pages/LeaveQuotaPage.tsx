@@ -63,7 +63,7 @@ interface PolicyFormValues {
 export default function LeaveQuotaPage() {
   const { t } = useTranslation();
   const auth = useAuth();
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canWrite = auth.hasRole('ADMIN');
   const currentYear = new Date().getFullYear();
 
   const [year, setYear] = useState(currentYear);

@@ -33,7 +33,7 @@ public class ShiftAssignmentController {
   private final ShiftAssignmentService shiftAssignmentService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Lịch sử gán ca (lọc theo nhân viên / từ khóa mã-tên-phòng)")
   public List<ShiftAssignmentResponse> list(
       @RequestParam(required = false) String employeeId,
@@ -52,7 +52,7 @@ public class ShiftAssignmentController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Gán ca cho nhân viên từ ngày effectiveFrom")
   public ShiftAssignmentResponse assign(
       @Valid @RequestBody ShiftAssignmentRequest request, @AuthenticationPrincipal Jwt jwt) {
@@ -61,7 +61,7 @@ public class ShiftAssignmentController {
 
   @DeleteMapping("/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Gỡ bản gán (chỉ bản mới nhất của nhân viên)")
   public void remove(@PathVariable UUID id) {
     shiftAssignmentService.remove(id);

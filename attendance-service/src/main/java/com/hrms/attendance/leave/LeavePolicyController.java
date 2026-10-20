@@ -24,21 +24,21 @@ public class LeavePolicyController {
   private final LeaveQuotaService leaveQuotaService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh sách chính sách quỹ phép")
   public List<LeavePolicyResponse> list() {
     return leaveQuotaService.listPolicies();
   }
 
   @GetMapping("/{year}")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Chính sách quỹ phép theo năm — tự tạo mặc định nếu chưa có")
   public LeavePolicyResponse get(@PathVariable int year) {
     return leaveQuotaService.getPolicy(year);
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tạo/cập nhật chính sách quỹ phép (upsert theo year)")
   public LeavePolicyResponse save(@RequestBody LeavePolicyRequest request) {
     return leaveQuotaService.savePolicy(request);

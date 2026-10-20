@@ -1,6 +1,7 @@
 package com.hrms.identity.account;
 
 import com.hrms.common.exception.BusinessRuleException;
+import com.hrms.common.security.Roles;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.account.dto.AccountResponse;
 import com.hrms.identity.account.dto.ChangePasswordRequest;
@@ -62,6 +63,35 @@ public class AccountService {
       throw new BusinessRuleException("Không thể tắt tài khoản của chính mình");
     }
     keycloakAdminClient.setUserEnabled(username, enabled);
+  }
+
+  /**
+   * Đổi roles của tài khoản (màn Cài đặt → Tài khoản, chỉ ADMIN): validate subset của
+   * {@code Roles.all()}, chặn tự hạ role của chính mình (giữ admin cuối khỏi tự khóa),
+   * diff add/remove realm-role mappings trong KC.
+   */
+  public void updateRoles(String username, List<String> roles, String actor) {
+    List<String> desired = roles == null ? List.of() : roles.stream()
+        .filter(r -> r != null && !r.isBlank())
+        .map(String::trim)
+        .distinct()
+        .toList();
+    if (desired.isEmpty()) {
+      throw new BusinessRuleException("Phải chọn ít nhất một role");
+    }
+    for (String role : desired) {
+      if (!Roles.all().contains(role)) {
+        throw new BusinessRuleException("Role không hợp lệ: " + role);
+      }
+    }
+    if (username.equalsIgnoreCase(actor)) {
+      int currentLevel = Roles.maxLevel(keycloakAdminClient.realmRolesByUsername(username));
+      if (Roles.maxLevel(desired) < currentLevel) {
+        throw new BusinessRuleException("Không thể hạ cấp role của chính mình");
+      }
+    }
+    keycloakAdminClient.updateRealmRoles(username, desired);
+    log.info("Admin '{}' đã cập nhật roles {} cho '{}'", actor, desired, username);
   }
 
   private static AccountResponse toResponse(AccountSnapshot snapshot) {

@@ -36,8 +36,8 @@ class WorkShiftControllerTest {
   @MockBean
   private WorkShiftService workShiftService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -74,7 +74,7 @@ class WorkShiftControllerTest {
     when(workShiftService.create(any(WorkShiftRequest.class))).thenReturn(response);
 
     mockMvc.perform(post("/api/v1/attendance/work-shifts")
-                .with(jwt().authorities(HR_ADMIN))
+                .with(jwt().authorities(ADMIN))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {"name":"Ca 8:00-17:00","shiftType":"FIXED",

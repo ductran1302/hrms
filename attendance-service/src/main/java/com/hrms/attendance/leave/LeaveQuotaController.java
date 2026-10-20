@@ -32,7 +32,7 @@ public class LeaveQuotaController {
   private final LeaveQuotaService leaveQuotaService;
 
   @GetMapping("/quotas")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Bảng tổng hợp quỹ phép năm (lọc từ khóa: mã/tên/phòng)")
   public List<LeaveQuotaResponse> list(
       @RequestParam int year, @RequestParam(required = false) String q) {
@@ -40,14 +40,14 @@ public class LeaveQuotaController {
   }
 
   @GetMapping("/quotas/{employeeId}")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Quỹ phép của 1 nhân viên (tự ensure dòng tính tự động)")
   public LeaveQuotaResponse get(@PathVariable String employeeId, @RequestParam int year) {
     return leaveQuotaService.getQuota(employeeId, year);
   }
 
   @PostMapping("/quotas/recalculate")
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Tính lại quota tự động (BASE/SENIORITY/POSITION) cho NV ACTIVE")
   public int recalculate(@RequestParam int year) {
     return leaveQuotaService.recalculate(year);
@@ -55,7 +55,7 @@ public class LeaveQuotaController {
 
   @PostMapping("/quotas/{employeeId}/entitlements")
   @ResponseStatus(HttpStatus.CREATED)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Cấp tay BONUS/CARRYOVER/ADJUSTMENT (nguồn auto tính tự động)")
   public LeaveEntitlementResponse grant(
       @PathVariable String employeeId,
@@ -68,7 +68,7 @@ public class LeaveQuotaController {
 
   @DeleteMapping("/entitlements/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Xóa dòng cấp tay (không xóa được dòng tự động)")
   public void deleteEntitlement(@PathVariable UUID id) {
     leaveQuotaService.deleteEntitlement(id);

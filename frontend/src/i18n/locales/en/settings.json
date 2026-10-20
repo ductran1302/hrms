@@ -20,6 +20,7 @@
       "resetPassword": "Reset password",
       "disable": "Disable account",
       "enable": "Enable account",
+      "editRoles": "Edit roles",
       "confirmDisable": "Disable this account? The user will not be able to sign in.",
       "confirmEnable": "Enable this account again?"
     },
@@ -28,6 +29,11 @@
       "newPassword": "New password",
       "confirm": "Reset",
       "hint": "At least 8 characters — send it back to the user to sign in."
+    },
+    "roleModal": {
+      "title": "Edit roles",
+      "hint": "Roles decide what this account can access.",
+      "minOne": "Select at least one role"
     },
     "empty": "No accounts found",
     "resetSuccess": "Password has been reset"

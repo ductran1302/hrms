@@ -84,42 +84,42 @@ export default function AppLayout() {
   }, [location.pathname]);
 
   const menuItems = [
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/employees',
       icon: <TeamOutlined />,
       label: t('menu.employees'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/departments',
       icon: <ApartmentOutlined />,
       label: t('menu.departments'),
     },
-    auth.hasRole('HR_ADMIN') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/contracts',
       icon: <FileTextOutlined />,
       label: t('menu.contracts'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/org-chart',
       icon: <ClusterOutlined />,
       label: t('menu.orgchart'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/attendance',
       icon: <ClockCircleOutlined />,
       label: t('menu.attendance'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/holidays',
       icon: <ThunderboltOutlined />,
       label: t('menu.holidays'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/leave-quota',
       icon: <GiftOutlined />,
       label: t('menu.leaveQuotas'),
     },
-    auth.hasRole('HR_ADMIN', 'MANAGER') && {
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/work-shifts',
       icon: <ScheduleOutlined />,
       label: t('menu.workShifts'),
@@ -129,23 +129,27 @@ export default function AppLayout() {
       icon: <CarryOutOutlined />,
       label: t('menu.myLeave'),
     },
-    // Cài đặt thấy mọi role; màn Tài khoản chỉ HR_ADMIN (Q&A chốt)
+    // Cài đặt thấy mọi role; màn Tài khoản chỉ ADMIN (Q&A chốt)
     {
       key: '/settings',
       icon: <SettingOutlined />,
       label: t('menu.settings'),
       children: [
-        auth.hasRole('HR_ADMIN') && { key: '/settings/accounts', label: t('menu.settingsAccounts') },
+        auth.hasRole('ADMIN') && { key: '/settings/accounts', label: t('menu.settingsAccounts') },
         { key: '/settings/security', label: t('menu.settingsSecurity') },
       ].filter(Boolean) as NavChild[],
     },
   ].filter(Boolean) as NavItem[];
 
-  const roleLabel = auth.hasRole('HR_ADMIN')
-    ? t('role.HR_ADMIN')
-    : auth.hasRole('MANAGER')
-      ? t('role.MANAGER')
-      : t('role.EMPLOYEE');
+  const roleLabel = auth.hasRole('ADMIN')
+    ? t('role.ADMIN')
+    : auth.hasRole('GLOBAL_LEAD')
+      ? t('role.GLOBAL_LEAD')
+      : auth.hasRole('DEPT_LEAD')
+        ? t('role.DEPT_LEAD')
+        : auth.hasRole('MANAGER')
+          ? t('role.MANAGER')
+          : t('role.EMPLOYEE');
 
   const langShort = i18n.language === 'en' ? 'EN' : 'VI';
   const langFlag = i18n.language === 'en' ? FLAG_EN : FLAG_VI;

@@ -14,7 +14,7 @@ import SettingsAccountsPage from './pages/SettingsAccountsPage';
 import SettingsSecurityPage from './pages/SettingsSecurityPage';
 import WorkShiftPage from './pages/WorkShiftPage';
 
-const STAFF_ROLES = ['HR_ADMIN', 'MANAGER'];
+const STAFF_ROLES = ['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER'];
 
 export default function App() {
   return (
@@ -112,7 +112,7 @@ export default function App() {
           <Route
             path="settings/accounts"
             element={
-              <ProtectedRoute roles={['HR_ADMIN']}>
+              <ProtectedRoute roles={['ADMIN']}>
                 <SettingsAccountsPage />
               </ProtectedRoute>
             }

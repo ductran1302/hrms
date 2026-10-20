@@ -21,7 +21,7 @@ public class HolidayController {
   private final HolidayService holidayService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Danh sách ngày lễ trong attendance (lọc calendarCode/year)")
   public List<HolidayResponse> list(
       @RequestParam(required = false) String calendarCode,
@@ -30,7 +30,7 @@ public class HolidayController {
   }
 
   @GetMapping("/today")
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Ngày lễ theo ngày cụ thể + lịch (mặc định hôm nay)")
   public List<HolidayResponse> byDate(
       @RequestParam String calendarCode,

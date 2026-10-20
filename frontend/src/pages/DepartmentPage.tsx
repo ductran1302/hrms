@@ -34,7 +34,7 @@ export default function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canWrite = auth.hasRole('ADMIN');
 
   const reloadMeta = () => {
     listDepartments()

@@ -34,10 +34,18 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
   long countByCreatedAtAfter(java.time.Instant cutoff);
 
+  /** true nếu có nhân viên khác đang trực thuộc {@code managerId} (còn làm việc) — auto-assign MANAGER. */
+  boolean existsByManagerIdAndStatusNot(UUID managerId, EmployeeStatus status);
+
   /**
-   * Tìm kiếm nhân viên có scoping (P1): {@code managerScope} khác null → chỉ trả nhân viên
-   * trực thuộc manager đó ({@code managerId = managerScope}) hoặc chính manager
-   * ({@code id = viewerId}); {@code managerScope = null} → không giới hạn (HR_ADMIN).
+   * Tìm kiếm nhân viên có scoping:
+   * <ul>
+   *   <li>{@code managerScope != null} → nhân viên trực thuộc ({@code managerId = managerScope})
+   *       hoặc chính người xem ({@code id = viewerId}).</li>
+   *   <li>{@code deptScope != null} (DEPT_LEAD) → thêm nhân viên thuộc các phòng ban
+   *       trong danh sách ({@code departmentId in deptScope}) — union với trên.</li>
+   *   <li>Cả hai null → không giới hạn (ADMIN/GLOBAL_LEAD).</li>
+   * </ul>
    */
   @Query("""
       select e from Employee e
@@ -54,6 +62,10 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
         and (:managerScope is null
              or e.managerId = :managerScope
              or e.id = :viewerId)
+        and (:deptScope is null
+             or e.departmentId in :deptScope
+             or e.managerId = :viewerId
+             or e.id = :viewerId)
       """)
   List<Employee> search(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
@@ -61,10 +73,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       @Param("office") String office,
       @Param("q") String q,
       @Param("managerScope") UUID managerScope,
+      @Param("deptScope") List<UUID> deptScope,
       @Param("viewerId") UUID viewerId,
       Pageable pageable);
 
-  /** Count song song với {@link #search} — cùng mệnh đề scoping {@code managerScope}. */
+  /** Count song song với {@link #search} — cùng mệnh đề scoping {@code managerScope/deptScope}. */
   @Query("""
       select count(e) from Employee e
       where (:status is null or e.status = :status)
@@ -80,6 +93,10 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
         and (:managerScope is null
              or e.managerId = :managerScope
              or e.id = :viewerId)
+        and (:deptScope is null
+             or e.departmentId in :deptScope
+             or e.managerId = :viewerId
+             or e.id = :viewerId)
       """)
   long countSearch(@Param("status") EmployeeStatus status,
       @Param("departmentId") UUID departmentId,
@@ -87,5 +104,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       @Param("office") String office,
       @Param("q") String q,
       @Param("managerScope") UUID managerScope,
+      @Param("deptScope") List<UUID> deptScope,
       @Param("viewerId") UUID viewerId);
 }

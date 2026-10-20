@@ -21,9 +21,12 @@ import com.hrms.common.kafka.KafkaTopics;
 import com.hrms.common.outbox.OutboxEvent;
 import com.hrms.common.outbox.OutboxPayloadConverter;
 import com.hrms.common.outbox.OutboxRepository;
+import com.hrms.common.security.EmployeeScope;
+import com.hrms.common.security.Roles;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.department.Department;
 import com.hrms.identity.department.DepartmentRepository;
+import com.hrms.identity.department.DepartmentStatus;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
@@ -67,6 +70,9 @@ class EmployeeServiceTest {
   @Mock
   private HolidayCalendarRepository holidayCalendarRepository;
 
+  @Mock
+  private RoleAssignmentService roleAssignmentService;
+
   @InjectMocks
   private EmployeeService service;
 
@@ -89,6 +95,7 @@ class EmployeeServiceTest {
       saved.setId(employeeId);
       return saved;
     });
+    when(roleAssignmentService.resolveDefaultRole(employeeId)).thenReturn(Roles.EMPLOYEE);
     when(outboxRepository.save(any(OutboxEvent.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
@@ -108,7 +115,8 @@ class EmployeeServiceTest {
     assertEquals("NV0001", payload.employeeCode());
     assertEquals("ACTIVE", payload.status());
     assertEquals(actorId, payload.actorId());
-    verify(keycloakAdminClient).createUser(eq("NV0001"), eq("Nguyễn Văn A"), eq("a@hrms.vn"));
+    verify(keycloakAdminClient).createUser(eq("NV0001"), eq("Nguyễn Văn A"), eq("a@hrms.vn"),
+        eq(Roles.EMPLOYEE));
   }
 
   @Test
@@ -125,12 +133,14 @@ class EmployeeServiceTest {
       saved.setId(employeeId);
       return saved;
     });
+    when(roleAssignmentService.resolveDefaultRole(employeeId)).thenReturn(Roles.EMPLOYEE);
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     service.create(request, actorId);
 
     assertEquals("nthieu", entity.getEmployeeCode());
-    verify(keycloakAdminClient).createUser(eq("nthieu"), eq("Nguyễn Trung Hiếu"), isNull());
+    verify(keycloakAdminClient).createUser(eq("nthieu"), eq("Nguyễn Trung Hiếu"), isNull(),
+        eq(Roles.EMPLOYEE));
   }
 
   @Test
@@ -148,12 +158,13 @@ class EmployeeServiceTest {
       saved.setId(employeeId);
       return saved;
     });
+    when(roleAssignmentService.resolveDefaultRole(employeeId)).thenReturn(Roles.EMPLOYEE);
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     service.create(request, actorId);
 
     assertEquals("nthieu1", entity.getEmployeeCode());
-    verify(keycloakAdminClient).createUser(eq("nthieu1"), any(), any());
+    verify(keycloakAdminClient).createUser(eq("nthieu1"), any(), any(), eq(Roles.EMPLOYEE));
   }
 
   @Test
@@ -169,8 +180,9 @@ class EmployeeServiceTest {
       saved.setId(employeeId);
       return saved;
     });
+    when(roleAssignmentService.resolveDefaultRole(employeeId)).thenReturn(Roles.EMPLOYEE);
     doThrow(new ConflictException("Tên đăng nhập đã tồn tại trong Keycloak: hr"))
-        .when(keycloakAdminClient).createUser(eq("hr"), any(), any());
+        .when(keycloakAdminClient).createUser(eq("hr"), any(), any(), any());
 
     assertThrows(ConflictException.class, () -> service.create(request, actorId));
     verify(outboxRepository, never()).save(any());
@@ -206,13 +218,13 @@ class EmployeeServiceTest {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     EmployeeResponse response = sampleResponse();
     when(employeeRepository.search(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""), eq(""),
-        isNull(), isNull(), any())).thenReturn(List.of(employee));
+        isNull(), isNull(), isNull(), any())).thenReturn(List.of(employee));
     when(employeeRepository.countSearch(eq(EmployeeStatus.ACTIVE), isNull(), eq(""), eq(""),
-        eq(""), isNull(), isNull())).thenReturn(1L);
+        eq(""), isNull(), isNull(), isNull())).thenReturn(1L);
     when(mapper.toResponse(employee)).thenReturn(response);
 
     PageResponse<EmployeeResponse> result =
-        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null, null, hrViewer());
+        service.search(0, 20, EmployeeStatus.ACTIVE, null, null, null, null, adminViewer());
 
     assertEquals(1, result.items().size());
     assertEquals(1L, result.total());
@@ -222,7 +234,7 @@ class EmployeeServiceTest {
   @Test
   void get_notFound_throwsResourceNotFound() {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.empty());
-    assertThrows(ResourceNotFoundException.class, () -> service.get(employeeId, hrViewer()));
+    assertThrows(ResourceNotFoundException.class, () -> service.get(employeeId, adminViewer()));
   }
 
   // ---- P1: MANAGER scoping + mask PII ----
@@ -236,9 +248,9 @@ class EmployeeServiceTest {
 
     when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.of(self));
     when(employeeRepository.search(any(), any(), any(), any(), any(), eq(employeeId),
-        eq(employeeId), any())).thenReturn(List.of(self, report));
+        isNull(), eq(employeeId), any())).thenReturn(List.of(self, report));
     when(employeeRepository.countSearch(any(), any(), any(), any(), any(), eq(employeeId),
-        eq(employeeId))).thenReturn(2L);
+        isNull(), eq(employeeId))).thenReturn(2L);
     when(mapper.toResponse(self)).thenReturn(piiResponse("NV0001"));
     when(mapper.toResponse(report)).thenReturn(piiResponse("NV0002"));
 
@@ -270,16 +282,16 @@ class EmployeeServiceTest {
     assertEquals(0L, result.total());
     // fail-closed: không chạy query khi không xác định được người xem
     verify(employeeRepository, never()).search(any(), any(), any(), any(), any(), any(), any(),
-        any());
+        any(), any());
   }
 
   @Test
-  void get_hrAdmin_returnsFullPii() {
+  void get_admin_returnsFullPii() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
     when(mapper.toResponse(employee)).thenReturn(piiResponse("NV0001"));
 
-    EmployeeResponse result = service.get(employeeId, hrViewer());
+    EmployeeResponse result = service.get(employeeId, adminViewer());
 
     assertEquals("012345678901", result.nationalId());
     assertEquals("0900000002", result.emergencyContactPhone());
@@ -333,17 +345,80 @@ class EmployeeServiceTest {
     verify(mapper, never()).toResponse(other);
   }
 
+  // ---- 5-role: DEPT_LEAD scope subtree + MANAGER không có quyền ghi ----
+
+  @Test
+  void get_deptLeadViewingEmployeeInManagedDept_returnsFullPii() {
+    UUID deptId = UUID.randomUUID();
+    Employee lead = employeeWithStatus(EmployeeStatus.ACTIVE);
+    Employee member = new Employee();
+    member.setId(UUID.randomUUID());
+    member.setEmployeeCode("NV0010");
+    member.setDepartmentId(deptId);
+    when(employeeRepository.findById(member.getId())).thenReturn(Optional.of(member));
+    when(employeeRepository.findByEmployeeCode("lead1")).thenReturn(Optional.of(lead));
+    when(departmentRepository.findIdsByManager_IdAndStatus(lead.getId(),
+        DepartmentStatus.ACTIVE)).thenReturn(List.of(deptId));
+    when(mapper.toResponse(member)).thenReturn(piiResponse("NV0010"));
+
+    EmployeeResponse result = service.get(member.getId(), deptLeadViewer());
+
+    assertEquals("012345678901", result.nationalId());
+  }
+
+  @Test
+  void get_deptLeadViewingSelf_returnsFullPii() {
+    Employee lead = employeeWithStatus(EmployeeStatus.ACTIVE);
+    lead.setEmployeeCode("lead1");
+    when(employeeRepository.findById(lead.getId())).thenReturn(Optional.of(lead));
+    when(employeeRepository.findByEmployeeCode("lead1")).thenReturn(Optional.of(lead));
+    when(mapper.toResponse(lead)).thenReturn(piiResponse("lead1"));
+
+    EmployeeResponse result = service.get(lead.getId(), deptLeadViewer());
+
+    assertEquals("012345678901", result.nationalId());
+  }
+
+  @Test
+  void update_managerRole_throwsAccessDenied() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+
+    EmployeeUpdateRequest patch = updateWithEmail("x@hrms.vn");
+    assertThrows(AccessDeniedException.class,
+        () -> service.update(employeeId, patch, actorId, managerViewer()));
+    verify(employeeRepository, never()).save(any());
+  }
+
+  @Test
+  void update_deptLeadOutsideScope_throwsAccessDenied() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    employee.setDepartmentId(UUID.randomUUID());
+    Employee lead = new Employee();
+    lead.setId(UUID.randomUUID());
+    lead.setEmployeeCode("lead1");
+    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    when(employeeRepository.findByEmployeeCode("lead1")).thenReturn(Optional.of(lead));
+    when(departmentRepository.findIdsByManager_IdAndStatus(lead.getId(),
+        DepartmentStatus.ACTIVE)).thenReturn(List.of(UUID.randomUUID()));
+
+    EmployeeUpdateRequest patch = updateWithEmail("x@hrms.vn");
+    assertThrows(AccessDeniedException.class,
+        () -> service.update(employeeId, patch, actorId, deptLeadViewer()));
+    verify(employeeRepository, never()).save(any());
+  }
+
   @Test
   void update_noFields_throwsBusinessRule() {
     EmployeeUpdateRequest patch = updateReq();
-    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
+    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId, adminViewer()));
     verify(employeeRepository, never()).findById(any());
   }
 
   @Test
   void update_statusTerminatedViaPatch_rejected() {
     EmployeeUpdateRequest patch = updateWithStatus("TERMINATED");
-    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
+    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId, adminViewer()));
     verify(employeeRepository, never()).findById(any());
   }
 
@@ -356,7 +431,7 @@ class EmployeeServiceTest {
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     EmployeeUpdateRequest patch = updateWithEmail("new@hrms.vn");
-    service.update(employeeId, patch, actorId);
+    service.update(employeeId, patch, actorId, adminViewer());
 
     assertEquals("new@hrms.vn", employee.getEmail());
 
@@ -379,7 +454,7 @@ class EmployeeServiceTest {
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     EmployeeUpdateRequest patch = updateWithOffice("VP Đà Nẵng");
-    service.update(employeeId, patch, actorId);
+    service.update(employeeId, patch, actorId, adminViewer());
 
     assertEquals("VP Đà Nẵng", employee.getOffice());
     // office là info thường xuyên đổi (không phải job info) → không ghi history
@@ -402,7 +477,7 @@ class EmployeeServiceTest {
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     EmployeeUpdateRequest patch = updateWithPosition("Senior Backend");
-    service.update(employeeId, patch, actorId);
+    service.update(employeeId, patch, actorId, adminViewer());
 
     assertEquals("Senior Backend", employee.getPosition());
     verify(jobHistoryService).record(eq(employeeId), eq("position"), eq("Backend"),
@@ -425,7 +500,7 @@ class EmployeeServiceTest {
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
     EmployeeUpdateRequest patch = updateWithDepartment(departmentId);
-    service.update(employeeId, patch, actorId);
+    service.update(employeeId, patch, actorId, adminViewer());
 
     assertEquals(departmentId, employee.getDepartmentId());
     assertEquals("HR", employee.getDepartmentName());
@@ -439,7 +514,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
     EmployeeUpdateRequest patch = updateWithManager(employeeId);
-    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId));
+    assertThrows(BusinessRuleException.class, () -> service.update(employeeId, patch, actorId, adminViewer()));
     verify(employeeRepository, never()).save(any());
   }
 
@@ -450,7 +525,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
     EmployeeUpdateRequest patch = updateWithFullName("Nguyễn Văn A");
-    service.update(employeeId, patch, actorId);
+    service.update(employeeId, patch, actorId, adminViewer());
 
     verify(outboxRepository, never()).save(any());
   }
@@ -462,7 +537,7 @@ class EmployeeServiceTest {
     when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
     when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    service.terminate(employeeId, actorId, "Tự nguyện");
+    service.terminate(employeeId, actorId, "Tự nguyện", adminViewer());
 
     assertEquals(EmployeeStatus.TERMINATED, employee.getStatus());
 
@@ -487,7 +562,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
 
     assertThrows(BusinessRuleException.class,
-        () -> service.terminate(employeeId, actorId, null));
+        () -> service.terminate(employeeId, actorId, null, adminViewer()));
     verify(outboxRepository, never()).save(any());
   }
 
@@ -503,7 +578,7 @@ class EmployeeServiceTest {
     when(holidayCalendarRepository.findById(calendarId)).thenReturn(Optional.of(calendar));
     when(mapper.toResponse(employee)).thenReturn(sampleResponse("NV0001", calendarId));
 
-    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
+    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId, adminViewer());
 
     assertEquals(calendarId, response.calendarId());
     verify(jobHistoryService).record(eq(employeeId), eq("calendar"), isNull(),
@@ -519,7 +594,7 @@ class EmployeeServiceTest {
     when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
     when(mapper.toResponse(employee)).thenReturn(sampleResponse("NV0001", calendarId));
 
-    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId);
+    EmployeeResponse response = service.assignCalendar(employeeId, calendarId, actorId, adminViewer());
 
     assertEquals(calendarId, response.calendarId());
     verify(employeeRepository, never()).save(any());
@@ -584,12 +659,16 @@ class EmployeeServiceTest {
         null, null, null, null, 0L);
   }
 
-  private static EmployeeViewer hrViewer() {
-    return new EmployeeViewer("hr", "hr@hrms.vn", true);
+  private static EmployeeViewer adminViewer() {
+    return new EmployeeViewer("hr", "hr@hrms.vn", EmployeeScope.ALL);
   }
 
   private static EmployeeViewer managerViewer() {
-    return new EmployeeViewer("manager1", "manager1@hrms.vn", false);
+    return new EmployeeViewer("manager1", "manager1@hrms.vn", EmployeeScope.SELF);
+  }
+
+  private static EmployeeViewer deptLeadViewer() {
+    return new EmployeeViewer("lead1", "lead1@hrms.vn", EmployeeScope.DEPARTMENT);
   }
 
   /** PATCH toàn null (19 trường) — dùng cho case "không có trường nào để cập nhật". */

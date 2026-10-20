@@ -5,9 +5,12 @@ import com.hrms.identity.department.DepartmentRepository;
 import com.hrms.identity.department.DepartmentService;
 import com.hrms.identity.department.dto.DepartmentCreateRequest;
 import com.hrms.identity.department.dto.DepartmentUpdateRequest;
+import com.hrms.common.security.EmployeeScope;
 import com.hrms.identity.employee.Employee;
 import com.hrms.identity.employee.EmployeeRepository;
 import com.hrms.identity.employee.EmployeeService;
+import com.hrms.identity.employee.EmployeeViewer;
+import com.hrms.identity.employee.RoleAssignmentService;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.jobtitle.JobTitle;
@@ -59,6 +62,9 @@ public class DataSeeder implements ApplicationRunner {
 
   private static final String ACTOR = "seed";
 
+  /** Seed chạy không có JWT — viewer ALL để update/backfill không vướng scoping. */
+  private static final EmployeeViewer SEED_VIEWER = new EmployeeViewer(null, null, EmployeeScope.ALL);
+
   private final DepartmentRepository departmentRepository;
   private final EmployeeRepository employeeRepository;
   private final JobTitleRepository jobTitleRepository;
@@ -67,6 +73,7 @@ public class DataSeeder implements ApplicationRunner {
   private final KeycloakAdminClient keycloakAdminClient;
   private final HolidayCalendarRepository holidayCalendarRepository;
   private final HolidayService holidayService;
+  private final RoleAssignmentService roleAssignmentService;
 
   @Value("${hrms.seed.enabled:true}")
   private boolean enabled;
@@ -411,7 +418,7 @@ public class DataSeeder implements ApplicationRunner {
     }
     employeeService.update(itDirector.getId(), new EmployeeUpdateRequest(
         null, null, null, null, null, cioId, null, null, null, null, null, null, null,
-        null, null, null, null, null, null), ACTOR);
+        null, null, null, null, null, null), ACTOR, SEED_VIEWER);
   }
 
   private void seedItDepartment() {
@@ -509,7 +516,7 @@ public class DataSeeder implements ApplicationRunner {
       try {
         employeeService.update(employee.getId(), new EmployeeUpdateRequest(
             null, null, null, null, null, null, null, null, null, null, null, null, null,
-            office, null, null, null, null, null), ACTOR);
+            office, null, null, null, null, null), ACTOR, SEED_VIEWER);
         updated++;
       } catch (Exception ex) {
         log.warn("Chưa set office cho {}: {}", employee.getEmployeeCode(), ex.getMessage());
@@ -525,7 +532,8 @@ public class DataSeeder implements ApplicationRunner {
     if (existing != null) {
       return existing;
     }
-    var created = departmentService.create(new DepartmentCreateRequest(code, name, parentId, null));
+    var created = departmentService.create(
+        new DepartmentCreateRequest(code, name, parentId, null), ACTOR);
     return departmentRepository.findById(created.id()).orElseThrow();
   }
 
@@ -543,9 +551,10 @@ public class DataSeeder implements ApplicationRunner {
   private void ensureKeycloakUser(Employee employee) {
     try {
       if (!keycloakAdminClient.userExists(employee.getEmployeeCode())) {
+        String role = roleAssignmentService.resolveDefaultRole(employee.getId());
         keycloakAdminClient.createUser(employee.getEmployeeCode(), employee.getFullName(),
-            employee.getEmail());
-        log.info("Backfill tài khoản Keycloak cho {}", employee.getEmployeeCode());
+            employee.getEmail(), role);
+        log.info("Backfill tài khoản Keycloak cho {} (role {})", employee.getEmployeeCode(), role);
       }
     } catch (Exception ex) {
       log.warn("Chưa tạo được tài khoản Keycloak cho {}: {} (sẽ thử lại lần boot sau)",
@@ -612,7 +621,8 @@ public class DataSeeder implements ApplicationRunner {
       return;
     }
     departmentService.update(department.getId(),
-        new DepartmentUpdateRequest(null, null, department.getParentId(), manager.getId(), null));
+        new DepartmentUpdateRequest(null, null, department.getParentId(), manager.getId(), null),
+        ACTOR);
   }
 
   /** Một nút phòng ban trong cây seed — parent chỉ định theo code (đã seed trước đó). */

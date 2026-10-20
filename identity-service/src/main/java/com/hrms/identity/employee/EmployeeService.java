@@ -8,9 +8,11 @@ import com.hrms.common.kafka.KafkaTopics;
 import com.hrms.common.outbox.OutboxEvent;
 import com.hrms.common.outbox.OutboxPayloadConverter;
 import com.hrms.common.outbox.OutboxRepository;
+import com.hrms.common.security.EmployeeScope;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.department.Department;
 import com.hrms.identity.department.DepartmentRepository;
+import com.hrms.identity.department.DepartmentStatus;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
@@ -53,6 +55,7 @@ public class EmployeeService {
   private final JobHistoryService jobHistoryService;
   private final KeycloakAdminClient keycloakAdminClient;
   private final HolidayCalendarRepository holidayCalendarRepository;
+  private final RoleAssignmentService roleAssignmentService;
 
   @Transactional
   public EmployeeResponse create(EmployeeCreateRequest request, String actorId) {
@@ -64,9 +67,11 @@ public class EmployeeService {
     validateGender(employee.getGender());
     validateManagerRef(employee.getManagerId(), null);
     employeeRepository.save(employee);
-    // Mã NV = username đăng nhập — tạo user Keycloak (role EMPLOYEE, mật khẩu mặc định).
-    // Lỗi (trùng username/mạng) ném ra → rollback transaction, không tạo nửa vời NV.
-    keycloakAdminClient.createUser(employeeCode, employee.getFullName(), employee.getEmail());
+    // Mã NV = username đăng nhập — tạo user Keycloak (role auto-assign theo cấp bậc,
+    // mật khẩu mặc định). Lỗi (trùng username/mạng) ném ra → rollback transaction.
+    String defaultRole = roleAssignmentService.resolveDefaultRole(employee.getId());
+    keycloakAdminClient.createUser(employeeCode, employee.getFullName(), employee.getEmail(),
+        defaultRole);
     writeOutbox(employee, EmployeeEventTypes.CREATED, actorId, null, null, null);
     return mapper.toResponse(employee);
   }
@@ -103,13 +108,11 @@ public class EmployeeService {
   }
 
   /**
-   * Danh sách phân trang + tìm kiếm/tìm lọc.
-   * Bước 9: đổi từ list phẳng ({@code List}) sang {@code PageResponse} — FE/verify scripts
-   * đọc field {@code items}.
-   *
-   * <p><b>P1 scoping:</b> HR_ADMIN thấy toàn bộ; MANAGER chỉ thấy nhân viên trực thuộc
-   * (managerId = mình) + chính mình và PII nhạy cảm bị mask. MANAGER không khớp hồ sơ
-   * nhân viên nào → danh sách rỗng (fail-closed, không mở mặc định).
+   * Danh sách phân trang + tìm kiếm/tìm lọc theo {@link EmployeeScope}:
+   * ALL (ADMIN/GLOBAL_LEAD) toàn bộ, không mask; DEPARTMENT (DEPT_LEAD) nhân viên các
+   * phòng mình quản lý (gồm nhánh con) + trực thuộc + self, PII đầy đủ; SELF (MANAGER/
+   * EMPLOYEE) trực thuộc + self, PII nhạy cảm bị mask. Không khớp hồ sơ → danh sách rỗng
+   * (fail-closed).
    */
   @Transactional(readOnly = true)
   public PageResponse<EmployeeResponse> search(int page, int size, EmployeeStatus status,
@@ -119,44 +122,56 @@ public class EmployeeService {
     String off = (office == null || office.isBlank()) ? "" : office.trim();
     PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-    if (!viewer.hrAdmin()) {
+    if (!viewer.unrestricted()) {
       Optional<Employee> self = resolveViewer(viewer);
       if (self.isEmpty()) {
         return PageResponse.of(List.of(), page, size, 0);
       }
       UUID selfId = self.get().getId();
+      List<UUID> deptScope = departmentScope(viewer, selfId);
       List<EmployeeResponse> items = employeeRepository
-          .search(status, departmentId, pos, off, query, selfId, selfId, pageable).stream()
-          .map(employee -> toViewerResponse(employee, selfId))
+          .search(status, departmentId, pos, off, query, selfId, deptScope, selfId, pageable)
+          .stream()
+          .map(employee -> toViewerResponse(employee, selfId, viewer))
           .toList();
-      long total =
-          employeeRepository.countSearch(status, departmentId, pos, off, query, selfId, selfId);
+      long total = employeeRepository.countSearch(
+          status, departmentId, pos, off, query, selfId, deptScope, selfId);
       return PageResponse.of(items, page, size, total);
     }
 
     List<EmployeeResponse> items = employeeRepository
-        .search(status, departmentId, pos, off, query, null, null, pageable).stream()
+        .search(status, departmentId, pos, off, query, null, null, null, pageable).stream()
         .map(mapper::toResponse)
         .toList();
-    long total = employeeRepository.countSearch(status, departmentId, pos, off, query, null, null);
+    long total = employeeRepository.countSearch(status, departmentId, pos, off, query, null, null,
+        null);
     return PageResponse.of(items, page, size, total);
   }
 
   /**
-   * Chi tiết nhân viên có scoping (P1): HR_ADMIN toàn bộ; caller khác chỉ xem được
-   * chính mình (đầy đủ) hoặc nhân viên trực thuộc (mask PII); ngoài phạm vi → 403.
+   * Chi tiết nhân viên theo scope: ALL đầy đủ; DEPARTMENT đầy đủ nếu trong phạm vi phòng
+   * ban/trực thuộc (self → 403 — lead không tự sửa/xem qua self để mở rộng quyền);
+   * SELF chỉ chính mình (đầy đủ) hoặc trực thuộc (mask); ngoài phạm vi → 403.
    */
   @Transactional(readOnly = true)
   public EmployeeResponse get(UUID id, EmployeeViewer viewer) {
     Employee employee = find(id);
-    if (viewer.hrAdmin()) {
+    if (viewer.unrestricted()) {
       return mapper.toResponse(employee);
     }
     Optional<Employee> self = resolveViewer(viewer);
     if (self.isPresent() && self.get().getId().equals(id)) {
       return mapper.toResponse(employee);
     }
-    if (self.isEmpty() || !Objects.equals(employee.getManagerId(), self.get().getId())) {
+    if (self.isEmpty()) {
+      throw new AccessDeniedException("Bạn không có quyền xem nhân viên này");
+    }
+    UUID selfId = self.get().getId();
+    boolean inReports = Objects.equals(employee.getManagerId(), selfId);
+    if (viewer.scope() == EmployeeScope.DEPARTMENT && inDepartmentScope(self.get(), employee)) {
+      return mapper.toResponse(employee);
+    }
+    if (!inReports) {
       throw new AccessDeniedException("Bạn không có quyền xem nhân viên này");
     }
     return maskSensitive(mapper.toResponse(employee));
@@ -168,7 +183,8 @@ public class EmployeeService {
    */
   @Transactional(readOnly = true)
   public EmployeeResponse me(String preferredUsername, String email) {
-    Employee found = resolveViewer(new EmployeeViewer(preferredUsername, email, true))
+    Employee found = resolveViewer(
+            new EmployeeViewer(preferredUsername, email, EmployeeScope.SELF))
         .orElseThrow(() -> new ResourceNotFoundException(
             "Nhân viên (username/email " + preferredUsername + ")"));
     return mapper.toResponse(found);
@@ -187,14 +203,60 @@ public class EmployeeService {
         : employeeRepository.findFirstByEmail(viewer.email());
   }
 
-  /** Response trong danh sách cho MANAGER: chính mình đầy đủ, nhân viên trực thuộc mask. */
-  private EmployeeResponse toViewerResponse(Employee employee, UUID viewerEmployeeId) {
-    EmployeeResponse response = mapper.toResponse(employee);
-    return Objects.equals(employee.getId(), viewerEmployeeId) ? response : maskSensitive(response);
+  /** Id các phòng ACTIVE mà self quản lý — null nếu không phải DEPT_LEAD (fail-closed). */
+  private List<UUID> departmentScope(EmployeeViewer viewer, UUID selfId) {
+    if (viewer.scope() != EmployeeScope.DEPARTMENT) {
+      return null;
+    }
+    List<UUID> deptIds = departmentRepository.findIdsByManager_IdAndStatus(selfId,
+        DepartmentStatus.ACTIVE);
+    return deptIds.isEmpty() ? null : deptIds;
+  }
+
+  /** true nếu target nằm trong scope DEPARTMENT của self (phòng self quản lý hoặc reports). */
+  private boolean inDepartmentScope(Employee self, Employee target) {
+    if (Objects.equals(target.getManagerId(), self.getId())) {
+      return true;
+    }
+    if (target.getDepartmentId() == null) {
+      return false;
+    }
+    return departmentRepository.findIdsByManager_IdAndStatus(self.getId(),
+        DepartmentStatus.ACTIVE).contains(target.getDepartmentId());
   }
 
   /**
-   * Mask PII nhạy cảm cho người xem không phải HR_ADMIN/chính chủ:
+   * Chặn ghi ngoài scope: ALL ghi được mọi employee; DEPARTMENT ghi được nhân viên trong
+   * phòng mình quản lý (gồm nhánh con) hoặc trực thuộc — không ghi self (lead không tự
+   * sửa để tránh mở rộng quyền); SELF (MANAGER/EMPLOYEE) không có quyền ghi.
+   */
+  private void assertWriteScope(EmployeeViewer viewer, Employee employee) {
+    if (viewer.unrestricted()) {
+      return;
+    }
+    if (viewer.scope() == EmployeeScope.DEPARTMENT) {
+      Optional<Employee> self = resolveViewer(viewer);
+      if (self.isPresent()
+          && !self.get().getId().equals(employee.getId())
+          && inDepartmentScope(self.get(), employee)) {
+        return;
+      }
+    }
+    throw new AccessDeniedException("Bạn không có quyền sửa nhân viên này");
+  }
+
+  /** Response trong danh sách: self đầy đủ; mask PII người khác khi scope SELF. */
+  private EmployeeResponse toViewerResponse(Employee employee, UUID viewerEmployeeId,
+      EmployeeViewer viewer) {
+    EmployeeResponse response = mapper.toResponse(employee);
+    if (!viewer.maskOthers() || Objects.equals(employee.getId(), viewerEmployeeId)) {
+      return response;
+    }
+    return maskSensitive(response);
+  }
+
+  /**
+   * Mask PII nhạy cảm cho người xem không phải ADMIN/GLOBAL_LEAD/DEPT_LEAD/chính chủ:
    * {@code nationalId} → {@code ****} + 4 số cuối; {@code address},
    * {@code emergencyContactPhone} → {@code ***}.
    * {@code phone} giữ nguyên (quan hệ công việc với nhân viên trực thuộc).
@@ -221,7 +283,8 @@ public class EmployeeService {
   }
 
   @Transactional
-  public EmployeeResponse update(UUID id, EmployeeUpdateRequest patch, String actorId) {
+  public EmployeeResponse update(UUID id, EmployeeUpdateRequest patch, String actorId,
+      EmployeeViewer viewer) {
     if (isNothingToPatch(patch)) {
       throw new BusinessRuleException("Không có trường nào để cập nhật");
     }
@@ -231,6 +294,7 @@ public class EmployeeService {
     }
 
     Employee employee = find(id);
+    assertWriteScope(viewer, employee);
     List<String> changed = new ArrayList<>();
 
     if (!isBlank(patch.fullName()) && !Objects.equals(patch.fullName(), employee.getFullName())) {
@@ -365,8 +429,9 @@ public class EmployeeService {
 
   /** Nghỉ việc (soft delete): chỉ đổi status, không xóa record — giữ cho payroll/tracing. */
   @Transactional
-  public void terminate(UUID id, String actorId, String reason) {
+  public void terminate(UUID id, String actorId, String reason, EmployeeViewer viewer) {
     Employee employee = find(id);
+    assertWriteScope(viewer, employee);
     if (employee.getStatus() == EmployeeStatus.TERMINATED) {
       throw new BusinessRuleException("Nhân viên đã nghỉ việc: " + employee.getEmployeeCode());
     }
@@ -390,8 +455,10 @@ public class EmployeeService {
    * khi tự query /holidays/my. Ghi job history để truy vết lịch sử thay đổi.
    */
   @Transactional
-  public EmployeeResponse assignCalendar(UUID id, UUID calendarId, String actorId) {
+  public EmployeeResponse assignCalendar(UUID id, UUID calendarId, String actorId,
+      EmployeeViewer viewer) {
     Employee employee = find(id);
+    assertWriteScope(viewer, employee);
     UUID oldCalendarId = employee.getCalendarId();
     if (Objects.equals(oldCalendarId, calendarId)) {
       return mapper.toResponse(employee);

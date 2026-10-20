@@ -19,7 +19,7 @@ public class JobTitleController {
   private final JobTitleService jobTitleService;
 
   @GetMapping
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh mục chức vụ (dùng cho dropdown Chức danh)")
   public List<JobTitleResponse> list() {
     return jobTitleService.list();

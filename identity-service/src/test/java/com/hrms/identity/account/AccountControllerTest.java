@@ -29,8 +29,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Slice test RBAC + validation cho màn Cài đặt: danh sách tài khoản chỉ HR_ADMIN,
- * tự đổi mật khẩu cho mọi role (validate min 8 ký tự), admin reset/bật-tắt chỉ HR_ADMIN.
+ * Slice test RBAC + validation cho màn Cài đặt: danh sách tài khoản chỉ ADMIN,
+ * tự đổi mật khẩu cho mọi role (validate min 8 ký tự), admin reset/bật-tắt chỉ ADMIN.
  */
 @WebMvcTest(controllers = AccountController.class)
 @Import(SecurityConfig.class)
@@ -42,8 +42,8 @@ class AccountControllerTest {
   @MockBean
   private AccountService accountService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -63,18 +63,18 @@ class AccountControllerTest {
   }
 
   @Test
-  void search_withHrAdmin_returns200() throws Exception {
+  void search_withAdmin_returns200() throws Exception {
     when(accountService.search("thieu", 0, 20)).thenReturn(
         PageResponse.of(List.of(
             new AccountResponse("nthieu", "Nguyễn Trung Hiếu", "a@hrms.vn", true,
-                List.of("HR_ADMIN"), 1_700_000_000_000L, "hr", "hr",
+                List.of("ADMIN"), 1_700_000_000_000L, "hr", "hr",
                 "2026-01-01T00:00:00Z")), 0, 20, 1));
 
     mockMvc.perform(get("/api/v1/accounts").param("q", "thieu")
-            .with(jwt().authorities(HR_ADMIN)))
+            .with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.items[0].username").value("nthieu"))
-        .andExpect(jsonPath("$.items[0].roles[0]").value("HR_ADMIN"))
+        .andExpect(jsonPath("$.items[0].roles[0]").value("ADMIN"))
         .andExpect(jsonPath("$.total").value(1));
   }
 
@@ -133,9 +133,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void resetPassword_withHrAdmin_returns204() throws Exception {
+  void resetPassword_withAdmin_returns204() throws Exception {
     mockMvc.perform(patch("/api/v1/accounts/nthieu/password")
-            .with(jwt().authorities(HR_ADMIN))
+            .with(jwt().authorities(ADMIN))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"newPassword\":\"new-123456\"}"))
         .andExpect(status().isNoContent());
@@ -144,9 +144,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void setEnabled_withHrAdmin_passesActorFromToken() throws Exception {
+  void setEnabled_withAdmin_passesActorFromToken() throws Exception {
     mockMvc.perform(patch("/api/v1/accounts/nthieu/enabled")
-            .with(jwt().authorities(HR_ADMIN)
+            .with(jwt().authorities(ADMIN)
                 .jwt(j -> j.claim("preferred_username", "hr")))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"enabled\":false}"))

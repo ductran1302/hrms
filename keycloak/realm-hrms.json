@@ -20,8 +20,18 @@
   "roles": {
     "realm": [
       {
-        "name": "HR_ADMIN",
+        "name": "ADMIN",
         "description": "Quyen quan tri nhan su toan he thong",
+        "composite": false
+      },
+      {
+        "name": "GLOBAL_LEAD",
+        "description": "Truong ban - doc du toan cong ty, ghi toan bo nhan vien",
+        "composite": false
+      },
+      {
+        "name": "DEPT_LEAD",
+        "description": "Truong phong - doc du phong minh quan ly (goc ca nhánh con)",
         "composite": false
       },
       {
@@ -125,7 +135,7 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["HR_ADMIN", "EMPLOYEE"]
+      "realmRoles": ["ADMIN", "EMPLOYEE"]
     },
     {
       "username": "manager1",
@@ -164,7 +174,17 @@
     {
       "name": "HR",
       "path": "/HR",
-      "realmRoles": ["HR_ADMIN"]
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "name": "Board",
+      "path": "/Board",
+      "realmRoles": ["GLOBAL_LEAD"]
+    },
+    {
+      "name": "DeptLeads",
+      "path": "/DeptLeads",
+      "realmRoles": ["DEPT_LEAD"]
     },
     {
       "name": "Managers",

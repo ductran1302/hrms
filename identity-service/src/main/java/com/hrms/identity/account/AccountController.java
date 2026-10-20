@@ -2,6 +2,7 @@ package com.hrms.identity.account;
 
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.account.dto.AccountResponse;
+import com.hrms.identity.account.dto.AccountRolesRequest;
 import com.hrms.identity.account.dto.ChangePasswordRequest;
 import com.hrms.identity.account.dto.ResetPasswordRequest;
 import com.hrms.identity.account.dto.SetEnabledRequest;
@@ -32,7 +33,7 @@ public class AccountController {
   private final AccountService accountService;
 
   @GetMapping
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Danh sách tài khoản đăng nhập (tìm theo username/họ tên/email)")
   public PageResponse<AccountResponse> search(
       @RequestParam(required = false) String q,
@@ -43,7 +44,7 @@ public class AccountController {
 
   @PostMapping("/change-password")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasAnyRole('HR_ADMIN','MANAGER','EMPLOYEE')")
+  @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Đổi mật khẩu của chính mình (xác thực mật khẩu hiện tại trước)")
   public void changeOwnPassword(@Valid @RequestBody ChangePasswordRequest request,
       @AuthenticationPrincipal Jwt jwt) {
@@ -52,7 +53,7 @@ public class AccountController {
 
   @PatchMapping("/{username}/password")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Admin đặt lại mật khẩu cho tài khoản")
   public void resetPassword(@PathVariable String username,
       @Valid @RequestBody ResetPasswordRequest request) {
@@ -61,12 +62,22 @@ public class AccountController {
 
   @PatchMapping("/{username}/enabled")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  @PreAuthorize("hasRole('HR_ADMIN')")
+  @PreAuthorize("hasRole('ADMIN')")
   @Operation(summary = "Bật/tắt tài khoản đăng nhập (không cho tắt của chính mình)")
   public void setEnabled(@PathVariable String username,
       @RequestBody SetEnabledRequest request,
       @AuthenticationPrincipal Jwt jwt) {
     accountService.setEnabled(username, request.enabled(), actorOf(jwt));
+  }
+
+  @PatchMapping("/{username}/roles")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Đổi roles của tài khoản (chặn tự hạ role của chính mình)")
+  public void updateRoles(@PathVariable String username,
+      @RequestBody AccountRolesRequest request,
+      @AuthenticationPrincipal Jwt jwt) {
+    accountService.updateRoles(username, request.roles(), actorOf(jwt));
   }
 
   private static String actorOf(Jwt jwt) {

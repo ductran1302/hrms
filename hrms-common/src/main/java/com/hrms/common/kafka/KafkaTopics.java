@@ -9,6 +9,9 @@ public final class KafkaTopics {
   /** Event thay đổi ngày lễ (holiday.changed) — attendance投影 sang bảng holidays. */
   public static final String HOLIDAY_V1 = "hrms.holiday.v1";
 
+  /** Event thay đổi phòng ban (department.created/updated) — attendance sync projection. */
+  public static final String DEPARTMENT_V1 = "hrms.department.v1";
+
   public static final String TIMESHEET_V1 = "hrms.timesheet.v1";
   public static final String PAYROLL_RUN_V1 = "hrms.payroll-run.v1";
   public static final String NOTIFICATION_V1 = "hrms.notification.v1";

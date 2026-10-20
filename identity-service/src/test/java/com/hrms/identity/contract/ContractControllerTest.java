@@ -39,8 +39,8 @@ class ContractControllerTest {
   @MockBean
   private ContractService contractService;
 
-  private static final SimpleGrantedAuthority HR_ADMIN =
-      new SimpleGrantedAuthority("ROLE_HR_ADMIN");
+  private static final SimpleGrantedAuthority ADMIN =
+      new SimpleGrantedAuthority("ROLE_ADMIN");
   private static final SimpleGrantedAuthority MANAGER =
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
@@ -64,7 +64,7 @@ class ContractControllerTest {
         pendingResponse());
 
     mockMvc.perform(post("/api/v1/employees/{id}/contracts", employeeId)
-            .with(jwt().authorities(HR_ADMIN))
+            .with(jwt().authorities(ADMIN))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"contractType\":\"FULL_TIME\",\"startDate\":\"2030-01-01\"}"))
         .andExpect(status().isCreated())
@@ -73,11 +73,11 @@ class ContractControllerTest {
   }
 
   @Test
-  void expiringSoon_withHrAdmin_returns200() throws Exception {
+  void expiringSoon_withAdmin_returns200() throws Exception {
     when(contractService.expiringSoon(30)).thenReturn(List.of(activeResponse()));
 
     mockMvc.perform(get("/api/v1/contracts/expiring-soon")
-            .with(jwt().authorities(HR_ADMIN)))
+            .with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].effectiveStatus").value("IN_EFFECT"));
   }
@@ -90,11 +90,11 @@ class ContractControllerTest {
   }
 
   @Test
-  void extend_withHrAdmin_returns200() throws Exception {
+  void extend_withAdmin_returns200() throws Exception {
     when(contractService.extend(eq(contractId), any())).thenReturn(activeResponse());
 
     mockMvc.perform(post("/api/v1/contracts/{id}/extend", contractId)
-            .with(jwt().authorities(HR_ADMIN))
+            .with(jwt().authorities(ADMIN))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"endDate\":\"2028-12-31\"}"))
         .andExpect(status().isOk())
@@ -102,11 +102,11 @@ class ContractControllerTest {
   }
 
   @Test
-  void replace_withHrAdmin_returns201() throws Exception {
+  void replace_withAdmin_returns201() throws Exception {
     when(contractService.replace(eq(contractId), any())).thenReturn(pendingResponse());
 
     mockMvc.perform(post("/api/v1/contracts/{id}/replace", contractId)
-            .with(jwt().authorities(HR_ADMIN))
+            .with(jwt().authorities(ADMIN))
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"contractType\":\"FULL_TIME\",\"startDate\":\"2030-01-01\"}"))
         .andExpect(status().isCreated())

@@ -237,7 +237,7 @@ export default function OrgChartPage() {
   const [exporting, setExporting] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
-  const canWrite = auth.hasRole('HR_ADMIN');
+  const canWrite = auth.hasRole('ADMIN');
 
   useEffect(() => {
     // allSettled: stats fail chỉ ẩn stat cards, tree vẫn hiển thị (không fail-joined)

@@ -40,7 +40,7 @@ public class Contract extends BaseEntity {
   @Column(name = "position", length = 100)
   private String position;
 
-  /** Lương VND — chỉ HR_ADMIN được đọc (ContractResponse ẩn khi không đủ quyền). */
+  /** Lương VND — chỉ ADMIN/GLOBAL_LEAD được đọc (ContractResponse ẩn khi không đủ quyền). */
   @Column(name = "salary")
   private Long salary;
 
