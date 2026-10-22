@@ -2,6 +2,8 @@ package com.hrms.identity.document;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -12,6 +14,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.hrms.identity.config.SecurityConfig;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
+import com.hrms.identity.employee.EmployeeService;
+import com.hrms.identity.employee.EmployeeViewer;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +27,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,6 +41,9 @@ class EmployeeDocumentControllerTest {
 
   @MockBean
   private EmployeeDocumentService documentService;
+
+  @MockBean
+  private EmployeeService employeeService;
 
   private static final SimpleGrantedAuthority ADMIN =
       new SimpleGrantedAuthority("ROLE_ADMIN");
@@ -64,6 +73,43 @@ class EmployeeDocumentControllerTest {
             .with(jwt().authorities(MANAGER)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].fileName").value("cv.pdf"));
+  }
+
+  @Test
+  void list_withManagerOutOfScope_returns403() throws Exception {
+    when(employeeService.get(eq(employeeId), any(EmployeeViewer.class)))
+        .thenThrow(new AccessDeniedException("Ngoài phạm vi"));
+
+    mockMvc.perform(get("/api/v1/employees/{id}/documents", employeeId)
+            .with(jwt().authorities(MANAGER)))
+        .andExpect(status().isForbidden());
+
+    verify(documentService, never()).list(any(), any());
+  }
+
+  @Test
+  void download_withManagerOutOfScope_returns403() throws Exception {
+    when(employeeService.get(eq(employeeId), any(EmployeeViewer.class)))
+        .thenThrow(new AccessDeniedException("Ngoài phạm vi"));
+
+    mockMvc.perform(get("/api/v1/employees/{id}/documents/{docId}", employeeId, documentId)
+            .with(jwt().authorities(MANAGER)))
+        .andExpect(status().isForbidden());
+
+    verify(documentService, never()).get(any(), any());
+  }
+
+  @Test
+  void download_withAdmin_fileMissing_returns404() throws Exception {
+    EmployeeDocument document = new EmployeeDocument();
+    document.setFileName("cv.pdf");
+    when(documentService.get(eq(employeeId), eq(documentId))).thenReturn(document);
+    when(documentService.resolvePath(document))
+        .thenReturn(Path.of("missing-" + UUID.randomUUID() + ".pdf"));
+
+    mockMvc.perform(get("/api/v1/employees/{id}/documents/{docId}", employeeId, documentId)
+            .with(jwt().authorities(ADMIN)))
+        .andExpect(status().isNotFound());
   }
 
   @Test
