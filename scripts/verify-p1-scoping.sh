@@ -2,8 +2,8 @@
 # Verify P1: MANAGER scoping + mask PII trên /api/v1/employees
 #
 # Flow: HR tạo 3 NV (quản lý / thuộc cấp / NV ngoài phạm vi) → gán role MANAGER
-# cho user quản lý qua client service-account (hrms-identity) → login bằng mật
-# khẩu mặc định <ma>@hrms → assert:
+# cho user quản lý qua client service-account (hrms-identity) → mật khẩu mặc định
+# <ma>@hrms là temporary (bị chặn password-grant) → HR reset → login → assert:
 #   - list chỉ thấy self + trực thuộc (total=2), không thấy NV ngoài phạm vi
 #   - PII của thuộc cấp bị mask (nationalId ****xxxx, address/emergencyPhone ***)
 #   - xem chính mình / /me vẫn đầy đủ; chi tiết/history ngoài phạm vi → 403
@@ -44,6 +44,13 @@ req() { # method token path [data] -> body + "\nHTTP <code>"
 
 code_of() { echo "$1" | tail -1 | sed 's/HTTP //'; }
 id_of() { echo "$1" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1; }
+
+# Mat khau mac dinh la temporary (P0-4) -> HR reset truoc khi login.
+emp_login() { # code -> token
+  local code=$1 pw="Smoke@12345"
+  req PATCH "$HR" "/api/v1/accounts/$code/password" "{\"newPassword\":\"$pw\"}" >/dev/null
+  token "$code" "$pw"
+}
 has() { case "$1" in *"$2"*) echo yes;; *) echo no;; esac; }
 
 check() { # label expected code
@@ -108,8 +115,10 @@ check "gan realm role MANAGER" 204 "$CODE"
 
 echo "== 3. Login bang quan ly + assert scoping/mask"
 MGR_TOK=$(token "$MGR_CODE" "$MGR_CODE@hrms")
+check "mat khau mac dinh temporary -> bi chan" yes "$([ -z "$MGR_TOK" ] && echo yes || echo no)"
+MGR_TOK=$(emp_login "$MGR_CODE")
 echo "manager token len=${#MGR_TOK}"
-check "login quan ly (mat khau mac dinh)" 40 "$([ ${#MGR_TOK} -gt 100 ] && echo 40 || echo 0)"
+check "login quan ly sau admin reset" 40 "$([ ${#MGR_TOK} -gt 100 ] && echo 40 || echo 0)"
 
 R=$(req GET "$MGR_TOK" "/api/v1/employees?size=100")
 check "GET list (MANAGER co ho so)" 200 "$(code_of "$R")"

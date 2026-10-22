@@ -701,7 +701,7 @@ echo "=== RESULT: PASS=$PASS FAIL=$FAIL"
 
 **Test accounts:** `hr/hr@123`, `manager1/manager@123`, `employee1/emp@123`
 
-**Tài khoản NV auto-provision:** mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `hrms.keycloak.password-suffix`, env `HRMS_PASSWORD_SUFFIX`); tạo khi Tạo nhân viên + idempotent khi Tạo hợp đồng. API Cài đặt: `GET /api/v1/accounts`, `POST /api/v1/accounts/change-password`, `PATCH /api/v1/accounts/{username}/password|enabled`.
+**Tài khoản NV auto-provision:** mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `hrms.keycloak.password-suffix`, env `HRMS_PASSWORD_SUFFIX`) tạo với **`temporary=true`** → Keycloak buộc đổi ở lần đăng nhập đầu; password-grant bị chặn (`invalid_grant: Account is not fully set up`) tới khi đổi. Tạo khi Tạo nhân viên + idempotent khi Tạo hợp đồng; HR cấp mật khẩu không-temporary qua `PATCH /api/v1/accounts/{username}/password`. API Cài đặt: `GET /api/v1/accounts`, `POST /api/v1/accounts/change-password`, `PATCH /api/v1/accounts/{username}/password|enabled`.
 
 ---
 

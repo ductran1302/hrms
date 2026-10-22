@@ -76,7 +76,12 @@ public class KeycloakAdminClient {
     this.spaClientId = spaClientId;
   }
 
-  /** Mật khẩu mặc định khi tạo tài khoản: {@code <username>} + suffix — vd {@code thduc1@hrms}. */
+  /**
+   * Mật khẩu mặc định khi tạo tài khoản: {@code <username>} + suffix — vd {@code thduc1@hrms}.
+   *
+   * <p>Credential tạo với {@code temporary=true} → Keycloak bắt buộc đổi ở lần đăng nhập đầu
+   * (password-grant trả {@code invalid_grant: Account is not fully set up} cho tới khi đổi).
+   */
   public String defaultPassword(String username) {
     return username + passwordSuffix;
   }
@@ -112,7 +117,7 @@ public class KeycloakAdminClient {
     body.put("credentials", List.of(Map.of(
         "type", "password",
         "value", defaultPassword(username),
-        "temporary", false)));
+        "temporary", true)));
     body.put("realmRoles", List.of(defaultRole));
     body.put("attributes", auditOnCreate());
 

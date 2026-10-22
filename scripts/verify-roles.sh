@@ -28,6 +28,13 @@ req() { # method token path [json]
 
 code_of() { echo "$1" | tail -1 | sed 's/HTTP //'; }
 fld() { echo "$1" | sed -n "s/.*\"$2\":\"\([^\"]*\)\".*/\1/p" | head -1; }
+
+# Mat khau mac dinh la temporary (P0-4) -> HR reset truoc khi login de test scoping.
+emp_login() { # code -> token
+  local code=$1 pw="Smoke@12345"
+  req PATCH "$HR" "/api/v1/accounts/$code/password" "{\"newPassword\":\"$pw\"}" >/dev/null
+  token "$code" "$pw"
+}
 has() { case "$1" in *"$2"*) echo yes;; *) echo no;; esac; }
 
 check() { # label expected actual
@@ -62,7 +69,9 @@ R=$(req POST "$HR" /api/v1/employees "{\"employeeCode\":\"RLE$SUF\",\"fullName\"
 check "POST tao NV test" 201 "$(code_of "$R")"
 CODE=$(fld "$R" employeeCode); EID=$(fld "$R" id)
 T=$(token "$CODE" "${CODE}@hrms")
-ck "login NV bang <ma>@hrms" "$([ -n "$T" ] && echo yes || echo no)" yes
+ck "mat khau mac dinh temporary -> password-grant bi chan" "$([ -z "$T" ] && echo yes || echo no)" yes
+T=$(emp_login "$CODE")
+ck "login NV sau admin reset" "$([ -n "$T" ] && echo yes || echo no)" yes
 A=$(req GET "$HR" "/api/v1/accounts?q=$CODE")
 case "$A" in *'"roles":["EMPLOYEE"]'*) ck "auto-assign = [EMPLOYEE]" yes yes
   ;; *) ck "auto-assign = [EMPLOYEE]" "$(has "$A" '"roles":[')" 'roles:[EMPLOYEE]';; esac

@@ -95,7 +95,9 @@ Mở:
 | `employee1` | `emp@123` | `EMPLOYEE` |
 
 > Nhân viên tạo mới (Tạo nhân viên / Tạo hợp đồng) được tự tạo tài khoản Keycloak với
-> mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `HRMS_PASSWORD_SUFFIX`).
+> mật khẩu mặc định `<employeeCode>@hrms` (suffix cấu hình `HRMS_PASSWORD_SUFFIX`) và cờ
+> **temporary** — Keycloak buộc đổi ở lần đăng nhập đầu (password-grant bị chặn tới khi đổi).
+> HR cấp mật khẩu không-temporary: **Cài đặt → Tài khoản** (admin đặt lại).
 > Đổi mật khẩu: màn **Cài đặt → Bảo mật**; admin đặt lại/bật-tắt: **Cài đặt → Tài khoản**.
 
 OAuth client:
