@@ -2,13 +2,16 @@ package com.hrms.attendance.employee;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
+import com.hrms.attendance.leave.LeaveEmployeeNoteRepository;
 import com.hrms.attendance.leave.LeaveEntitlementRepository;
+import com.hrms.attendance.leave.LeaveWorkDayRepository;
 import com.hrms.attendance.shift.ShiftAssignmentRepository;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
@@ -37,6 +40,12 @@ class EmployeeServiceTest {
 
   @Mock
   private LeaveEntitlementRepository leaveEntitlementRepository;
+
+  @Mock
+  private LeaveEmployeeNoteRepository leaveNoteRepository;
+
+  @Mock
+  private LeaveWorkDayRepository leaveWorkDayRepository;
 
   @InjectMocks
   private EmployeeService employeeService;
@@ -71,6 +80,7 @@ class EmployeeServiceTest {
     Employee existing = new Employee();
     existing.setEmployeeId(oldId);
     existing.setEmployeeCode("NV0001");
+    existing.setFullName("Nguyễn Văn A");
     existing.setStatus("ACTIVE");
 
     when(processedEventRepository.existsById(eventId)).thenReturn(false);
@@ -78,13 +88,26 @@ class EmployeeServiceTest {
     when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(existing));
     when(shiftAssignmentRepository.rekeyEmployee(oldId, employeeId)).thenReturn(2);
     when(leaveEntitlementRepository.rekeyEmployee(oldId, employeeId)).thenReturn(1);
+    when(leaveNoteRepository.rekeyEmployee(oldId, employeeId)).thenReturn(0);
+    when(leaveWorkDayRepository.rekeyEmployee(oldId, employeeId)).thenReturn(3);
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
 
     employeeService.applyCreated(createdEvent());
 
-    assertEquals(employeeId, existing.getEmployeeId());
+    // Re-key = delete row cũ + insert row mới với id từ event (không đổi @Id managed entity)
+    verify(employeeRepository).delete(existing);
+    verify(employeeRepository).flush();
     verify(shiftAssignmentRepository).rekeyEmployee(oldId, employeeId);
     verify(leaveEntitlementRepository).rekeyEmployee(oldId, employeeId);
-    verify(employeeRepository).save(existing);
+    verify(leaveNoteRepository).rekeyEmployee(oldId, employeeId);
+    verify(leaveWorkDayRepository).rekeyEmployee(oldId, employeeId);
+    verify(employeeRepository)
+        .save(
+            argThat(
+                e ->
+                    employeeId.equals(e.getEmployeeId())
+                        && "NV0001".equals(e.getEmployeeCode())
+                        && "Nguyễn Văn A".equals(e.getFullName())));
   }
 
   @Test

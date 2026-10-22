@@ -386,7 +386,7 @@ check "DELETE lich trong" 204 "$(code_of "$R")"
 R=$(req DELETE "$HR" "/api/v1/employees/$LE_ID?reason=cleanup")
 check "cleanup NV ngay le" 204 "$(code_of "$R")"
 
-echo "== 13. Quy phep (attendance leave quota — BigDecimal, self-heal policy)"
+echo "== 13. Quy phep (attendance leave quota — versioning 6 states, snapshot policy_id)"
 ATT=http://attendance:8080
 areq() { # method token path [data] — goi attendance service truc tiep (khong qua gateway)
   local method=$1 tok=$2 path=$3 data=$4
@@ -401,6 +401,7 @@ YEAR=$(date +%Y)
 R=$(areq GET "$HR" "/api/v1/attendance/leave/policies/$YEAR")
 check "GET leave policy (self-heal)" 200 "$(code_of "$R")"
 check_has "policy co baseDays" "$(has "$R" 'baseDays')" yes
+check_has "policy co versionNo + status" "$(has "$R" 'versionNo')" yes
 R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/recalculate?year=$YEAR")
 check "POST recalculate leave quota" 200 "$(code_of "$R")"
 R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas?year=$YEAR")
@@ -421,6 +422,11 @@ check_has "me dung ma NV" "$(has "$R" "$QP_CODE")" yes
 R=$(areq GET "$QP_TOK" "/api/v1/attendance/leave/quotas/$QP_ID?year=$YEAR")
 check "GET self quota (EMPLOYEE)" 200 "$(code_of "$R")"
 check_has "quota co baseDays" "$(has "$R" 'baseDays')" yes
+# recalculate lai khi da co NV -> snapshot policy_id/calculated_at tren dong auto (effective-dated)
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/recalculate?year=$YEAR")
+check "POST recalculate (da co NV)" 200 "$(code_of "$R")"
+R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas/$QP_ID?year=$YEAR")
+check_has "auto quota co policyId snapshot" "$(has "$R" '"policyId":"')" yes
 # cap tay: thapphan dung chinh xac (0.25 + 0.1 — khong co loi float)
 R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" '{"source":"BONUS","days":0.25,"reason":"verify"}')
 check "POST grant BONUS 0.25" 201 "$(code_of "$R")"
@@ -441,6 +447,116 @@ R=$(areq GET "$EMP" "/api/v1/attendance/leave/quotas?year=$YEAR")
 check "EMPLOYEE list quotas bi 403" 403 "$(code_of "$R")"
 R=$(areq GET "$EMP" "/api/v1/attendance/leave/policies/$YEAR")
 check "EMPLOYEE get policy bi 403" 403 "$(code_of "$R")"
+# --- Versioning 6 states (effective-dated) — nam 2099, idempotent qua nhieu lan chay ---
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies/2099")
+check "GET policy 2099 (self-heal)" 200 "$(code_of "$R")"
+# dọn version DRAFT/PENDING/APPROVED truoc moi cycle (DRAFT xoa, PENDING/APPROVED huy)
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies?year=2099")
+check "GET versions ?year=2099" 200 "$(code_of "$R")"
+CLEAN_IDS=$(echo "$R" | head -n -1 | jq -r '.[] | select(.status=="DRAFT" or .status=="PENDING_APPROVAL" or .status=="APPROVED") | .id')
+for vid in $CLEAN_IDS; do
+  ST=$(echo "$R" | head -n -1 | jq -r --arg id "$vid" '.[] | select(.id==$id) | .status')
+  if [ "$ST" = "DRAFT" ]; then
+    areq DELETE "$HR" "/api/v1/attendance/leave/policies/versions/$vid" >/dev/null
+  else
+    areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$vid/cancel" >/dev/null
+  fi
+done
+# ngay hieu luc = ngay sau max eff hien co (eff tang dan qua cac lan chay)
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies?year=2099")
+MAXEFF=$(echo "$R" | head -n -1 | jq -r '[.[].effectiveFrom] | max')
+if [ "$MAXEFF" = "null" ] || [ -z "$MAXEFF" ]; then MAXEFF="2099-01-01"; fi
+EFF=$(date -d "$MAXEFF +1 day" +%F)
+EFF2=$(date -d "$MAXEFF +2 day" +%F)
+EFF3=$(date -d "$MAXEFF +3 day" +%F)
+# a. tao V moi -> sua DRAFT -> submit -> approve -> activate -> ACTIVE
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies" "{\"year\":2099,\"baseDays\":14,\"seniorityStepYears\":1,\"seniorityBonusDays\":1,\"seniorityMaxBonus\":5,\"carryoverMax\":5,\"roleQuotas\":[],\"effectiveFrom\":\"$EFF\"}")
+check "POST tao version moi" 201 "$(code_of "$R")"
+check_has "version moi la DRAFT" "$(has "$R" '"status":"DRAFT"')" yes
+V2_ID=$(id_of "$R")
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID" "{\"year\":2099,\"baseDays\":15,\"seniorityStepYears\":1,\"seniorityBonusDays\":1,\"seniorityMaxBonus\":5,\"carryoverMax\":5,\"roleQuotas\":[],\"effectiveFrom\":\"$EFF\"}")
+check "PUT sua DRAFT" 200 "$(code_of "$R")"
+check_has "DRAFT da sua baseDays 15" "$(has "$R" '15.0000')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID/submit")
+check "submit DRAFT->PENDING" 200 "$(code_of "$R")"
+check_has "trang thai PENDING_APPROVAL" "$(has "$R" '"status":"PENDING_APPROVAL"')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID/submit")
+check "submit khi dang PENDING bi 422" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID/approve")
+check "approve PENDING->APPROVED" 200 "$(code_of "$R")"
+check_has "trang thai APPROVED" "$(has "$R" '"status":"APPROVED"')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID/approve")
+check "approve khi da APPROVED bi 422" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID/activate")
+check "activate APPROVED->ACTIVE" 200 "$(code_of "$R")"
+check_has "trang thai ACTIVE" "$(has "$R" '"status":"ACTIVE"')" yes
+# ACTIVE khong sua/xoa duoc (tao version moi thay the)
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID" "{\"year\":2099,\"baseDays\":16,\"seniorityStepYears\":1,\"seniorityBonusDays\":1,\"seniorityMaxBonus\":5,\"carryoverMax\":5,\"roleQuotas\":[]}")
+check "PUT sua version ACTIVE bi 422" 422 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/leave/policies/versions/$V2_ID")
+check "DELETE version ACTIVE bi 422" 422 "$(code_of "$R")"
+# in-force 2099 = version ACTIVE moi nhat
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies/2099")
+check "GET in-force 2099 = ACTIVE" 200 "$(code_of "$R")"
+check_has "in-force trang thai ACTIVE" "$(has "$R" '"status":"ACTIVE"')" yes
+# b. reject: PENDING -> DRAFT -> xoa duoc
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies" "{\"year\":2099,\"baseDays\":14,\"seniorityStepYears\":1,\"seniorityBonusDays\":1,\"seniorityMaxBonus\":5,\"carryoverMax\":5,\"roleQuotas\":[],\"effectiveFrom\":\"$EFF2\"}")
+check "POST tao version 2" 201 "$(code_of "$R")"
+V3_ID=$(id_of "$R")
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V3_ID/submit")
+check "submit version 2" 200 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V3_ID/reject")
+check "reject PENDING->DRAFT" 200 "$(code_of "$R")"
+check_has "reject tro ve DRAFT" "$(has "$R" '"status":"DRAFT"')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V3_ID/reject")
+check "reject khi la DRAFT bi 422" 422 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/leave/policies/versions/$V3_ID")
+check "DELETE version DRAFT" 204 "$(code_of "$R")"
+# c. cancel: PENDING -> CANCELLED (khong kich hoat duoc nua)
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies" "{\"year\":2099,\"baseDays\":14,\"seniorityStepYears\":1,\"seniorityBonusDays\":1,\"seniorityMaxBonus\":5,\"carryoverMax\":5,\"roleQuotas\":[],\"effectiveFrom\":\"$EFF3\"}")
+check "POST tao version 3" 201 "$(code_of "$R")"
+V4_ID=$(id_of "$R")
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V4_ID/submit")
+check "submit version 3" 200 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V4_ID/cancel")
+check "cancel PENDING->CANCELLED" 200 "$(code_of "$R")"
+check_has "trang thai CANCELLED" "$(has "$R" '"status":"CANCELLED"')" yes
+R=$(areq POST "$HR" "/api/v1/attendance/leave/policies/versions/$V4_ID/activate")
+check "activate version CANCELLED bi 422" 422 "$(code_of "$R")"
+# d. lich su version + RBAC ghi policy
+R=$(areq GET "$HR" "/api/v1/attendance/leave/policies?year=2099")
+check "GET history ?year=2099" 200 "$(code_of "$R")"
+check_has "history co CANCELLED" "$(has "$R" '"CANCELLED"')" yes
+R=$(areq DELETE "$EMP" "/api/v1/attendance/leave/policies/versions/$V2_ID")
+check "EMPLOYEE delete policy version bi 403" 403 "$(code_of "$R")"
+# API moi (thiet ke quyg phep): settings + note + work-days + resync roles
+R=$(areq GET "$HR" "/api/v1/attendance/leave/settings")
+check "GET leave settings" 200 "$(code_of "$R")"
+check_has "settings co fyStartMonth" "$(has "$R" 'fyStartMonth')" yes
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/settings" '{"fyStartMonth":1,"fyStartDay":1,"periodStartDay":10,"periodEndDay":5,"saturdayPolicy":"OFF","minWorkPercent":50}')
+check "PUT settings ky hong (10->5)" 422 "$(code_of "$R")"
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/settings" '{"fyStartMonth":1,"fyStartDay":1,"periodStartDay":26,"periodEndDay":25,"saturdayPolicy":"OFF","minWorkPercent":50}')
+check "PUT settings hop le (26->25)" 200 "$(code_of "$R")"
+R=$(areq GET "$HR" "/api/v1/attendance/leave/settings")
+check_has "settings luu periodStartDay 26" "$(has "$R" '"periodStartDay":26')" yes
+check_has "settings co requirePolicyApproval" "$(has "$R" 'requirePolicyApproval')" yes
+# ghi chu NV/nam (PUT 200 void, GET tra JSON string)
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/note?year=$YEAR" '{"note":"ghi chu verify"}')
+check "PUT note" 200 "$(code_of "$R")"
+# GET note chi cho staff (EMPLOYEE bi 403) → goi bang HR
+R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/note?year=$YEAR")
+check_has "note luu" "$(has "$R" 'ghi chu verify')" yes
+# ngay cong theo ky: lay periodStart tu GET, PUT = MANUAL
+R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/work-days?year=$YEAR")
+check "GET work-days" 200 "$(code_of "$R")"
+PS=$(echo "$R" | head -n -1 | jq -r '.[0].periodStart')
+check "lay duoc periodStart" 0 "$([ -n "$PS" ] && [ "$PS" != null ] && echo 0 || echo missing)"
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/work-days" "{\"periodStart\":\"$PS\",\"workDays\":1}")
+check "PUT work-days" 200 "$(code_of "$R")"
+check_has "work-day tro thanh MANUAL" "$(has "$R" 'MANUAL')" yes
+# backfill roles -> attendance mirror (1 lan, idempotent)
+R=$(req POST "$HR" "/api/v1/accounts/resync-role-events")
+check "POST resync-role-events" 201 "$(code_of "$R")"
 # cleanup: xoa BONUS da cap + nghi viec NV
 R=$(areq DELETE "$HR" "/api/v1/attendance/leave/entitlements/$BONUS_ID")
 check "DELETE entitlement BONUS" 204 "$(code_of "$R")"
@@ -475,7 +591,16 @@ NVW_CODE="nvc$SUF"
 R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"$NVW_CODE\",\"fullName\":\"NV Ca Lam Viec $SUF\",\"email\":\"clv$SUF@hrms.vn\"}")
 check "POST tao NV verify ca" 201 "$(code_of "$R")"
 NVW_ID=$(id_of "$R")
-sleep 3
+# cho den projection attendance co NV (Kafka async — sections truoc tao backlog event)
+proj_ok=""
+for i in $(seq 1 15); do
+  sleep 1
+  if curl -s "$ATT/api/v1/attendance/employees" -H "Authorization: Bearer $HR" | grep -q "$NVW_CODE"; then
+    proj_ok=yes
+    break
+  fi
+done
+check "NV verify co trong projection" yes "${proj_ok:-no}"
 # d. gan ca: lan 1 OK, cung ngay/truoc ngay bi 422, chuyen ca (ke lich) OK
 R=$(areq POST "$HR" "/api/v1/attendance/shift-assignments" "{\"employeeId\":\"$NVW_ID\",\"workShiftId\":\"$FIX_ID\",\"effectiveFrom\":\"2020-01-01\"}")
 check "POST gan ca lan 1" 201 "$(code_of "$R")"

@@ -421,6 +421,73 @@ public class KafkaTopics {
 - **KC realm:** `keycloak/realm-hrms.json` 5 roles + groups HR/Board/DeptLeads/Managers;
   user `hr` realmRoles `["ADMIN"]`.
 
+### 4.15 Leave Quota Settings & Policy (2026-10-21)
+
+Feature "thiết kế lại tính quỹ phép" — quỹ tính theo **kỳ công** + **năm tài chính**:
+
+- **`leave_settings`** (1 row global): `fyStartMonth/fyStartDay` (năm TC),
+  `periodStartDay/periodEndDay` — chỉ 2 combo hợp lệ: start=1,end≥29 hoặc
+  start=end+1 (hở → 422; kỳ WHOLE theo lưới, gán năm TC theo ngày end → FY 1/4 +
+  kỳ 26/25 = **12 kỳ** đúng: kỳ đầu 26/3–25/4 bắt đầu trước fyStart, đuôi 26/3–31/3
+  thuộc "kỳ tháng 4" của FY sau — không clip, không tạo kỳ thứ 13), `saturdayPolicy`
+  (OFF/HALF/ALTERNATING/ALL), `minWorkPercent` (x%, default 50),
+  `require_policy_approval` (default **true** — false: activate thẳng từ DRAFT).
+  API `GET/PUT /api/v1/attendance/leave/settings` (đọc 4 role, ghi ADMIN).
+- **`leave_policies` versioning** (nhiều version/năm TC; effective-dated):
+  `baseDays`, `seniorityRule` (`VN_TIERED` default | `LINEAR`), `seniorityTiers[]`
+  (bảng `leave_seniority_tiers`: `minYears/bonusDays`, unique (policy_id, min_years)),
+  `seniorityStepYears/seniorityBonusDays/seniorityMaxBonus` (chỉ LINEAR —
+  scalar giữ cho compat), `carryoverMax`, `roleQuotas[]`
+  (`leave_role_quotas`, Source=POSITION), `versionNo`, `status`
+  (**DRAFT → PENDING_APPROVAL → APPROVED → ACTIVE → EXPIRED**; CANCELLED;
+  reject = PENDING→DRAFT), `effectiveFrom/effectiveTo`, `submittedAt` etc.
+  - **Thâm niên — strategy pattern (mở rộng Hàn/Nhật không đập đi xây lại)**:
+    interface `SeniorityRule` (`bonus(SeniorityContext)`) + `SeniorityRuleRegistry`
+    (Spring nạp mọi bean; package `attendance.leave.seniority`).
+    `VN_TIERED` (mặc định, NĐ 145/2020): bậc `0/5/10/15/20 → +0/2/4/6/8` seed
+    (createDefaultDraft/copy source/request null đều seed 5 bậc luật VN),
+    áp dụng khi `Period.between(hiredAt, asOf)` **đủ** `minYears` (asOf = ngày
+    recalculate; lệch ~1 ngày so với "trên N năm" của luật — nhất quán mọi bậc),
+    bỏ qua `seniorityMaxBonus` (bậc = giá trị tuyệt đối), tiers rỗng → self-heal
+    tạm tính LINEAR; `LINEAR` (legacy): `bonus = stepYears×n × bonusDays` theo
+    năm dương lịch, cap `maxBonus`. Validation: VN_TIERED + `seniorityTiers=[]`
+    → 422, `minYears<0`/trùng → 422. Mở rộng: thêm enum + `@Component` rule.
+    Migration `V16__seniority_rule_tiers.sql` (cột + bảng + seed).
+  - Workflow (ADMIN tạo/sửa/activate/cancel; **approve/reject thêm GLOBAL_LEAD**
+    — duyệt cuối chính sách toàn công ty): `POST /leave/policies` (create DRAFT,
+    validate effectiveFrom > mọi version hiện có trong năm → 422),
+    `PUT /versions/{id}` (chỉ DRAFT), `POST /{id}/submit|approve|reject|activate|cancel`,
+    `DELETE /{id}` (chỉ DRAFT). `activate`: version mới effectiveFrom = D
+    (D trong FY range, > version ACTIVE cũ; **quá khứ được phép — FE cảnh báo
+    trước khi kích hoạt**) → ACTIVE cũ tự EXPIRED với `effectiveTo = D−1`;
+    activate yêu cầu D > effectiveFrom của version cũ.
+    Flag `requirePolicyApproval=false` → activate thẳng từ DRAFT.
+  - `GET /leave/policies/in-force?year=` (write tx — self-heal + lazy expire,
+    xem §7.9); `GET /leave/policies?year=` (history); `GET /leave/policies/{id}`.
+  - **BASE mid-year tính per-period**: mỗi kỳ p dùng policy hiệu lực tại
+    `p.start` → `Σ baseDays/tổng_số_kỳ` (chia 1 lần cuối); SENIORITY/role
+    bonus/carryover dùng policy in-force tại asOf. `DELETE /{year}` (theo năm)
+    **đã bỏ** — xóa theo id (chỉ DRAFT).
+- **`leave_work_days`** (ngày công từng kỳ/NV): DEFAULT (auto-fill từ settings
+  khi GET quota) / MANUAL (HR sửa tay — recalculate KHÔNG đụng dòng MANUAL).
+  API `/api/v1/attendance/leave/quotas/{employeeId}/work-days`.
+- **`leave_employee_notes`**: note ≤500 ký tự/NV/năm — `/quotas/{employeeId}/note`.
+- **Recalculate** `POST /api/v1/attendance/leave/quotas/recalculate` (ADMIN,
+  `{year, employeeIds?}`): BASE = `baseDays × số_kỳ_đạt / tổng_số_kỳ`
+  (tổng = **12 kỳ** với lưới 26→25 → baseDays chia hết 12 ⇒ số nguyên;
+  một kỳ đạt: actual×100 ≥ full×minWorkPercent; mỗi kỳ WHOLE worth baseDays/12),
+  SENIORITY (thâm niên), role bonus = **max** các role khớp (`employees.roles`
+  sync qua event `hrms.employee.v1` + `POST /api/v1/accounts/resync-role-events`),
+  carryover auto = min(còn lại năm trước, carryoverMax) upsert CARRYOVER
+  `is_auto=false`. Snapshot: mọi dòng auto ghi `policy_id` + `calculated_at`
+  (BONUS/ADJUSTMENT policyId=null); recalculate **explicit** — không tự tính
+  lại khi đổi policy. Entitlement nguồn AUTO (BASE/SENIORITY/CARRYOVER)
+  **DELETE → 422**.
+- **Ngày lễ KHÔNG trừ**: workingDays = T2–T6 + T7 theo policy + CN nghỉ;
+  ALTERNATING: Sat #0 = đi làm, reset mỗi năm TC (`PeriodEngine`).
+- **Đã fix 2 bug**: self-invocation readOnly không commit (xem §7.9);
+  `ensureAuto` dùng chung `computeBase` — không ghi đè BASE đã recalculate.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -721,6 +788,37 @@ FIX: GIỮ NGUYÊN `.gitattributes` (`* text=auto eol=lf`) — không xóa file 
 LƯU Ý: .env cũng phải LF (docker compose đọc được CRLF nhưng `bash source` thì không)
 ```
 
+### 7.9 readOnly self-invocation không commit
+
+```
+LỖI: GET trả 200 nhưng row do self-heal (getOrCreate*/ensure*) không tồn tại trong DB
+     (ví dụ DELETE ngay sau GET → 404)
+NGUYÊN NHÂN: method @Transactional(readOnly=true) gọi self-heal save() qua this
+             → không qua Spring proxy → save chạy ngoài tx readOnly → KHÔNG commit
+FIX: method nào TỰ HEAL phải @Transactional (write) dù API là "đọc" —
+     xem LeaveSettingsService.getSettings, LeaveQuotaService.getPolicy,
+     LeaveSettingsService.listWorkDays (đã đổi, có javadoc giải thích)
+```
+
+### 7.10 Hibernate cấm đổi @Id của managed entity
+
+```
+LỖI: Kafka consumer apply EmployeeCreatedEvent (identity tạo lại id mới, cùng
+     employee_code) → JpaSystemException "identifier altered" → retry vô hạn
+     → poison partition (projection đứng yên, smoke 404)
+NGUYÊN NHÂN: findOrCreate re-key employee projection bằng setId() trên entity
+             managed → Hibernate không cho đổi @Id của row đang attached
+FIX: re-key = FK 4 bảng (shift_assignments, leave_entitlements,
+     leave_employee_notes — V14 defer FK, leave_work_days — V15 defer FK)
+     → delete(row cũ) → flush() →
+     save(row mới với id từ event qua copyWithId);
+     KHÔNG save() trong findOrCreate (caller save — tránh duplicate flush);
+     insert row mới phải xong trước khi flush → tránh unique violation
+     (uq_attendance_emp_code) khi row cũ chưa delete.
+     LƯU Ý: thiếu defer FK bảng nào còn row → delete employee lỗi FK
+     (poison partition, smoke shift 404).
+```
+
 ---
 
 ## 8. Key Files Reference
@@ -734,6 +832,9 @@ LƯU Ý: .env cũng phải LF (docker compose đọc được CRLF nhưng `bash 
 | Outbox entity | `hrms-common/src/main/java/com/hrms/common/outbox/OutboxEvent.java` |
 | Global exception | `hrms-common/src/main/java/com/hrms/common/web/GlobalExceptionHandler.java` |
 | Roles constants | `hrms-common/src/main/java/com/hrms/common/security/Roles.java` |
+| Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |
+| FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |
+| FE Cài đặt→Tham số/Chính sách phép | `frontend/src/pages/SettingsPoliciesPage.tsx` |
 | FE API client | `frontend/src/api/client.ts` |
 | FE types | `frontend/src/api/types.ts` |
 | FE routes | `frontend/src/App.tsx` |

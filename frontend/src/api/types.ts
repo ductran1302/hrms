@@ -313,39 +313,77 @@ export interface HolidayUpdate {
 
 export type LeaveSourceValue = 'BASE' | 'SENIORITY' | 'POSITION' | 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT';
 
-export interface LeavePositionQuota {
-  positionName: string;
+export interface LeaveRoleQuota {
+  role: string;
   bonusDays: number;
 }
 
+/** Quy tắc thâm niên: VN_TIERED = bậc luật VN, LINEAR = logic cũ (mỗi N năm). */
+export type SeniorityRuleValue = 'VN_TIERED' | 'LINEAR';
+
+/** Bậc thâm niên (VN_TIERED): áp dụng bonus khi nhân viên đã đủ minYears năm. */
+export interface LeaveSeniorityTier {
+  minYears: number;
+  bonusDays: number;
+}
+
+export type PolicyStatusValue =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+/** Một phiên bản chính sách quỹ phép (effective-dated, 6 states). */
 export interface LeavePolicy {
   id: string;
   year: number;
+  versionNo: number;
+  status: PolicyStatusValue;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
   baseDays: number;
   seniorityStepYears: number;
   seniorityBonusDays: number;
   seniorityMaxBonus: number;
   carryoverMax: number;
-  positionQuotas: LeavePositionQuota[];
+  createdBy: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  activatedBy: string | null;
+  activatedAt: string | null;
+  roleQuotas: LeaveRoleQuota[];
+  seniorityRule: SeniorityRuleValue;
+  seniorityTiers: LeaveSeniorityTier[];
 }
 
-export interface LeavePolicyUpsert {
+/** Tạo phiên bản mới / sửa DRAFT — null/undefined = mặc định (copy từ sourcePolicyId). */
+export interface LeavePolicyCreate {
   year: number;
-  baseDays: number;
-  seniorityStepYears: number;
-  seniorityBonusDays: number;
-  seniorityMaxBonus: number;
-  carryoverMax: number;
-  positionQuotas: LeavePositionQuota[];
+  baseDays?: number;
+  seniorityStepYears?: number;
+  seniorityBonusDays?: number;
+  seniorityMaxBonus?: number;
+  carryoverMax?: number;
+  roleQuotas?: LeaveRoleQuota[];
+  effectiveFrom?: string;
+  sourcePolicyId?: string;
+  seniorityRule?: SeniorityRuleValue;
+  seniorityTiers?: LeaveSeniorityTier[];
 }
 
 export interface LeaveEntitlement {
   id: string;
   source: LeaveSourceValue;
   days: number;
+  isAuto: boolean;
   reason: string | null;
   grantedBy: string | null;
   createdAt: string;
+  /** Phiên bản chính sách tạo ra dòng auto (null với BONUS/ADJUSTMENT). */
+  policyId: string | null;
+  calculatedAt: string | null;
 }
 
 export interface LeaveQuota {
@@ -354,15 +392,17 @@ export interface LeaveQuota {
   fullName: string;
   departmentName: string | null;
   position: string | null;
+  roles: string | null;
   status: string;
   baseDays: number;
   seniorityDays: number;
-  positionDays: number;
+  roleDays: number;
   bonusDays: number;
   carryoverDays: number;
   adjustmentDays: number;
   totalDays: number;
   remainingDays: number;
+  note: string | null;
   entitlements: LeaveEntitlement[];
 }
 
@@ -370,6 +410,32 @@ export interface LeaveGrant {
   source: 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT';
   days: number;
   reason?: string;
+}
+
+export type SaturdayPolicyValue = 'OFF' | 'HALF' | 'ALTERNATING' | 'ALL';
+
+/** Tham số global tính quỹ phép (Tab 1 màn Chính sách). */
+export interface LeaveSettings {
+  fyStartMonth: number;
+  fyStartDay: number;
+  periodStartDay: number;
+  periodEndDay: number;
+  saturdayPolicy: SaturdayPolicyValue;
+  minWorkPercent: number;
+  /** false = kích hoạt chính sách thẳng từ DRAFT, bỏ qua phê duyệt. */
+  requirePolicyApproval: boolean;
+}
+
+export type WorkDaySourceValue = 'DEFAULT' | 'MANUAL';
+
+/** Ngày công 1 kỳ — workDays null = chưa Tính lại/pre-fill. */
+export interface LeaveWorkDay {
+  id: string | null;
+  periodStart: string;
+  periodEnd: string;
+  periodWorkingDays: number;
+  workDays: number | null;
+  source: WorkDaySourceValue | null;
 }
 
 export type ShiftTypeValue = 'FIXED' | 'FLEXIBLE';

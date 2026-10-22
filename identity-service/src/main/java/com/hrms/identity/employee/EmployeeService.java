@@ -72,7 +72,8 @@ public class EmployeeService {
     String defaultRole = roleAssignmentService.resolveDefaultRole(employee.getId());
     keycloakAdminClient.createUser(employeeCode, employee.getFullName(), employee.getEmail(),
         defaultRole);
-    writeOutbox(employee, EmployeeEventTypes.CREATED, actorId, null, null, null);
+    writeOutbox(employee, EmployeeEventTypes.CREATED, actorId, null, null, null,
+        List.of(defaultRole));
     return mapper.toResponse(employee);
   }
 
@@ -422,7 +423,8 @@ public class EmployeeService {
 
     if (!changed.isEmpty()) {
       employeeRepository.save(employee);
-      writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId, changed, null, null);
+      writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId, changed, null, null,
+          readRolesSafe(employee.getEmployeeCode()));
     }
     return mapper.toResponse(employee);
   }
@@ -440,7 +442,7 @@ public class EmployeeService {
     employee.setStatus(EmployeeStatus.TERMINATED);
     employeeRepository.save(employee);
     writeOutbox(employee, EmployeeEventTypes.TERMINATED, actorId, null, reason,
-        Instant.now().toEpochMilli());
+        Instant.now().toEpochMilli(), null);
     // Tắt tài khoản đăng nhập — best-effort: không chặn nghỉ việc nếu Keycloak lỗi
     try {
       keycloakAdminClient.setUserEnabled(employee.getEmployeeCode(), false);
@@ -469,7 +471,7 @@ public class EmployeeService {
     employeeRepository.save(employee);
     jobHistoryService.record(id, "calendar", oldCode, newCode, actorId);
     writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId,
-        List.of("calendarId"), null, null);
+        List.of("calendarId"), null, null, readRolesSafe(employee.getEmployeeCode()));
     return mapper.toResponse(employee);
   }
 
@@ -542,15 +544,28 @@ public class EmployeeService {
   }
 
   private void writeOutbox(Employee employee, String eventType, String actorId,
-      List<String> changedFields, String reason, Long terminatedAt) {
+      List<String> changedFields, String reason, Long terminatedAt, List<String> roles) {
     EmployeeEventPayload payload =
-        EmployeeEventPayload.from(employee, actorId, changedFields, reason, terminatedAt);
+        EmployeeEventPayload.from(employee, actorId, changedFields, reason, terminatedAt, roles);
     outboxRepository.save(OutboxEvent.of(
         AGGREGATE_TYPE,
         employee.getId().toString(),
         eventType,
         KafkaTopics.EMPLOYEE_V1,
         OutboxPayloadConverter.toJson(payload)));
+  }
+
+  /**
+   * Đọc roles từ KC để emit cùng event (attendance mirror employees.roles). Lỗi mạng →
+   * null = không đụng roles ở consumer (tránh ghi đè rỗng khi KC flaky).
+   */
+  private List<String> readRolesSafe(String employeeCode) {
+    try {
+      return keycloakAdminClient.realmRolesByUsername(employeeCode);
+    } catch (Exception ex) {
+      log.warn("Không đọc được roles của '{}' để emit event: {}", employeeCode, ex.getMessage());
+      return null;
+    }
   }
 
   private static boolean isBlank(String value) {

@@ -11,9 +11,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrms.common.exception.BusinessRuleException;
+import com.hrms.common.outbox.OutboxRepository;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.account.dto.AccountResponse;
 import com.hrms.identity.account.dto.ChangePasswordRequest;
+import com.hrms.identity.employee.EmployeeRepository;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
 import com.hrms.identity.keycloak.KeycloakAdminClient.AccountSnapshot;
 import java.util.List;
@@ -29,6 +31,12 @@ class AccountServiceTest {
 
   @Mock
   private KeycloakAdminClient keycloakAdminClient;
+
+  @Mock
+  private EmployeeRepository employeeRepository;
+
+  @Mock
+  private OutboxRepository outboxRepository;
 
   @InjectMocks
   private AccountService accountService;
@@ -159,6 +167,51 @@ class AccountServiceTest {
     accountService.updateRoles("lead1", List.of("GLOBAL_LEAD", "DEPT_LEAD"), "lead1");
 
     verify(keycloakAdminClient).updateRealmRoles("lead1", List.of("GLOBAL_LEAD", "DEPT_LEAD"));
+  }
+
+  @Test
+  void updateRoles_mapsToEmployee_emitsOutboxWithRoles() {
+    when(employeeRepository.findByEmployeeCode("nthieu")).thenReturn(
+        java.util.Optional.of(employee("nthieu")));
+
+    accountService.updateRoles("nthieu", List.of("DEPT_LEAD"), "hr");
+
+    verify(keycloakAdminClient).updateRealmRoles("nthieu", List.of("DEPT_LEAD"));
+    verify(outboxRepository).save(any());
+  }
+
+  @Test
+  void updateRoles_userWithoutEmployee_skipsOutbox() {
+    when(employeeRepository.findByEmployeeCode("admin-realm")).thenReturn(java.util.Optional.empty());
+
+    accountService.updateRoles("admin-realm", List.of("ADMIN"), "hr");
+
+    verify(keycloakAdminClient).updateRealmRoles("admin-realm", List.of("ADMIN"));
+    verify(outboxRepository, never()).save(any());
+  }
+
+  @Test
+  void resyncRoleEvents_emitsOnlyForMappedUsers() {
+    when(keycloakAdminClient.listUsers(eq(""), anyInt(), anyInt()))
+        .thenReturn(List.of(snapshot("nthieu"), snapshot("khong-phai-nv")));
+    when(employeeRepository.findByEmployeeCode("nthieu")).thenReturn(
+        java.util.Optional.of(employee("nthieu")));
+    when(employeeRepository.findByEmployeeCode("khong-phai-nv")).thenReturn(
+        java.util.Optional.empty());
+
+    int emitted = accountService.resyncRoleEvents();
+
+    assertEquals(1, emitted);
+    verify(outboxRepository).save(any());
+  }
+
+  private com.hrms.identity.employee.Employee employee(String code) {
+    com.hrms.identity.employee.Employee employee = new com.hrms.identity.employee.Employee();
+    employee.setId(UUID.randomUUID());
+    employee.setEmployeeCode(code);
+    employee.setFullName("Nguyễn Trung Hiếu");
+    employee.setStatus(com.hrms.identity.employee.EmployeeStatus.ACTIVE);
+    return employee;
   }
 
   private AccountSnapshot snapshot(String username) {

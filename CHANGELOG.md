@@ -1,5 +1,257 @@
 # CHANGELOG
 
+## [Quỹ phép — Sửa kỳ công: 12 kỳ/năm TC (bỏ kỳ đuôi clip)] 2026-10-22
+
+**Bug**: với lưới kỳ `26→25`, `PeriodEngine.fiscalPeriods` clip kỳ đầu theo fyStart
+và tạo thêm kỳ đuôi clip (`26/M–31/M`, full chỉ ~4 ngày → luôn "đạt" ≥50%) →
+**13 kỳ/năm TC**, chia 13 → BASE ra số thập phân (vd khthanh `12×3/13 = 2.7692`).
+
+**Chốt lại rule** (khớp "1 năm chỉ có 12 kỳ"): kỳ **WHOLE theo lưới**, gán năm TC
+theo **ngày end** — kỳ đầu = kỳ lưới chứa fyStart (có thể bắt đầu trước fyStart),
+kỳ có `end > fyEnd` thuộc năm TC sau. FY 4/2026 = `26/3/2026–25/4/2026` →
+`26/2/2027–25/3/2027` = **12 kỳ**; đuôi `26/3–31/3/2027` nằm trong "kỳ tháng 4"
+của FY 2027 → liên tục, không hở/không chồng giữa 2 năm TC.
+
+### Nội dung thay đổi
+
+- `PeriodEngine.fiscalPeriods`: bỏ clip đầu/cuôi — thêm kỳ WHOLE, dừng khi
+  `end > fyEnd`; javadoc đổi mô tả (12 kỳ, partition liên năm TC).
+- `LeaveSettingsService.findRawFyStart`: gán năm TC theo **end** (kỳ WHOLE đầu
+  bắt đầu năm DL trước → `full`/ALTERNATING dùng đúng fyStart); `upsertWorkDay`
+  thử 3 ứng viên year ±1 (kỳ đầu 26/12/2025 ∈ FY 2026, kỳ cuối 1/3/2027 ∈ FY
+  4/2026); `ensureDefaultWorkDays` đồng bộ `periodEnd` khi lưới kỳ đổi.
+- Tests: `PeriodEngineTest` 13→12 (fy14 + fy11) + test **partition liên năm TC**
+  (FY2025.end+1 = FY2026.start, đuôi 26/3–31/3/2027 vào kỳ tháng 4/FY2027);
+  test quota (grid 1→31 = 12 kỳ) không đổi.
+- Sau fix + recalculate: BASE = `baseDays × số_kỳ_đạt / 12` — với `baseDays=12`
+  luôn **số nguyên** (vd khthanh 2 kỳ đạt → `2.0000` thay vì `2.7692`).
+- Docs: AGENTS §4.15 (12 kỳ, WHOLE theo end, baseDays chia hết 12 ⇒ nguyên).
+
+## [Quỹ phép — Thâm niên bậc theo luật VN + strategy rule mở rộng] 2026-10-22
+
+Đổi cách tính SENIORITY trong quota phép từ "linear step theo năm dương lịch"
+sang **bậc theo luật Việt Nam** (NĐ 145/2020) với kiến trúc **strategy pattern**
+để mở rộng luật Hàn/Nhật sau này mà không đập đi xây lại. Mô tả đầy đủ: AGENTS §4.15.
+
+### Nội dung thay đổi
+
+**1. Backend attendance — seniority rule (Flyway V16)**
+- `V16__seniority_rule_tiers.sql`: `leave_policies.seniority_rule`
+  (default `VN_TIERED`); bảng `leave_seniority_tiers`
+  (`policy_id`, `min_years`, `bonus_days`, unique (policy_id, min_years));
+  seed 5 bậc luật VN `0/5/10/15/20 → +0/2/4/6/8` cho mọi policy hiện có.
+- Package `attendance.leave.seniority`: interface `SeniorityRule` +
+  `SeniorityRuleRegistry` (Spring nạp mọi bean rule, fallback LINEAR khi
+  chưa đăng ký); `VietnamTieredSeniorityRule` (đủ `minYears` tại
+  `asOf = ngày recalculate` — `Period.between(hiredAt, asOf)`, bỏ qua
+  `seniorityMaxBonus`; tiers rỗng → self-heal tạm tính LINEAR);
+  `LinearSeniorityRule` (legacy: `stepYears×n × bonusDays` năm dương lịch,
+  cap `maxBonus`). Mở rộng: thêm value enum + class `@Component` — không đổi schema.
+- `LeavePolicyService`: create/update DRAFT apply `seniorityRule` +
+  `seniorityTiers` (request null → VN_TIERED + seed luật VN; copy source
+  giữ rule + tiers); validate VN_TIERED tiers rỗng/trùng `minYears`/âm → 422;
+  deleteDraft cascade xóa tiers; response trả `seniorityRule` + `seniorityTiers`.
+- `LeaveQuotaService.seniorityBonus` resolve rule qua registry + tiers của
+  policy in-force. DTO giữ scalar `seniorityStepYears/BonusDays/MaxBonus`
+  (LINEAR) → JSON cũ không đổi tên field vẫn hoạt động.
+- Tests: +17 (biên bậc VN 0/5/10/15/20, anniversary vs dương lịch, self-heal
+  tiers rỗng, LINEAR legacy, registry fallback, validation 422, seed 5 bậc).
+  Backend verify: **127 tests PASS**.
+
+**2. Frontend — form chính sách hiển thị/sửa theo rule**
+- `types.ts`: `SeniorityRuleValue`, `LeaveSeniorityTier`, mở rộng
+  `LeavePolicy`/`LeavePolicyCreate`.
+- `SettingsPoliciesPage.tsx`: card in-force hiển thị Tag rule + tiers/linears;
+  modal form Select `seniorityRule` — LINEAR → 3 ô cũ; VN → `Form.List`
+  bậc (minYears + bonusDays) + nút Thêm bậc (sort theo minYears).
+- i18n vi/en +8 keys (`seniorityRule`, `seniorityRule_VN_TIERED/LINEAR`,
+  `seniorityRuleHint`, `seniorityTiers`, `seniorityTiersHint`,
+  `tierMinYears`, `tierBonusDays`, `addTier`). FE build PASS.
+
+**3. Smoke — verify xanh**
+- `mvn clean verify` attendance+am: **127 tests PASS**; FE `npm run build` PASS;
+  image rebuild + `up -d` → V16 applied (schema → v16).
+- `verify-attendance.sh`: EXIT=0 (idempotent, NV9001 409 accept).
+- `verify-identity.sh` (§13 versioning + DTO cũ không rule/tiers): **PASS=271 FAIL=0**.
+
+## [Quỹ phép — Policy versioning 6 trạng thái + BASE per-period] 2026-10-21
+
+Mở rộng chính sách phép từ 1 dòng/năm sang **versioning effective-dated** (nhiều
+version/năm TC, 6 trạng thái) + tính lại BASE theo từng kỳ (mỗi kỳ dùng policy
+hiệu lực tại `p.start`). Mô tả đầy đủ: AGENTS §4.15.
+
+### Nội dung thay đổi
+
+**1. Backend attendance — versioning (Flyway V13–V14)**
+- `V13__leave_policy_versioning.sql`: `leave_policies` thêm `version_no`,
+  `status` (DRAFT/PENDING_APPROVAL/APPROVED/ACTIVE/EXPIRED/CANCELLED),
+  `effective_from/effective_to`, `submitted_at/submitted_by`,
+  `approved_at/approved_by`, `activated_at`; unique (fiscal_year, version_no);
+  `leave_settings.require_policy_approval` (default true).
+- `V14__defer_note_fk.sql`: FK `leave_employee_notes.employee_id` chuyển
+  `deferrable initially deferred` — cho phép re-key PK employees cùng transaction.
+- `PolicyStatus` enum + `LeavePolicyService` (workflow 6 trạng thái):
+  `POST /leave/policies` (create DRAFT; validate effectiveFrom > mọi version
+  hiện có trong năm → 422), `PUT /versions/{id}` (chỉ DRAFT), `POST /{id}/submit|
+  approve|reject|activate|cancel`, `DELETE /{id}` (chỉ DRAFT);
+  `activate` (D ≥ hôm nay, trong FY range, D > version cũ) → version mới ACTIVE,
+  version ACTIVE cũ tự EXPIRED với `effectiveTo = D−1`; reject = PENDING→DRAFT;
+  cancel = PENDING/APPROVED→CANCELLED. Flag `requirePolicyApproval=false` →
+  activate thẳng từ DRAFT. **approve/reject = ADMIN hoặc GLOBAL_LEAD**
+  (GLOBAL_LEAD duyệt cuối chính sách toàn công ty); các thao tác khác = ADMIN.
+  - **Activate ngày quá khứ được phép** (áp dụng retroactive, chỉ cần trong FY
+    range + sau version ACTIVE cũ) — FE hiện Popconfirm cảnh báo riêng
+    (`confirm.activatePast`) thay vì backend chặn 422.
+  - **Precision FE**: `minWorkPercent` hiển thị nguyên (bỏ .00); form phiên bản
+    (baseDays/carryoverMax/seniorityBonusDays/seniorityMaxBonus/roleQuotas)
+    2 chữ số thập phân (từ 4).
+- `GET /leave/policies/in-force?year=` (write tx — self-heal + lazy expire,
+  xem §7.9); `GET /leave/policies?year=` (history); `GET /leave/policies/{id}`.
+  `DELETE /{year}` (theo năm) **đã bỏ** — xóa theo id (chỉ DRAFT).
+
+**2. Recalculate BASE per-period + snapshot**
+- Mỗi kỳ `p` dùng policy hiệu lực tại `p.start` → BASE =
+  `Σ baseDays/13` (chia 1 lần cuối); SENIORITY/role bonus/carryover dùng
+  policy in-force tại asOf.
+- Snapshot: mọi dòng auto ghi `policy_id` + `calculated_at`
+  (BONUS/ADJUSTMENT policyId=null); recalculate **explicit** — không tự tính
+  lại khi đổi policy.
+
+**3. Frontend — Cài đặt 3 tabs**
+- `SettingsPoliciesPage.tsx` viết lại: Tab **Tham số global** (form +
+  `requirePolicyApproval` switch), Tab **Chính sách hiện tại** (in-force +
+  workflow buttons theo status), Tab **Lịch sử chính sách** (table version +
+  create/edit DRAFT, submit/approve/reject/activate/cancel, delete DRAFT).
+- `types.ts` (PolicyStatusValue, LeavePolicy versioning, LeaveSettings
+  +requirePolicyApproval, LeaveEntitlement +policyId/calculatedAt);
+  `leaveQuotas.ts` (getLeavePolicy, listLeavePolicies(year?), create/update/
+  submit/approve/reject/activate/cancel, deleteLeavePolicy(id)); i18n vi/en.
+
+**4. Bug fix — re-key projection đổi @Id managed entity (AGENTS §7.10)**
+- Kafka consumer apply `EmployeeCreatedEvent` re-key employee projection bằng
+  `setId()` → `JpaSystemException "identifier altered"` → retry vô hạn →
+  poison partition (projection đứng yên, smoke 404). Fix: `findOrCreate` =
+  re-key FK 4 bảng (`shift_assignments`, `leave_entitlements`,
+  `leave_employee_notes` — V14 defer FK, `leave_work_days` — **V15 defer FK**;
+  thieu 1 bang → delete employee loi FK → smoke shift 404) → `delete(old)` →
+  `flush()` → `copyWithId` insert row mới; không `save()` trong findOrCreate.
+- Smoke `verify-identity.sh` §14: bỏ `sleep 3` thay bằng poll projection
+  attendance ≤15s (Kafka async — các section trước tạo backlog event, sleep
+  cố định không đủ ở lần chạy thứ 2 trở đi).
+
+### ✅ Kết quả verify (chạy thật trước khi commit)
+
+- `mvn clean verify` 4 module: **BUILD SUCCESS — 226 tests** (common 18,
+  identity 99, gateway 5, attendance 104 — gồm 22 test LeavePolicyServiceTest
+  mới + LeaveQuotaServiceTest per-period refactor).
+- `vite build`: **PASS**; app stack rebuild image attendance/frontend + `up -d`.
+- Smoke qua app gateway: `verify-identity.sh` **270/270** (§13 versioning cycle:
+  create→edit→submit→approve→activate→ACTIVE; edit/delete ACTIVE 422;
+  reject→DRAFT→delete; cancel→CANCELLED; history list; recalculate snapshot
+  `"policyId":"`; settings `requirePolicyApproval`).
+- `verify-attendance.sh` (ATT_URL=http://attendance:8080 GW_URL=http://gateway:8080):
+  **EXIT=0** — idempotent (POST NV9001 → 409 accept, projection OK).
+
+## [Thiết kế lại tính quỹ phép — Tham số global + Chính sách per-year] 2026-10-21
+
+Thiết kế lại tính quỹ phép theo **kỳ công (period)** + **năm tài chính**: màn
+*Cài đặt* thêm Tab **Tham số global** + trang **Danh sách chính sách phép** (1
+dòng/năm TC), quota tự tính lại theo kỳ đạt (BASE), thâm niên, bonus theo role
+(max) và carryover auto. Q&A 9 điểm đã chốt (mục 5 dưới). Mô tả đầy đủ: AGENTS §4.15.
+
+### Nội dung thay đổi
+
+**1. Backend attendance — settings / policy / work-days / note (Flyway V9–V12)**
+- `V9__leave_settings.sql`: `leave_settings` 1 row global — `fyStartMonth`/
+  `fyStartDay` (năm tài chính), `periodStartDay`/`periodEndDay` (chỉ 2 combo
+  hợp lệ: start=1,end≥29 hoặc start=end+1 → hở 422; FY 1/4 + kỳ 26/25 → 13 kỳ),
+  `saturdayPolicy` (OFF/HALF/ALTERNATING/ALL), `minWorkPercent` (x%, default 50).
+- `V10__leave_notes_workdays.sql`: `leave_employee_notes` (note ≤500 ký tự/NV/năm)
+  + `leave_work_days` (ngày công từng kỳ/NV, source DEFAULT/MANUAL).
+- `V11__employee_roles_carryover.sql`: `employees.roles` (projection sync từ event)
+  + unique dedupe CARRYOVER theo (employee_id, year); `V12__leave_role_quotas.sql`:
+  `leave_role_quotas` (bonus theo role/năm, Source=POSITION) + `is_auto` trên
+  `leave_entitlements`.
+- `LeaveSettingsController` (`/api/v1/attendance/leave`): `GET/PUT /settings`
+  (đọc ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER, ghi ADMIN, validate combo kỳ),
+  `GET/PUT /quotas/{employeeId}/note`, `GET/PUT /quotas/{employeeId}/work-days`
+  (PUT = upsert MANUAL, validate ≤full workingDays).
+- `LeavePolicyController` (`/leave/policies`): GET/POST (ADMIN) +
+  `DELETE /{year}` → **422 nếu năm còn entitlements**.
+
+**2. PeriodEngine + recalculate quota (attendance)**
+- `PeriodEngine` (pure, không Spring): `validate` combo kỳ, `fiscalPeriods`
+  (clip theo hiredAt/terminatedAt, wrap year), `workingDaysIn` (T2–T6 + T7 theo
+  policy + CN nghỉ; **ngày lễ KHÔNG trừ**; ALTERNATING: Sat #0 = đi làm, reset
+  mỗi năm TC).
+- `LeaveQuotaService.recalculate` (ADMIN, `{year, employeeIds?}`):
+  - **BASE** = `baseDays × số_kỳ_đạt / tổng_số_kỳ` — 1 kỳ đạt khi
+    `actual×100 ≥ full×minWorkPercent`; kỳ clipped vẫn tính 1 kỳ;
+  - **SENIORITY** theo `seniorityBaseDays` (≥24 tháng, half-year step);
+  - **role bonus** = max các role khớp (`employees.roles`), không cộng dồn;
+  - **carryover auto** = min(còn lại năm trước, carryoverMax), upsert CARRYOVER
+    `is_auto=false` (idempotent — recalculate lần 2 không tạo dòng thừa);
+  - dòng DEFAULT `leave_work_days` được ensureDefaultWorkDays auto-fill;
+    recalculate **không đụng** dòng MANUAL.
+- Entitlement nguồn AUTO (BASE/SENIORITY/CARRYOVER) `is_auto=true`,
+  `DELETE /entitlements/{id}` → **422**; grant thủ công (ADMIN) vẫn xóa được.
+- `LeaveQuotaResponse` mở rộng: `roleDays`, `roles[]`, `note`; FE detail modal 3 Tabs.
+
+**3. Roles sync sang attendance (event `hrms.employee.v1`)**
+- Avro 2 schema +field `roles` (array of string, default `[]`); identity emit
+  roles khi create/update + PATCH `/api/v1/accounts/{username}/roles` (đã có)
+  → emit thêm `updateRoles`; `POST /api/v1/accounts/resync-role-events` (ADMIN,
+  201 `{emitted:n}`) — bắn lại event cho toàn NV để backfill projection.
+- Attendance `applyRoles`: null → giữ nguyên (backward-compat event cũ),
+  empty → null; idempotent qua `processed_events`.
+
+**4. Frontend**
+- `LeaveQuotaPage.tsx` viết lại: bỏ button/modal *Chính sách phép* (chuyển sang
+  Cài đặt), thêm cột **Phép role** (roleDays) + **Ghi chú**, nút **Tính lại**
+  (recalculate), modal **Chi tiết** 3 Tabs: *Dòng cấp phép* (tag AUTO/manual,
+  chặn xóa AUTO), *Ngày công* (per-row save → MANUAL), *Ghi chú* (editable).
+- `SettingsPoliciesPage.tsx` (mới, route `/settings/policies`, ADMIN, menu con
+  Cài đặt): Tab **Tham số global** (form GET/PUT settings + validate combo) +
+  Tab **Danh sách chính sách** (table theo năm, modal CRUD với `Form.List` roleQuotas).
+- `api/leaveQuotas.ts` viết lại + `types.ts` (LeaveSettings, LeaveWorkDay,
+  LeaveRoleQuota, SaturdayPolicyValue, WorkDaySourceValue, +roles/note/roleDays/
+  isAuto); i18n vi/en `settings.leavePolicies.*`, `leave.workday.*`, menu item.
+
+**5. Q&A đã chốt (9 điểm)**
+1. Ngày công DEFAULT auto-fill từ hiredAt/terminatedAt; HR sửa tay → MANUAL.
+2. BASE theo số kỳ đạt / tổng số kỳ năm TC (kỳ clipped vẫn tính 1 kỳ).
+3. Policy theo năm tài chính (1 dòng/năm); DELETE 422 nếu còn entitlements.
+4. Nhiều role → lấy bonus cao nhất (không cộng dồn); DB enum source giữ POSITION.
+5. Carryover auto = min(còn lại năm trước, carryoverMax); CARRYOVER = upsert single row.
+6. Note mỗi NV/năm ≤500 ký tự.
+7. Kỳ công chỉ 2 combo: (start=1,end≥29) hoặc (start=end+1).
+8. Ngày lễ KHÔNG trừ — chỉ T2–T6 + T7 theo policy + CN nghỉ.
+9. x% (minWorkPercent) global ở Tab Tham số; thâm niên/carryoverMax per-year Tab Chính sách.
+
+**6. Bugs fix phát hiện khi smoke/test end-to-end**
+- **readOnly self-invocation không commit** (AGENTS §7.9): `getSettings`,
+  `listWorkDays`, `getPolicy` vốn `@Transactional(readOnly=true)` gọi self-heal
+  `getOrCreate*` qua this → không qua proxy → save không commit (GET 200 nhưng
+  row không tồn tại). Đã đổi sang `@Transactional` (write).
+- **ensureAuto ghi đè BASE**: self-heal GET quota từng set BASE = `baseDays` thô
+  → đắp lên dòng BASE đã recalculate. Đã tách `computeBase(...)` (gồm
+  ensureDefaultWorkDays + countEligiblePeriods) dùng chung cho recalculate +
+  ensureAuto — idempotent.
+
+### ✅ Kết quả verify (chạy thật trước khi commit)
+
+- `mvn clean verify` 4 module: **BUILD SUCCESS — 206 tests** (common 18,
+  identity 99, gateway 5, attendance 84 — gồm 15 test PeriodEngineTest mới +
+  LeaveQuotaServiceTest viết lại + 3 test resync/emit roles mới).
+- `tsc --noEmit` + `vite build`: **PASS**; app stack rebuild image
+  attendance/identity/frontend + `up -d`.
+- Smoke qua app gateway: `verify-identity.sh` **237/237** (§13 mới: GET/PUT
+  settings, combo hở 422, note, work-days, DELETE policy 204/422,
+  resync-role-events 201).
+- Test case end-to-end tính lại (FY 4/1, kỳ 26/25, NV vào 1/10/2026, x%=50,
+  T7 OFF): **21/21** — BASE=6.4615 (12×7/13), kỳ 7 workDays=17, 13 dòng
+  DEFAULT, recalculate lần 2 idempotent.
+
 ## [5 role ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER/EMPLOYEE + scoping] 2026-10-20
 
 Rename `HR_ADMIN`→`ADMIN`, thêm `GLOBAL_LEAD`/`DEPT_LEAD`, auto-assign role khi tạo

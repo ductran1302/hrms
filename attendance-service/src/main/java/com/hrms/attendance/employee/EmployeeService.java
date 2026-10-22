@@ -3,7 +3,9 @@ package com.hrms.attendance.employee;
 import com.hrms.attendance.department.DepartmentService;
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
+import com.hrms.attendance.leave.LeaveEmployeeNoteRepository;
 import com.hrms.attendance.leave.LeaveEntitlementRepository;
+import com.hrms.attendance.leave.LeaveWorkDayRepository;
 import com.hrms.attendance.shift.ShiftAssignmentRepository;
 import com.hrms.common.avro.employee.EmployeeCreatedEvent;
 import com.hrms.common.avro.employee.EmployeeTerminatedEvent;
@@ -43,6 +45,8 @@ public class EmployeeService {
   private final DepartmentService departmentService;
   private final ShiftAssignmentRepository shiftAssignmentRepository;
   private final LeaveEntitlementRepository leaveEntitlementRepository;
+  private final LeaveEmployeeNoteRepository leaveNoteRepository;
+  private final LeaveWorkDayRepository leaveWorkDayRepository;
 
   @Transactional
   public void applyCreated(EmployeeCreatedEvent event) {
@@ -58,6 +62,7 @@ public class EmployeeService {
     employee.setManagerId(event.getManagerId());
     employee.setStatus(event.getStatus());
     employee.setHiredAt(event.getHiredAt());
+    applyRoles(employee, event.getRoles());
     employeeRepository.save(employee);
     markProcessed(event.getEventId(), event.getEventType());
   }
@@ -76,8 +81,16 @@ public class EmployeeService {
     employee.setManagerId(event.getManagerId());
     employee.setStatus(event.getStatus());
     employee.setHiredAt(event.getHiredAt());
+    applyRoles(employee, event.getRoles());
     employeeRepository.save(employee);
     markProcessed(event.getEventId(), event.getEventType());
+  }
+
+  /** roles = null (event cũ/không đụng roles) → giữ nguyên; khác null → mirror (join ","). */
+  private void applyRoles(Employee employee, List<String> roles) {
+    if (roles != null) {
+      employee.setRoles(roles.isEmpty() ? null : String.join(",", roles));
+    }
   }
 
   @Transactional
@@ -153,27 +166,55 @@ public class EmployeeService {
     if (existing.isPresent()) {
       return existing.get();
     }
-    // Identity t?o l?i nh?n vi?n (id m?i, c?ng employeeCode) — kh?ng insert m?i
-    // (vi ph?m uq_attendance_emp_code) m? re-key d?ng c? + FK g?n c? tham chi?u id c?.
+    // Identity tạo lại nhân viên (id mới, cùng employeeCode) — không insert mới
+    // (vi phạm uq_attendance_emp_code) mà re-key dòng cũ + FK gắn cũ tham chiếu id cũ.
     Optional<Employee> byCode = employeeRepository.findByEmployeeCode(employeeCode);
     if (byCode.isPresent()) {
-      Employee employee = byCode.get();
-      String oldId = employee.getEmployeeId();
+      Employee old = byCode.get();
+      String oldId = old.getEmployeeId();
       if (!oldId.equals(employeeId)) {
         int movedAssignments = shiftAssignmentRepository.rekeyEmployee(oldId, employeeId);
         int movedEntitlements = leaveEntitlementRepository.rekeyEmployee(oldId, employeeId);
-        employee.setEmployeeId(employeeId);
+        int movedNotes = leaveNoteRepository.rekeyEmployee(oldId, employeeId);
+        int movedWorkDays = leaveWorkDayRepository.rekeyEmployee(oldId, employeeId);
+        // Hibernate cấm đổi @Id của managed entity (JpaSystemException "identifier
+        // altered" khi flush → consumer retry vô hạn) — xóa row cũ + chèn row mới
+        // với id từ event, copy toàn bộ projection.
+        Employee fresh = copyWithId(old, employeeId);
+        employeeRepository.delete(old);
+        employeeRepository.flush(); // DELETE chạy ngay — nhường uq_attendance_emp_code cho row mới
         log.warn(
-            "Re-key attendance nhân sự {} ({} -> {}) — {} gán ca, {} quota phép dời theo",
-            employeeCode, oldId, employeeId, movedAssignments, movedEntitlements);
+            "Re-key attendance nhân sự {} ({} -> {}) — {} gán ca, {} quota phép, {} ghi chú,"
+                + " {} ngày công dời theo",
+            employeeCode, oldId, employeeId, movedAssignments, movedEntitlements, movedNotes,
+            movedWorkDays);
+        return fresh; // caller save() — insert row mới sau khi row cũ đã xóa
       }
-      return employee;
+      return old;
     }
     Employee employee = new Employee();
     employee.setEmployeeId(employeeId);
     employee.setEmployeeCode(employeeCode);
     employee.setStatus("ACTIVE");
     return employee;
+  }
+
+  private static Employee copyWithId(Employee source, String newId) {
+    Employee copy = new Employee();
+    copy.setEmployeeId(newId);
+    copy.setEmployeeCode(source.getEmployeeCode());
+    copy.setFullName(source.getFullName());
+    copy.setEmail(source.getEmail());
+    copy.setDepartmentId(source.getDepartmentId());
+    copy.setDepartmentName(source.getDepartmentName());
+    copy.setPosition(source.getPosition());
+    copy.setRoles(source.getRoles());
+    copy.setManagerId(source.getManagerId());
+    copy.setStatus(source.getStatus());
+    copy.setHiredAt(source.getHiredAt());
+    copy.setTerminatedAt(source.getTerminatedAt());
+    copy.setTerminationReason(source.getTerminationReason());
+    return copy;
   }
 
   private boolean isDuplicate(String eventId) {

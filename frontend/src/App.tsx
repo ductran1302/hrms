@@ -11,6 +11,7 @@ import LeaveQuotaPage from './pages/LeaveQuotaPage';
 import MyLeavePage from './pages/MyLeavePage';
 import OrgChartPage from './pages/OrgChartPage';
 import SettingsAccountsPage from './pages/SettingsAccountsPage';
+import SettingsPoliciesPage from './pages/SettingsPoliciesPage';
 import SettingsSecurityPage from './pages/SettingsSecurityPage';
 import WorkShiftPage from './pages/WorkShiftPage';
 
@@ -114,6 +115,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMIN']}>
                 <SettingsAccountsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="settings/policies"
+            element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <SettingsPoliciesPage />
               </ProtectedRoute>
             }
           />

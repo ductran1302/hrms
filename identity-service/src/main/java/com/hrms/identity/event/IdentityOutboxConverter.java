@@ -75,6 +75,9 @@ public class IdentityOutboxConverter implements OutboxMessageConverter {
     if (p.position() != null) {
       builder.setPosition(p.position());
     }
+    if (p.roles() != null) {
+      builder.setRoles(p.roles());
+    }
     if (p.managerId() != null) {
       builder.setManagerId(p.managerId());
     }
@@ -108,6 +111,9 @@ public class IdentityOutboxConverter implements OutboxMessageConverter {
     }
     if (p.position() != null) {
       builder.setPosition(p.position());
+    }
+    if (p.roles() != null) {
+      builder.setRoles(p.roles());
     }
     if (p.managerId() != null) {
       builder.setManagerId(p.managerId());

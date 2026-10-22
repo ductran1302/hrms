@@ -1,12 +1,20 @@
 package com.hrms.identity.account;
 
 import com.hrms.common.exception.BusinessRuleException;
+import com.hrms.common.kafka.EmployeeEventTypes;
+import com.hrms.common.kafka.KafkaTopics;
+import com.hrms.common.outbox.OutboxEvent;
+import com.hrms.common.outbox.OutboxPayloadConverter;
 import com.hrms.common.security.Roles;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.account.dto.AccountResponse;
 import com.hrms.identity.account.dto.ChangePasswordRequest;
+import com.hrms.identity.employee.Employee;
+import com.hrms.identity.employee.EmployeeRepository;
+import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
 import com.hrms.identity.keycloak.KeycloakAdminClient.AccountSnapshot;
+import com.hrms.common.outbox.OutboxRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +25,9 @@ import org.springframework.stereotype.Service;
  * tìm kiếm tài khoản, tự đổi mật khẩu (xác thực mật khẩu cũ), admin đặt lại mật khẩu
  * và bật/tắt tài khoản. Không có bảng riêng — dữ liệu sống trong Keycloak,
  * audit (createdBy/updatedBy/updatedAt) lưu ở user attributes.
+ *
+ * <p>Đổi role → emit {@code EmployeeUpdatedEvent} kèm {@code roles} để attendance mirror
+ * {@code employees.roles} (nguồn tính "Phép theo role" quỹ phép).
  */
 @Slf4j
 @Service
@@ -24,8 +35,11 @@ import org.springframework.stereotype.Service;
 public class AccountService {
 
   private static final int MAX_SIZE = 100;
+  private static final String AGGREGATE_TYPE = "Employee";
 
   private final KeycloakAdminClient keycloakAdminClient;
+  private final EmployeeRepository employeeRepository;
+  private final OutboxRepository outboxRepository;
 
   /** Danh sách tài khoản phân trang — {@code q} khớp theo username/họ tên/email (KC search). */
   public PageResponse<AccountResponse> search(String q, int page, int size) {
@@ -91,7 +105,47 @@ public class AccountService {
       }
     }
     keycloakAdminClient.updateRealmRoles(username, desired);
+    emitRolesEvent(username, desired);
     log.info("Admin '{}' đã cập nhật roles {} cho '{}'", actor, desired, username);
+  }
+
+  /**
+   * Backfill 1 lần (sau khi deploy feature roles): iterate toàn bộ user KC, emit
+   * EmployeeUpdatedEvent kèm roles cho user khớp employee_code → attendance điền
+   * cột roles đang null. Idempotent — chạy lại không sao.
+   */
+  public int resyncRoleEvents() {
+    int emitted = 0;
+    int first = 0;
+    List<AccountSnapshot> batch;
+    do {
+      batch = keycloakAdminClient.listUsers("", first, MAX_SIZE);
+      for (AccountSnapshot snapshot : batch) {
+        if (emitRolesEvent(snapshot.username(), snapshot.roles())) {
+          emitted++;
+        }
+      }
+      first += MAX_SIZE;
+    } while (batch.size() == MAX_SIZE);
+    log.info("Resync role events: {} user phát hành event", emitted);
+    return emitted;
+  }
+
+  /** Ghi outbox EmployeeUpdatedEvent (changedFields=[roles]) — false nếu không có employee. */
+  private boolean emitRolesEvent(String username, List<String> roles) {
+    Employee employee = employeeRepository.findByEmployeeCode(username).orElse(null);
+    if (employee == null) {
+      return false; // user không map nhân viên (admin realm, svc...) → bỏ qua
+    }
+    EmployeeEventPayload payload = EmployeeEventPayload.from(
+        employee, null, List.of("roles"), null, null, roles);
+    outboxRepository.save(OutboxEvent.of(
+        AGGREGATE_TYPE,
+        employee.getId().toString(),
+        EmployeeEventTypes.UPDATED,
+        KafkaTopics.EMPLOYEE_V1,
+        OutboxPayloadConverter.toJson(payload)));
+    return true;
   }
 
   private static AccountResponse toResponse(AccountSnapshot snapshot) {

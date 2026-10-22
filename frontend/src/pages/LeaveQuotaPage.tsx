@@ -4,11 +4,12 @@ import {
   EyeOutlined,
   GiftOutlined,
   RollbackOutlined,
-  SettingOutlined,
+  SaveOutlined,
   ToolOutlined,
 } from '@ant-design/icons';
 import {
   Button,
+  Divider,
   Empty,
   Form,
   Input,
@@ -18,6 +19,7 @@ import {
   Select,
   Space,
   Table,
+  Tabs,
   Tag,
   Typography,
   message,
@@ -28,13 +30,15 @@ import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
 import {
   deleteLeaveEntitlement,
-  getLeavePolicy,
+  getLeaveNote,
   grantLeaveEntitlement,
   listLeaveQuotas,
+  listLeaveWorkDays,
   recalculateLeaveQuotas,
-  saveLeavePolicy,
+  saveLeaveNote,
+  upsertLeaveWorkDay,
 } from '../api/leaveQuotas';
-import type { LeaveQuota, LeaveSourceValue } from '../api/types';
+import type { LeaveQuota, LeaveSourceValue, LeaveWorkDay } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import ActionIcon from '../components/ActionIcon';
 
@@ -51,14 +55,7 @@ const SOURCE_COLOR: Record<LeaveSourceValue, string> = {
 
 const fmt = (n: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: 4 });
 
-interface PolicyFormValues {
-  baseDays: number;
-  seniorityStepYears: number;
-  seniorityBonusDays: number;
-  seniorityMaxBonus: number;
-  carryoverMax: number;
-  positionQuotas: { positionName: string; bonusDays: number }[];
-}
+const fmtDate = (v: string) => v.slice(0, 10);
 
 export default function LeaveQuotaPage() {
   const { t } = useTranslation();
@@ -75,9 +72,11 @@ export default function LeaveQuotaPage() {
   const [grantForm] = Form.useForm<{ days: number; reason?: string }>();
 
   const [detailTarget, setDetailTarget] = useState<LeaveQuota | null>(null);
-
-  const [policyOpen, setPolicyOpen] = useState(false);
-  const [policyForm] = Form.useForm<PolicyFormValues>();
+  const [noteValue, setNoteValue] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [workDays, setWorkDays] = useState<LeaveWorkDay[]>([]);
+  const [workDaysLoading, setWorkDaysLoading] = useState(false);
+  const [savingPeriod, setSavingPeriod] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,32 +93,63 @@ export default function LeaveQuotaPage() {
     void load();
   }, [load]);
 
-  const openPolicy = async () => {
+  const openDetail = async (record: LeaveQuota) => {
+    setDetailTarget(record);
+    setNoteValue(record.note ?? '');
+    setWorkDaysLoading(true);
     try {
-      const policy = await getLeavePolicy(year);
-      policyForm.setFieldsValue({
-        baseDays: policy.baseDays,
-        seniorityStepYears: policy.seniorityStepYears,
-        seniorityBonusDays: policy.seniorityBonusDays,
-        seniorityMaxBonus: policy.seniorityMaxBonus,
-        carryoverMax: policy.carryoverMax,
-        positionQuotas: policy.positionQuotas,
-      });
-      setPolicyOpen(true);
+      const [note, days] = await Promise.all([
+        getLeaveNote(record.employeeId, year),
+        listLeaveWorkDays(record.employeeId, year),
+      ]);
+      setNoteValue(note);
+      setWorkDays(days);
     } catch (e) {
       message.error(errorMessage(e));
+    } finally {
+      setWorkDaysLoading(false);
     }
   };
 
-  const submitPolicy = async () => {
-    const values = await policyForm.validateFields();
+  const submitNote = async () => {
+    if (!detailTarget) return;
+    setNoteSaving(true);
     try {
-      await saveLeavePolicy({ year, ...values });
+      await saveLeaveNote(detailTarget.employeeId, year, noteValue);
       message.success(t('saved'));
-      setPolicyOpen(false);
-      await load();
+      const data = await listLeaveQuotas({ year, q: q || undefined });
+      setRows(data);
+      setDetailTarget(
+        data.find((r) => r.employeeId === detailTarget.employeeId) ?? detailTarget,
+      );
     } catch (e) {
       message.error(errorMessage(e));
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  const submitWorkDay = async (row: LeaveWorkDay, value: number) => {
+    if (!detailTarget) return;
+    setSavingPeriod(row.periodStart);
+    try {
+      const saved = await upsertLeaveWorkDay(detailTarget.employeeId, {
+        periodStart: row.periodStart,
+        workDays: value,
+      });
+      message.success(t('saved'));
+      setWorkDays((prev) =>
+        prev.map((r) => (r.periodStart === row.periodStart ? saved : r)),
+      );
+      const data = await listLeaveQuotas({ year, q: q || undefined });
+      setRows(data);
+      setDetailTarget(
+        data.find((r) => r.employeeId === detailTarget.employeeId) ?? detailTarget,
+      );
+    } catch (e) {
+      message.error(errorMessage(e));
+    } finally {
+      setSavingPeriod(null);
     }
   };
 
@@ -145,6 +175,13 @@ export default function LeaveQuotaPage() {
       const n = await recalculateLeaveQuotas(year);
       message.success(t('leave.recalculated', { n }));
       await load();
+      if (detailTarget) {
+        const data = await listLeaveQuotas({ year, q: q || undefined });
+        const fresh = data.find((r) => r.employeeId === detailTarget.employeeId);
+        if (fresh) setDetailTarget(fresh);
+        const days = await listLeaveWorkDays(detailTarget.employeeId, year);
+        setWorkDays(days);
+      }
     } catch (e) {
       message.error(errorMessage(e));
     }
@@ -171,7 +208,15 @@ export default function LeaveQuotaPage() {
     { title: t('leave.column.position'), dataIndex: 'position', width: 130, ellipsis: true },
     { title: t('leave.column.base'), dataIndex: 'baseDays', width: 80, align: 'right', render: fmt },
     { title: t('leave.column.seniority'), dataIndex: 'seniorityDays', width: 85, align: 'right', render: fmt },
-    { title: t('leave.column.positionBonus'), dataIndex: 'positionDays', width: 80, align: 'right', render: fmt },
+    {
+      title: t('leave.column.roleBonus'),
+      dataIndex: 'roleDays',
+      width: 80,
+      align: 'right',
+      render: (v: number, record) => (
+        <span title={(record.roles ?? '').split(',').join(', ') || undefined}>{fmt(v)}</span>
+      ),
+    },
     { title: t('leave.column.bonus'), dataIndex: 'bonusDays', width: 80, align: 'right', render: fmt },
     { title: t('leave.column.carryover'), dataIndex: 'carryoverDays', width: 85, align: 'right', render: fmt },
     { title: t('leave.column.adjustment'), dataIndex: 'adjustmentDays', width: 85, align: 'right', render: fmt },
@@ -188,6 +233,13 @@ export default function LeaveQuotaPage() {
       width: 85,
       align: 'right',
       render: (v: number) => <Text type="success" strong>{fmt(v)}</Text>,
+    },
+    {
+      title: t('leave.column.note'),
+      dataIndex: 'note',
+      width: 150,
+      ellipsis: true,
+      render: (v: string | null) => v ?? '—',
     },
     {
       title: t('actions'),
@@ -228,7 +280,7 @@ export default function LeaveQuotaPage() {
               </ActionIcon>
             </>
           )}
-          <ActionIcon title={t('leave.action.detail')} onClick={() => setDetailTarget(record)}>
+          <ActionIcon title={t('leave.action.detail')} onClick={() => void openDetail(record)}>
             <EyeOutlined />
           </ActionIcon>
         </Space>
@@ -240,7 +292,12 @@ export default function LeaveQuotaPage() {
     {
       title: t('leave.action.source'),
       dataIndex: 'source',
-      render: (v: LeaveSourceValue) => <Tag color={SOURCE_COLOR[v]}>{t(`leave.source.${v}`)}</Tag>,
+      render: (v: LeaveSourceValue, record) => (
+        <Tag color={SOURCE_COLOR[v]}>
+          {t(`leave.source.${v}`)}
+          {record.isAuto ? ` · ${t('leave.auto')}` : ''}
+        </Tag>
+      ),
     },
     { title: t('leave.action.days'), dataIndex: 'days', align: 'right', render: fmt },
     { title: t('leave.action.reason'), dataIndex: 'reason', ellipsis: true, render: (v: string | null) => v ?? '—' },
@@ -254,7 +311,7 @@ export default function LeaveQuotaPage() {
       title: '',
       width: 60,
       render: (_, record) =>
-        canWrite && !['BASE', 'SENIORITY', 'POSITION'].includes(record.source) ? (
+        canWrite && !record.isAuto ? (
           <Popconfirm
             title={t('leave.action.deleteEntitlement')}
             onConfirm={() => removeEntitlement(record.id)}
@@ -264,6 +321,144 @@ export default function LeaveQuotaPage() {
             </ActionIcon>
           </Popconfirm>
         ) : null,
+    },
+  ];
+
+  const workDayColumns: ColumnsType<LeaveWorkDay> = [
+    {
+      title: t('leave.workday.period'),
+      width: 200,
+      render: (_, record) => (
+        <Text code>
+          {fmtDate(record.periodStart)} → {fmtDate(record.periodEnd)}
+        </Text>
+      ),
+    },
+    {
+      title: t('leave.workday.inPeriod'),
+      dataIndex: 'periodWorkingDays',
+      width: 130,
+      align: 'right',
+      render: fmt,
+    },
+    {
+      title: t('leave.workday.workDays'),
+      width: 220,
+      render: (_, record) => {
+        const control = (
+          <InputNumber
+            size="small"
+            style={{ width: 130 }}
+            min={0}
+            max={record.periodWorkingDays}
+            step={0.25}
+            precision={4}
+            value={record.workDays ?? undefined}
+            placeholder={t('leave.workday.notSet')}
+            disabled={!canWrite}
+            onChange={(v) => {
+              if (v === null) return;
+              setWorkDays((prev) =>
+                prev.map((r) =>
+                  r.periodStart === record.periodStart
+                    ? { ...r, workDays: Number(v), source: 'MANUAL' }
+                    : r,
+                ),
+              );
+            }}
+          />
+        );
+        return (
+          <Space size={6}>
+            {control}
+            {canWrite && record.workDays !== null && (
+              <ActionIcon
+                title={t('save')}
+                color="#52c41a"
+                loading={savingPeriod === record.periodStart}
+                disabled={savingPeriod !== null && savingPeriod !== record.periodStart}
+                onClick={() => void submitWorkDay(record, record.workDays ?? 0)}
+              >
+                <SaveOutlined />
+              </ActionIcon>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: t('leave.workday.source'),
+      dataIndex: 'source',
+      width: 110,
+      render: (v: LeaveWorkDay['source']) =>
+        v === 'MANUAL' ? (
+          <Tag color="orange">{t('leave.workday.manual')}</Tag>
+        ) : v === 'DEFAULT' ? (
+          <Tag color="blue">{t('leave.workday.default')}</Tag>
+        ) : (
+          '—'
+        ),
+    },
+  ];
+
+  const detailTabs = [
+    {
+      key: 'entitlements',
+      label: t('leave.action.entitlementsTab'),
+      children: (
+        <Table
+          rowKey="id"
+          size="small"
+          columns={detailColumns}
+          dataSource={detailTarget?.entitlements ?? []}
+          pagination={false}
+        />
+      ),
+    },
+    {
+      key: 'workdays',
+      label: t('leave.workday.title'),
+      children: (
+        <Table
+          rowKey="periodStart"
+          size="small"
+          loading={workDaysLoading}
+          columns={workDayColumns}
+          dataSource={workDays}
+          pagination={false}
+          locale={{
+            emptyText: (
+              <Empty description={t('leave.workday.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ),
+          }}
+        />
+      ),
+    },
+    {
+      key: 'note',
+      label: t('leave.column.note'),
+      children: (
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Input.TextArea
+            rows={4}
+            maxLength={500}
+            value={noteValue}
+            disabled={!canWrite}
+            onChange={(e) => setNoteValue(e.target.value)}
+            placeholder={t('leave.notePlaceholder')}
+          />
+          {canWrite && (
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={noteSaving}
+              onClick={() => void submitNote()}
+            >
+              {t('save')}
+            </Button>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -294,19 +489,14 @@ export default function LeaveQuotaPage() {
             onSearch={setQ}
           />
           {canWrite && (
-            <>
-              <Button icon={<SettingOutlined />} onClick={() => void openPolicy()}>
-                {t('leave.policy')}
+            <Popconfirm
+              title={t('leave.recalculateConfirm')}
+              onConfirm={() => void submitRecalculate()}
+            >
+              <Button type="primary" icon={<CalculatorOutlined />}>
+                {t('leave.recalculate')}
               </Button>
-              <Popconfirm
-                title={t('leave.recalculateConfirm')}
-                onConfirm={() => void submitRecalculate()}
-              >
-                <Button type="primary" icon={<CalculatorOutlined />}>
-                  {t('leave.recalculate')}
-                </Button>
-              </Popconfirm>
-            </>
+            </Popconfirm>
           )}
         </Space>
 
@@ -316,7 +506,7 @@ export default function LeaveQuotaPage() {
           loading={loading}
           columns={columns}
           dataSource={rows}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1500 }}
           pagination={{ pageSize: 20, hideOnSinglePage: true }}
           locale={{ emptyText: <Empty description={t('leave.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         />
@@ -365,97 +555,14 @@ export default function LeaveQuotaPage() {
         open={!!detailTarget}
         onCancel={() => setDetailTarget(null)}
         footer={null}
-        width={820}
+        width={920}
         destroyOnClose
       >
-        <Table
-          rowKey="id"
-          size="small"
-          columns={detailColumns}
-          dataSource={detailTarget?.entitlements ?? []}
-          pagination={false}
-        />
-      </Modal>
-
-      <Modal
-        title={t('leave.policyTitle', { year })}
-        open={policyOpen}
-        onOk={() => void submitPolicy()}
-        onCancel={() => setPolicyOpen(false)}
-        okText={t('save')}
-        cancelText={t('cancel')}
-        width={640}
-        destroyOnClose
-      >
-        <Form form={policyForm} layout="vertical">
-          <Space size={12} style={{ display: 'flex' }} align="start">
-            <Form.Item name="baseDays" label={t('leave.baseDays')} rules={[{ required: true, message: t('required') }]}>
-              <InputNumber min={0} max={366} precision={4} style={{ width: 140 }} />
-            </Form.Item>
-            <Form.Item
-              name="seniorityStepYears"
-              label={t('leave.seniorityStepYears')}
-              rules={[{ required: true, message: t('required') }]}
-            >
-              <InputNumber min={0} max={50} style={{ width: 140 }} />
-            </Form.Item>
-            <Form.Item
-              name="seniorityBonusDays"
-              label={t('leave.seniorityBonusDays')}
-              rules={[{ required: true, message: t('required') }]}
-            >
-              <InputNumber min={0} max={366} precision={4} style={{ width: 140 }} />
-            </Form.Item>
-          </Space>
-          <Space size={12} style={{ display: 'flex' }} align="start">
-            <Form.Item
-              name="seniorityMaxBonus"
-              label={t('leave.seniorityMaxBonus')}
-              rules={[{ required: true, message: t('required') }]}
-            >
-              <InputNumber min={0} max={366} precision={4} style={{ width: 140 }} />
-            </Form.Item>
-            <Form.Item
-              name="carryoverMax"
-              label={t('leave.carryoverMax')}
-              rules={[{ required: true, message: t('required') }]}
-            >
-              <InputNumber min={0} max={366} precision={4} style={{ width: 140 }} />
-            </Form.Item>
-          </Space>
-
-          <Text strong>{t('leave.positionQuotas')}</Text>
-          <Form.List name="positionQuotas">
-            {(fields, { add, remove: removeQuota }) => (
-              <>
-                {fields.map((field) => (
-                  <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                    <Form.Item
-                      name={[field.name, 'positionName']}
-                      rules={[{ required: true, message: t('required') }]}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <Input placeholder={t('leave.positionName')} style={{ width: 280 }} maxLength={100} />
-                    </Form.Item>
-                    <Form.Item
-                      name={[field.name, 'bonusDays']}
-                      rules={[{ required: true, message: t('required') }]}
-                      style={{ marginBottom: 0 }}
-                    >
-                      <InputNumber min={0.0001} max={366} precision={4} style={{ width: 120 }} />
-                    </Form.Item>
-                    <Button type="text" danger onClick={() => removeQuota(field.name)}>
-                      {t('delete')}
-                    </Button>
-                  </Space>
-                ))}
-                <Button type="dashed" block onClick={() => add({ bonusDays: 1 })}>
-                  {t('leave.addPositionQuota')}
-                </Button>
-              </>
-            )}
-          </Form.List>
-        </Form>
+        <Tabs items={detailTabs} />
+        <Divider style={{ margin: '12px 0 0' }} />
+        <Text type="secondary">
+          {t('leave.year')}: {year} · {t('leave.recalculateHint')}
+        </Text>
       </Modal>
     </div>
   );

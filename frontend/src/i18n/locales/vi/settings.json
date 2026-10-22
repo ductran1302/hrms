@@ -38,6 +38,75 @@
     "empty": "Không có tài khoản nào",
     "resetSuccess": "Đã đặt lại mật khẩu"
   },
+  "leavePolicies": {
+    "title": "Chính sách quỹ phép",
+    "subtitle": "Tham số global, chính sách quỹ phép theo năm tài chính và lịch sử phiên bản (effective-dated).",
+    "tabSettings": "Tham số global",
+    "tabCurrent": "Chính sách hiện tại",
+    "tabHistory": "Lịch sử chính sách",
+    "settingsHint": "Tham số áp dụng cho toàn hệ thống — đổi tại đây, không phải ở màn Quỹ phép.",
+    "fyStartMonth": "Năm tài chính bắt đầu (tháng)",
+    "fyStartDay": "Năm tài chính bắt đầu (ngày)",
+    "periodStartDay": "Kỳ công bắt đầu (ngày trong tháng)",
+    "periodEndDay": "Kỳ công kết thúc (ngày trong tháng)",
+    "periodComboHint": "Chỉ 2 hợp lệ: bắt đầu = 1 và kết thúc ≥ 29, HOẶC bắt đầu = kết thúc + 1 (liên tục)",
+    "minWorkPercent": "Ngưỡng % ngày công đủ điều kiện (%)",
+    "minWorkPercentHint": "Ngày công thực tế × 100 / ngày công trong kỳ ≥ ngưỡng → đủ 1 kỳ (mặc định 50)",
+    "saturdayPolicy": "Chính sách thứ Bảy",
+    "saturday": {
+      "OFF": "Nghỉ",
+      "HALF": "Nghỉ nửa ngày",
+      "ALTERNATING": "Xen kẽ (theo kỳ từ đầu năm TC)",
+      "ALL": "Đi làm"
+    },
+    "requirePolicyApproval": "Bắt buộc phê duyệt chính sách",
+    "requirePolicyApprovalHint": "Bật: phiên bản phải qua Gửi → Phê duyệt trước khi Kích hoạt. Tắt: kích hoạt thẳng từ bản nháp.",
+    "currentHint": "Chính sách in-force của năm — Tạo phiên bản mới / gửi phê duyệt ngay tại đây.",
+    "historyHint": "Mọi phiên bản mọi năm — hành động theo trạng thái (bản nháp → chờ phê duyệt → đang áp dụng…).",
+    "yearLabel": "Năm tài chính:",
+    "newVersion": "Tạo phiên bản mới",
+    "createTitle": "Tạo phiên bản chính sách {{year}}",
+    "editTitle": "Sửa bản nháp {{year}} V{{version}}",
+    "version": "Phiên bản",
+    "statusColumn": "Trạng thái",
+    "status": {
+      "DRAFT": "Bản nháp",
+      "PENDING_APPROVAL": "Chờ phê duyệt",
+      "APPROVED": "Đã phê duyệt",
+      "ACTIVE": "Đang áp dụng",
+      "EXPIRED": "Đã hết hiệu lực",
+      "CANCELLED": "Đã hủy"
+    },
+    "effectiveRange": "Hiệu lực",
+    "effectiveFrom": "Ngày hiệu lực",
+    "effectiveFromHint": "Để trống = đầu năm tài chính. Phải nằm trong năm tài chính và sau phiên bản hiện tại.",
+    "createdBy": "Người tạo",
+    "actions": {
+      "submit": "Gửi phê duyệt",
+      "approve": "Phê duyệt",
+      "reject": "Từ chối",
+      "activate": "Kích hoạt",
+      "cancel": "Hủy"
+    },
+    "confirm": {
+      "submit": "Gửi phiên bản {{year}} V{{version}} phê duyệt?",
+      "approve": "Phê duyệt {{year}} V{{version}}?",
+      "reject": "Từ chối {{year}} V{{version}}? (trở về bản nháp)",
+      "activate": "Kích hoạt {{year}} V{{version}}? Phiên bản đang áp dụng sẽ hết hiệu lực.",
+      "activatePast": "Ngày hiệu lực {{date}} đã ở trong quá khứ — chính sách sẽ được áp dụng kể từ ngày đó và có thể ảnh hưởng các kỳ công đã tính. Kích hoạt?",
+      "cancel": "Hủy {{year}} V{{version}}?",
+      "delete": "Xóa bản nháp {{year}} V{{version}}?"
+    },
+    "workflowDone": {
+      "submit": "Đã gửi phê duyệt",
+      "approve": "Đã phê duyệt",
+      "reject": "Đã từ chối — trở về bản nháp",
+      "activate": "Đã kích hoạt — phiên bản cũ hết hiệu lực",
+      "cancel": "Đã hủy phiên bản"
+    },
+    "selectRole": "Chọn role",
+    "empty": "Chưa có phiên bản nào"
+  },
   "security": {
     "title": "Bảo mật",
     "subtitle": "Đổi mật khẩu đăng nhập của bạn. Mật khẩu mặc định khi tạo tài khoản là <username>@hrms.",

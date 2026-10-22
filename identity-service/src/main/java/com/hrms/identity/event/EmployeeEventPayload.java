@@ -6,6 +6,9 @@ import java.util.List;
 /**
  * JSON payload lưu trong outbox — trung gian giữa entity và Avro record.
  * Epoch millis (không dùng Instant) để JSON không phụ thuộc Jackson module.
+ *
+ * <p>{@code roles} = realm roles KC tại thời điểm emit (null = không đụng tới roles —
+ * attendance chỉ update roles khi field này khác null).
  */
 public record EmployeeEventPayload(
     String employeeId,
@@ -21,10 +24,16 @@ public record EmployeeEventPayload(
     Long terminatedAt,
     String reason,
     String actorId,
-    List<String> changedFields) {
+    List<String> changedFields,
+    List<String> roles) {
 
   public static EmployeeEventPayload from(Employee employee, String actorId,
       List<String> changedFields, String reason, Long terminatedAt) {
+    return from(employee, actorId, changedFields, reason, terminatedAt, null);
+  }
+
+  public static EmployeeEventPayload from(Employee employee, String actorId,
+      List<String> changedFields, String reason, Long terminatedAt, List<String> roles) {
     return new EmployeeEventPayload(
         employee.getId() == null ? null : employee.getId().toString(),
         employee.getEmployeeCode(),
@@ -39,6 +48,7 @@ public record EmployeeEventPayload(
         terminatedAt,
         reason,
         actorId,
-        changedFields == null ? List.of() : changedFields);
+        changedFields == null ? List.of() : changedFields,
+        roles);
   }
 }

@@ -45,8 +45,26 @@ public class LeaveEntitlement {
   @Column(name = "reason", length = 300)
   private String reason;
 
+  /**
+   * Dòng do recalc tự quản lý (BASE/SENIORITY/POSITION/CARRYOVER auto) — recalc cập nhật/ghi đè.
+   * false = ADMIN sửa tay (vd chuyển năm) → recalc giữ nguyên.
+   */
+  @Column(name = "is_auto", nullable = false)
+  private boolean isAuto = true;
+
   @Column(name = "granted_by", length = 100)
   private String grantedBy;
+
+  /**
+   * Snapshot phiên bản chính sách dùng để tính dòng này (truy vết effective-dating). Dòng auto
+   * theo policy → id version in-force lúc tính; BONUS/ADJUSTMENT không phụ thuộc policy → null.
+   */
+  @Column(name = "policy_id")
+  private UUID policyId;
+
+  /** Thời điểm tính/lần lưu cuối của dòng (audit). */
+  @Column(name = "calculated_at")
+  private Instant calculatedAt;
 
   @CreatedDate
   @Column(name = "created_at", nullable = false)

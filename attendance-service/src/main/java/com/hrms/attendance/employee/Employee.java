@@ -47,6 +47,10 @@ public class Employee {
   @Column(name = "position", length = 100)
   private String position;
 
+  /** Role KC mirror từ event identity (comma-joined, vd "ADMIN,DEPT_LEAD") — tính phép theo role. */
+  @Column(name = "roles", length = 200)
+  private String roles;
+
   @Column(name = "manager_id", length = 64)
   private String managerId;
 

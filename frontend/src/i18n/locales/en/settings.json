@@ -38,6 +38,75 @@
     "empty": "No accounts found",
     "resetSuccess": "Password has been reset"
   },
+  "leavePolicies": {
+    "title": "Leave policies",
+    "subtitle": "Global parameters, per-fiscal-year leave policies and version history (effective-dated).",
+    "tabSettings": "Global parameters",
+    "tabCurrent": "Current policy",
+    "tabHistory": "Policy history",
+    "settingsHint": "System-wide parameters — change here, not on the Leave quota page.",
+    "fyStartMonth": "Fiscal year starts (month)",
+    "fyStartDay": "Fiscal year starts (day)",
+    "periodStartDay": "Period starts (day of month)",
+    "periodEndDay": "Period ends (day of month)",
+    "periodComboHint": "Only 2 valid combos: start = 1 and end ≥ 29, OR start = end + 1 (contiguous)",
+    "minWorkPercent": "Eligible working-day threshold (%)",
+    "minWorkPercentHint": "Actual working days × 100 / period working days ≥ threshold → 1 eligible period (default 50)",
+    "saturdayPolicy": "Saturday policy",
+    "saturday": {
+      "OFF": "Off",
+      "HALF": "Half day",
+      "ALTERNATING": "Alternating (per period from FY start)",
+      "ALL": "Working"
+    },
+    "requirePolicyApproval": "Require policy approval",
+    "requirePolicyApprovalHint": "On: a version must go through Submit → Approve before Activate. Off: activate straight from draft.",
+    "currentHint": "The in-force policy of the year — create new versions / run the approval workflow here.",
+    "historyHint": "All versions across all years — act by status (draft → pending → active…).",
+    "yearLabel": "Fiscal year:",
+    "newVersion": "New version",
+    "createTitle": "Create leave policy version {{year}}",
+    "editTitle": "Edit draft {{year}} V{{version}}",
+    "version": "Version",
+    "statusColumn": "Status",
+    "status": {
+      "DRAFT": "Draft",
+      "PENDING_APPROVAL": "Pending approval",
+      "APPROVED": "Approved",
+      "ACTIVE": "Active",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "effectiveRange": "Effective",
+    "effectiveFrom": "Effective from",
+    "effectiveFromHint": "Empty = fiscal-year start. Must fall inside the fiscal year and after the current version.",
+    "createdBy": "Created by",
+    "actions": {
+      "submit": "Submit",
+      "approve": "Approve",
+      "reject": "Reject",
+      "activate": "Activate",
+      "cancel": "Cancel"
+    },
+    "confirm": {
+      "submit": "Submit {{year}} V{{version}} for approval?",
+      "approve": "Approve {{year}} V{{version}}?",
+      "reject": "Reject {{year}} V{{version}}? (returns to draft)",
+      "activate": "Activate {{year}} V{{version}}? The current version will expire.",
+      "activatePast": "Effective date {{date}} is in the past — the policy will apply from that date and may affect already-calculated periods. Activate anyway?",
+      "cancel": "Cancel {{year}} V{{version}}?",
+      "delete": "Delete draft {{year}} V{{version}}?"
+    },
+    "workflowDone": {
+      "submit": "Submitted for approval",
+      "approve": "Approved",
+      "reject": "Rejected — back to draft",
+      "activate": "Activated — previous version expired",
+      "cancel": "Version cancelled"
+    },
+    "selectRole": "Select role",
+    "empty": "No versions yet"
+  },
   "security": {
     "title": "Security",
     "subtitle": "Change your sign-in password. The default password on account creation is <username>@hrms.",

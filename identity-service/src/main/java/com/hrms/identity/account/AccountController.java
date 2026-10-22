@@ -80,6 +80,14 @@ public class AccountController {
     accountService.updateRoles(username, request.roles(), actorOf(jwt));
   }
 
+  @PostMapping("/resync-role-events")
+  @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize("hasRole('ADMIN')")
+  @Operation(summary = "Backfill: phát lại EmployeeUpdatedEvent kèm roles cho toàn bộ user (1 lần sau deploy)")
+  public java.util.Map<String, Integer> resyncRoleEvents() {
+    return java.util.Map.of("emitted", accountService.resyncRoleEvents());
+  }
+
   private static String actorOf(Jwt jwt) {
     if (jwt == null) {
       return null;
