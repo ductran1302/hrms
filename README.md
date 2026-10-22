@@ -198,6 +198,18 @@ docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean verify
 > (surefire cho test; `KafkaAvroConfiguration` set lúc khởi động cho runtime).
 > Khi thêm module/package mới nằm ngoài `com.hrms`, phải thêm vào property này.
 
+### Integration test (Testcontainers)
+
+```powershell
+# Trên host/CI có JDK 21 + Docker — class *IT dùng PostgreSQL thật (Testcontainers)
+mvn -f pom.xml clean verify -Pit
+```
+
+> `mvn verify` (không `-Pit`) chỉ chạy unit test, không cần Docker.
+> `hrms-dev` **không có docker socket** → chạy `-Pit` trên CI (GitHub Actions có Docker)
+> hoặc máy host có JDK 21 + Docker. IT tự tắt outbox/seed (identity) và Kafka consumer
+> (`spring.kafka.listener.auto-startup=false`) để chỉ test DB.
+
 ### Chạy identity-service (dev)
 
 ```powershell
