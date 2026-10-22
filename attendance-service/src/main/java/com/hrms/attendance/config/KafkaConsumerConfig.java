@@ -73,6 +73,9 @@ public class KafkaConsumerConfig {
     factory.setConsumerFactory(consumerFactory);
     factory.setCommonErrorHandler(errorHandler);
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+    // Tôn trọng spring.kafka.listener.auto-startup (mặc định true) — IT tắt consumer
+    // để không kết nối Kafka khi chỉ test DB.
+    factory.setAutoStartup(kafkaProperties.getListener().isAutoStartup());
     return factory;
   }
 }
