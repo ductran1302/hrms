@@ -10,7 +10,7 @@ import com.hrms.identity.contract.dto.ContractUpdateRequest;
 import com.hrms.identity.employee.Employee;
 import com.hrms.identity.employee.EmployeeRepository;
 import com.hrms.identity.history.JobHistoryService;
-import com.hrms.identity.keycloak.KeycloakAdminClient;
+import com.hrms.identity.keycloak.KeycloakSyncService;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -40,7 +40,7 @@ public class ContractService {
   private final ContractRepository contractRepository;
   private final EmployeeRepository employeeRepository;
   private final JobHistoryService jobHistoryService;
-  private final KeycloakAdminClient keycloakAdminClient;
+  private final KeycloakSyncService keycloakSyncService;
   private final com.hrms.identity.employee.RoleAssignmentService roleAssignmentService;
 
   @Transactional
@@ -74,25 +74,17 @@ public class ContractService {
         request.salary() == null ? null : String.valueOf(request.salary()), currentActor());
     jobHistoryService.record(employeeId, "contract.status", null,
         contract.getStatus().name(), currentActor());
-    // Best-effort: ký hợp đồng → đảm bảo nhân viên có tài khoản đăng nhập (username = mã NV).
-    // Tạo nhân viên đã tạo sẵn; chỉ tạo thêm khi thiếu (idempotent — role auto-assign).
-    // Lỗi Keycloak KHÔNG chặn ký hợp đồng — log warn để HR tạo lại/sửa tay.
+    // Đảm bảo nhân viên có tài khoản đăng nhập (username = mã NV). Task được ghi cùng
+    // transaction và xử lý sau commit (P0-6); processor idempotent — tài khoản đã có role
+    // thì không đổi quyền.
     ensureAccount(employee);
     return toResponse(contract, isSalaryVisible());
   }
 
   private void ensureAccount(Employee employee) {
-    String employeeCode = employee.getEmployeeCode();
-    try {
-      if (!keycloakAdminClient.userExists(employeeCode)) {
-        String role = roleAssignmentService.resolveDefaultRole(employee.getId());
-        keycloakAdminClient.createUser(
-            employeeCode, employee.getFullName(), employee.getEmail(), role);
-      }
-    } catch (Exception ex) {
-      log.warn("Chưa tạo được tài khoản Keycloak cho nhân viên {}: {}",
-          employeeCode, ex.getMessage());
-    }
+    String role = roleAssignmentService.resolveDefaultRole(employee.getId());
+    keycloakSyncService.enqueueCreate(employee.getEmployeeCode(), employee.getFullName(),
+        employee.getEmail(), role);
   }
 
   @Transactional(readOnly = true)

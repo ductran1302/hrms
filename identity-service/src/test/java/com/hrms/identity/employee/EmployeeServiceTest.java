@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +34,7 @@ import com.hrms.identity.history.JobHistoryService;
 import com.hrms.identity.holiday.HolidayCalendar;
 import com.hrms.identity.holiday.HolidayCalendarRepository;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
+import com.hrms.identity.keycloak.KeycloakSyncService;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,6 +66,9 @@ class EmployeeServiceTest {
 
   @Mock
   private KeycloakAdminClient keycloakAdminClient;
+
+  @Mock
+  private KeycloakSyncService keycloakSyncService;
 
   @Mock
   private HolidayCalendarRepository holidayCalendarRepository;
@@ -115,8 +118,8 @@ class EmployeeServiceTest {
     assertEquals("NV0001", payload.employeeCode());
     assertEquals("ACTIVE", payload.status());
     assertEquals(actorId, payload.actorId());
-    verify(keycloakAdminClient).createUser(eq("NV0001"), eq("Nguyễn Văn A"), eq("a@hrms.vn"),
-        eq(Roles.EMPLOYEE));
+    verify(keycloakSyncService).enqueueCreate(eq("NV0001"), eq("Nguyễn Văn A"),
+        eq("a@hrms.vn"), eq(Roles.EMPLOYEE));
   }
 
   @Test
@@ -139,7 +142,7 @@ class EmployeeServiceTest {
     service.create(request, actorId);
 
     assertEquals("nthieu", entity.getEmployeeCode());
-    verify(keycloakAdminClient).createUser(eq("nthieu"), eq("Nguyễn Trung Hiếu"), isNull(),
+    verify(keycloakSyncService).enqueueCreate(eq("nthieu"), eq("Nguyễn Trung Hiếu"), isNull(),
         eq(Roles.EMPLOYEE));
   }
 
@@ -164,7 +167,7 @@ class EmployeeServiceTest {
     service.create(request, actorId);
 
     assertEquals("nthieu1", entity.getEmployeeCode());
-    verify(keycloakAdminClient).createUser(eq("nthieu1"), any(), any(), eq(Roles.EMPLOYEE));
+    verify(keycloakSyncService).enqueueCreate(eq("nthieu1"), any(), any(), eq(Roles.EMPLOYEE));
   }
 
   @Test
@@ -174,18 +177,11 @@ class EmployeeServiceTest {
     entity.setFullName("Hồ Ráng");
 
     when(employeeRepository.existsByEmployeeCode("hr")).thenReturn(false);
-    when(mapper.toEntity(request)).thenReturn(entity);
-    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> {
-      Employee saved = inv.getArgument(0);
-      saved.setId(employeeId);
-      return saved;
-    });
-    when(roleAssignmentService.resolveDefaultRole(employeeId)).thenReturn(Roles.EMPLOYEE);
-    doThrow(new ConflictException("Tên đăng nhập đã tồn tại trong Keycloak: hr"))
-        .when(keycloakAdminClient).createUser(eq("hr"), any(), any(), any());
+    when(keycloakAdminClient.userExists("hr")).thenReturn(true);
 
     assertThrows(ConflictException.class, () -> service.create(request, actorId));
     verify(outboxRepository, never()).save(any());
+    verify(keycloakSyncService, never()).enqueueCreate(any(), any(), any(), any());
   }
 
   @Test
@@ -553,7 +549,7 @@ class EmployeeServiceTest {
     assertFalse(payload.changedFields().contains("status"));
     verify(jobHistoryService).record(eq(employeeId), eq("status"), eq("ACTIVE"),
         eq("TERMINATED"), eq(actorId), eq("Tự nguyện"));
-    verify(keycloakAdminClient).setUserEnabled("NV0001", false);
+    verify(keycloakSyncService).enqueueEnabled("NV0001", false);
   }
 
   @Test

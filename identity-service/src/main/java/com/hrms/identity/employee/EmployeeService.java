@@ -20,6 +20,7 @@ import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
 import com.hrms.identity.holiday.HolidayCalendarRepository;
 import com.hrms.identity.keycloak.KeycloakAdminClient;
+import com.hrms.identity.keycloak.KeycloakSyncService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +55,7 @@ public class EmployeeService {
   private final DepartmentRepository departmentRepository;
   private final JobHistoryService jobHistoryService;
   private final KeycloakAdminClient keycloakAdminClient;
+  private final KeycloakSyncService keycloakSyncService;
   private final HolidayCalendarRepository holidayCalendarRepository;
   private final RoleAssignmentService roleAssignmentService;
 
@@ -67,10 +69,10 @@ public class EmployeeService {
     validateGender(employee.getGender());
     validateManagerRef(employee.getManagerId(), null);
     employeeRepository.save(employee);
-    // Mã NV = username đăng nhập — tạo user Keycloak (role auto-assign theo cấp bậc,
-    // mật khẩu mặc định). Lỗi (trùng username/mạng) ném ra → rollback transaction.
+    // Mã NV = username đăng nhập. Task đồng bộ Keycloak được ghi CÙNG transaction; chỉ gọi
+    // Keycloak sau khi commit (P0-6) — rollback DB sẽ rollback luôn task, không tạo user mồ côi.
     String defaultRole = roleAssignmentService.resolveDefaultRole(employee.getId());
-    keycloakAdminClient.createUser(employeeCode, employee.getFullName(), employee.getEmail(),
+    keycloakSyncService.enqueueCreate(employeeCode, employee.getFullName(), employee.getEmail(),
         defaultRole);
     writeOutbox(employee, EmployeeEventTypes.CREATED, actorId, null, null, null,
         List.of(defaultRole));
@@ -87,6 +89,11 @@ public class EmployeeService {
       String code = requestedCode.trim();
       if (employeeRepository.existsByEmployeeCode(code)) {
         throw new ConflictException("Mã nhân viên đã tồn tại: " + code);
+      }
+      // Giữ hành vi cũ: mã do HR nhập trùng username Keycloak → 409 ngay, không để task
+      // đồng bộ (async) vô tình gán role cho tài khoản có sẵn. Đây là read-only, không ghi KC.
+      if (keycloakAdminClient.userExists(code)) {
+        throw new ConflictException("Tên đăng nhập đã tồn tại trong Keycloak: " + code);
       }
       return code;
     }
@@ -443,13 +450,8 @@ public class EmployeeService {
     employeeRepository.save(employee);
     writeOutbox(employee, EmployeeEventTypes.TERMINATED, actorId, null, reason,
         Instant.now().toEpochMilli(), null);
-    // Tắt tài khoản đăng nhập — best-effort: không chặn nghỉ việc nếu Keycloak lỗi
-    try {
-      keycloakAdminClient.setUserEnabled(employee.getEmployeeCode(), false);
-    } catch (Exception ex) {
-      log.warn("Không tắt được tài khoản Keycloak '{}': {}", employee.getEmployeeCode(),
-          ex.getMessage());
-    }
+    // Tắt tài khoản đăng nhập — task trong cùng transaction, xử lý sau commit (P0-6).
+    keycloakSyncService.enqueueEnabled(employee.getEmployeeCode(), false);
   }
 
   /**

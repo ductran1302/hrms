@@ -488,6 +488,23 @@ Feature "thiết kế lại tính quỹ phép" — quỹ tính theo **kỳ công
 - **Đã fix 2 bug**: self-invocation readOnly không commit (xem §7.9);
   `ensureAuto` dùng chung `computeBase` — không ghi đè BASE đã recalculate.
 
+### 4.16 Keycloak Sync Tasks (P0-6)
+
+**Không gọi Keycloak write trong transaction nghiệp vụ** (tránh user mồ côi khi DB
+rollback / giữ connection khi KC chậm):
+
+- Ghi `keycloak_sync_tasks` (`identity-service`, migration `V11`) **cùng transaction**
+  với employee/contract qua `KeycloakSyncService.enqueueCreate|enqueueEnabled`
+  (`@Transactional(MANDATORY)`).
+- `afterCommit` gọi `KeycloakSyncProcessor.process(id)` (`REQUIRES_NEW`) xử lý ngay;
+  `KeycloakSyncScheduler` poll PENDING mỗi 5s làm fallback sau crash/KC lỗi.
+- Khóa bi quan `findByIdForUpdate` + kiểm tra status → không xử lý trùng.
+  Retry tối đa 5 lần (backoff 5s×attempt) → `FAILED`; `last_error` để điều tra.
+- `KeycloakAdminClient.provisionUser` idempotent: chưa có user → tạo; có user nhưng
+  **chưa có realm role** → gán role mặc định; đã có role → không đổi quyền.
+- Mã NV HR nhập trùng username Keycloak vẫn 409 ngay (read-only `userExists` trước khi
+  ghi DB) — không để task async gán role cho tài khoản có sẵn.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -830,6 +847,7 @@ FIX: re-key = FK 4 bảng (shift_assignments, leave_entitlements,
 | Avro schemas | `hrms-common/src/main/avro/` |
 | Kafka topics | `hrms-common/src/main/java/com/hrms/common/kafka/KafkaTopics.java` |
 | Outbox entity | `hrms-common/src/main/java/com/hrms/common/outbox/OutboxEvent.java` |
+| Keycloak sync tasks (P0-6) | `identity-service/src/main/java/com/hrms/identity/keycloak/KeycloakSync*.java` |
 | Global exception | `hrms-common/src/main/java/com/hrms/common/web/GlobalExceptionHandler.java` |
 | Roles constants | `hrms-common/src/main/java/com/hrms/common/security/Roles.java` |
 | Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |

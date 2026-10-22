@@ -141,6 +141,22 @@ public class KeycloakAdminClient {
     log.info("Đã tạo tài khoản Keycloak '{}' (role {})", username, defaultRole);
   }
 
+  /**
+   * Idempotent cho task đồng bộ (P0-6): tạo user nếu chưa có; nếu user đã tồn tại nhưng chưa
+   * có realm role nào (lần trước fail giữa chừng) thì gán role mặc định. KHÔNG đổi role của
+   * user đã có role — tránh tự mở quyền khi retry/contract cho tài khoản đã được cấu hình.
+   */
+  public void provisionUser(String username, String fullName, String email, String defaultRole) {
+    if (!userExists(username)) {
+      createUser(username, fullName, email, defaultRole);
+      return;
+    }
+    List<String> roles = realmRolesByUsername(username);
+    if (roles == null || roles.isEmpty()) {
+      ensureRealmRole(username, defaultRole);
+    }
+  }
+
   /** Đếm user theo search term (rỗng = tất cả). */
   public long countUsers(String search) {
     String q = search == null ? "" : search.trim();
