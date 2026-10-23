@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 class GlobalExceptionHandlerTest {
 
@@ -45,6 +46,11 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/denied")
     void denied() {
       throw new AccessDeniedException("nope");
+    }
+
+    @GetMapping("/too-large")
+    void tooLarge() {
+      throw new MaxUploadSizeExceededException(10L * 1024 * 1024);
     }
 
     @GetMapping("/boom")
@@ -99,6 +105,14 @@ class GlobalExceptionHandlerTest {
     mockMvc.perform(get("/denied"))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+  }
+
+  @Test
+  void uploadTooLarge_returns413() throws Exception {
+    mockMvc.perform(get("/too-large"))
+        .andExpect(status().isPayloadTooLarge())
+        .andExpect(jsonPath("$.code").value("PAYLOAD_TOO_LARGE"))
+        .andExpect(jsonPath("$.message").value("File vượt quá giới hạn cho phép"));
   }
 
   @Test

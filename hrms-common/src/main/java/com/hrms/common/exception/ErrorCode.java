@@ -18,6 +18,7 @@ public enum ErrorCode {
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Phương thức không được hỗ trợ"),
   CONFLICT(HttpStatus.CONFLICT, "Dữ liệu xung đột"),
   MEDIA_TYPE_NOT_SUPPORTED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Định dạng không được hỗ trợ"),
+  PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "File vượt quá giới hạn cho phép"),
   BUSINESS_RULE_VIOLATION(HttpStatus.UNPROCESSABLE_ENTITY, "Vi phạm quy tắc nghiệp vụ"),
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi máy chủ");
 

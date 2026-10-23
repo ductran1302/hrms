@@ -205,6 +205,15 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
   -F 'file=@/tmp/vdoc.txt;type=text/plain' -F 'docType=SAI_LOAI' \
   "$API/api/v1/employees/$EMP_ID/documents")
 check "POST upload docType khong hop le" 422 "$CODE"
+# P0: validate noi dung server-side — file .pdf gia mao (noi dung HTML) va file thuc thi
+printf '<html>not a pdf</html>' > /tmp/evil.pdf
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/evil.pdf;type=application/pdf' "$API/api/v1/employees/$EMP_ID/documents")
+check "POST upload .pdf gia mao (noi dung sai)" 422 "$CODE"
+printf 'MZ' > /tmp/evil.exe
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $HR" \
+  -F 'file=@/tmp/evil.exe;type=application/octet-stream' "$API/api/v1/employees/$EMP_ID/documents")
+check "POST upload .exe" 422 "$CODE"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "Authorization: Bearer $EMP" \
   "$API/api/v1/employees/$EMP_ID/documents/$DOC_ID")
 check "DELETE tai lieu boi EMPLOYEE" 403 "$CODE"

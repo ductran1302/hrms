@@ -836,6 +836,20 @@ FIX: re-key = FK 4 bảng (shift_assignments, leave_entitlements,
      (poison partition, smoke shift 404).
 ```
 
+### 7.11 Upload tài liệu — validate server-side (P0)
+
+```
+LỖI: FE chặn MIME/size nhưng có thể bypass (curl/Postman) → upload .pdf chứa HTML/JS,
+     .exe, hoặc Content-Type giả; file được lưu + tải lại với header client gửi.
+FIX: DocumentContentValidator (identity document) — whitelist extension + magic bytes:
+     pdf %PDF-; jpg/jpeg FFD8FF; png 89504E47; gif GIF87a/89a; webp RIFF....WEBP;
+     bmp BM; docx/xlsx/pptx/zip PK\x03\x04; doc/xls/ppt OLE D0CF11E0;
+     txt/csv không có NUL; rtf {\rtf. SVG/HTML/JS/EXE bị loại.
+     Content-Type lưu DB = chuẩn hóa theo extension (KHÔNG tin file.getContentType);
+     filename gốc strip CR/LF/control + / \ " (chống header injection/path traversal).
+     File > 10MB (Spring multipart) → 413 PAYLOAD_TOO_LARGE (GlobalExceptionHandler).
+```
+
 ---
 
 ## 8. Key Files Reference
@@ -849,6 +863,7 @@ FIX: re-key = FK 4 bảng (shift_assignments, leave_entitlements,
 | Outbox entity | `hrms-common/src/main/java/com/hrms/common/outbox/OutboxEvent.java` |
 | Keycloak sync tasks (P0-6) | `identity-service/src/main/java/com/hrms/identity/keycloak/KeycloakSync*.java` |
 | Global exception | `hrms-common/src/main/java/com/hrms/common/web/GlobalExceptionHandler.java` |
+| Document upload validator | `identity-service/src/main/java/com/hrms/identity/document/DocumentContentValidator.java` |
 | Roles constants | `hrms-common/src/main/java/com/hrms/common/security/Roles.java` |
 | Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |
 | FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |

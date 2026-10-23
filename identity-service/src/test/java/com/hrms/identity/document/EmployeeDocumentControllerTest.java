@@ -1,5 +1,6 @@
 package com.hrms.identity.document;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -9,6 +10,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -16,15 +18,18 @@ import com.hrms.identity.config.SecurityConfig;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
 import com.hrms.identity.employee.EmployeeService;
 import com.hrms.identity.employee.EmployeeViewer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
@@ -51,6 +56,9 @@ class EmployeeDocumentControllerTest {
       new SimpleGrantedAuthority("ROLE_MANAGER");
   private static final SimpleGrantedAuthority EMPLOYEE =
       new SimpleGrantedAuthority("ROLE_EMPLOYEE");
+
+  @TempDir
+  private Path tempDir;
 
   private final UUID employeeId = UUID.randomUUID();
   private final UUID documentId = UUID.randomUUID();
@@ -110,6 +118,23 @@ class EmployeeDocumentControllerTest {
     mockMvc.perform(get("/api/v1/employees/{id}/documents/{docId}", employeeId, documentId)
             .with(jwt().authorities(ADMIN)))
         .andExpect(status().isNotFound());
+  }
+
+  @Test
+  void download_withAdmin_setsAttachmentAndNoSniffHeaders() throws Exception {
+    Path file = tempDir.resolve("cv.pdf");
+    Files.writeString(file, "pdf-bytes");
+    EmployeeDocument document = new EmployeeDocument();
+    document.setFileName("cv.pdf");
+    document.setContentType("application/pdf");
+    when(documentService.get(eq(employeeId), eq(documentId))).thenReturn(document);
+    when(documentService.resolvePath(document)).thenReturn(file);
+
+    mockMvc.perform(get("/api/v1/employees/{id}/documents/{docId}", employeeId, documentId)
+            .with(jwt().authorities(ADMIN)))
+        .andExpect(status().isOk())
+        .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("attachment")))
+        .andExpect(header().string("X-Content-Type-Options", "nosniff"));
   }
 
   @Test

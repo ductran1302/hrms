@@ -32,8 +32,6 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 public class EmployeeDocumentService {
 
-  static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024;
-
   private final EmployeeDocumentRepository documentRepository;
   private final EmployeeRepository employeeRepository;
   private final ContractRepository contractRepository;
@@ -46,12 +44,8 @@ public class EmployeeDocumentService {
       String note, String actorId, UUID contractId) {
     Employee employee = employeeRepository.findById(employeeId)
         .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId));
-    if (file == null || file.isEmpty()) {
-      throw new BusinessRuleException("Chưa chọn file hoặc file rỗng");
-    }
-    if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-      throw new BusinessRuleException("File vượt quá giới hạn 10MB");
-    }
+    // Validate nội dung trước khi ghi đĩa: whitelist + magic bytes (FE có thể bị bypass).
+    DocumentContentValidator.ValidatedDocument validated = DocumentContentValidator.validate(file);
     // Phụ lục hợp đồng: hợp đồng phải tồn tại và thuộc đúng nhân viên.
     if (contractId != null) {
       Contract contract = contractRepository.findById(contractId)
@@ -66,8 +60,7 @@ public class EmployeeDocumentService {
             ? EmployeeDocumentType.CONTRACT.name()
             : docType);
 
-    String relativePath = employeeId + "/" + UUID.randomUUID() + safeExtension(
-        file.getOriginalFilename());
+    String relativePath = employeeId + "/" + UUID.randomUUID() + "." + validated.extension();
     Path target = Path.of(documentsDir, relativePath);
     try {
       Files.createDirectories(target.getParent());
@@ -81,7 +74,7 @@ public class EmployeeDocumentService {
     document.setContractId(contractId);
     document.setDocType(type);
     document.setFileName(originalName(file));
-    document.setContentType(file.getContentType());
+    document.setContentType(validated.contentType());
     document.setFileSize(file.getSize());
     document.setFilePath(relativePath);
     document.setNote(note);
@@ -146,23 +139,18 @@ public class EmployeeDocumentService {
     }
   }
 
-  /** Lấy extension an toàn (chữ/số, tối đa 10 ký tự) — rỗng nếu không có. */
-  private static String safeExtension(String originalName) {
-    String name = originalName == null ? "" : originalName;
-    int dot = name.lastIndexOf('.');
-    if (dot < 0 || dot == name.length() - 1) {
-      return "";
-    }
-    String ext = name.substring(dot + 1).replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
-    return ext.isEmpty() || ext.length() > 10 ? "" : "." + ext;
-  }
-
   private static String originalName(MultipartFile file) {
     String name = file.getOriginalFilename();
     if (name == null || name.isBlank()) {
       return "file";
     }
-    return name.replace("/", "_").replace("\\", "_");
+    // Chặn path traversal + CR/LF (header injection) và ký tự điều khiển.
+    String sanitized = name.replaceAll("[\\p{Cntrl}]", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace("\"", "_")
+        .trim();
+    return sanitized.isBlank() ? "file" : sanitized;
   }
 
   static EmployeeDocumentResponse toResponse(EmployeeDocument document) {

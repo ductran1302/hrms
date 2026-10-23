@@ -97,6 +97,7 @@ public class EmployeeDocumentController {
     return ResponseEntity.ok()
         .contentType(mediaType)
         .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+        .header("X-Content-Type-Options", "nosniff")
         .body(resource);
   }
 
