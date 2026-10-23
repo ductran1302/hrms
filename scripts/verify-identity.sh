@@ -681,6 +681,18 @@ check_has "accounts tim thay NV verify" "$(has "$R" "$ACC_CODE")" yes
 check_has "accounts co roles" "$(has "$R" '"roles"')" yes
 check_has "accounts co audit createdBy" "$(has "$R" '"createdBy"')" yes
 check_has "accounts enabled=true" "$(has "$R" '"enabled":true')" yes
+# b2. P0-6 van hanh: hang doi dong bo Keycloak chi ADMIN, size bi cap 100
+R=$(req GET "" "/api/v1/accounts/sync-tasks")
+check "GET sync-tasks khong token" 401 "$(code_of "$R")"
+R=$(req GET "$EMP" "/api/v1/accounts/sync-tasks")
+check "GET sync-tasks (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/accounts/sync-tasks?status=DONE&size=5")
+check "GET sync-tasks (HR_ADMIN)" 200 "$(code_of "$R")"
+check_has "sync-tasks co task DONE" "$(has "$R" '"status":"DONE"')" yes
+R=$(req GET "$HR" "/api/v1/accounts/sync-tasks?size=1000")
+check_has "sync-tasks cap size=100" "$(has "$R" '"size":100')" yes
+R=$(req GET "$HR" "/api/v1/accounts/sync-tasks?status=FAILED&size=5")
+check "GET sync-tasks status=FAILED" 200 "$(code_of "$R")"
 # c. tu doi mat khau: sai mat khau cu -> 422, dung -> 204, login bang mat khau moi
 R=$(req POST "$ACC_TOK" "/api/v1/accounts/change-password" '{"currentPassword":"sai-mat-khau-1","newPassword":"tkmoi2@1234"}')
 check "change-password sai mat khau hien tai" 422 "$(code_of "$R")"

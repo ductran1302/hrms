@@ -48,6 +48,13 @@ hrms:
       password-suffix: ${HRMS_PASSWORD_SUFFIX:@hrms}
       # Client dùng password-grant để tự xác thực mật khẩu khi đổi mật khẩu
       spa-client-id: ${HRMS_SPA_CLIENT_ID:hrms-spa}
+    sync:
+      # Scheduler poll task PENDING (fallback sau crash / Keycloak tạm lỗi)
+      poll-ms: ${KEYCLOAK_SYNC_POLL_MS:5000}
+      initial-delay-ms: ${KEYCLOAK_SYNC_INITIAL_DELAY_MS:10000}
+      # Dọn task DONE cũ hơn N ngày (0 = tắt); chạy theo cron hằng ngày
+      retention-days: ${KEYCLOAK_SYNC_RETENTION_DAYS:30}
+      cleanup-cron: "${KEYCLOAK_SYNC_CLEANUP_CRON:0 30 3 * * *}"
   storage:
     # Thư mục lưu tài liệu đính kèm (relative tới working dir nếu không phải absolute)
     documents-dir: ${DOCS_DIR:data/documents}

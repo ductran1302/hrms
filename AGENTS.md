@@ -504,6 +504,12 @@ rollback / giữ connection khi KC chậm):
   **chưa có realm role** → gán role mặc định; đã có role → không đổi quyền.
 - Mã NV HR nhập trùng username Keycloak vẫn 409 ngay (read-only `userExists` trước khi
   ghi DB) — không để task async gán role cho tài khoản có sẵn.
+- **Vận hành (khép kín vòng P0-6):** `GET /api/v1/accounts/sync-tasks?status=&page=&size=`
+  (ADMIN, `size` cap 100) xem task; `POST /api/v1/accounts/sync-tasks/{id}/retry` (ADMIN,
+  202) chỉ cho task `FAILED` — reset PENDING/attempts=0/xóa `last_error` rồi xử lý lại
+  afterCommit. Scheduler dọn task `DONE` cũ hơn `hrms.keycloak.sync.retention-days`
+  (default 30, 0=tắt) theo `cleanup-cron` (default 3:30 hằng ngày) — `FAILED` giữ lại
+  cho tới khi ADMIN retry.
 
 ---
 
@@ -862,6 +868,7 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Kafka topics | `hrms-common/src/main/java/com/hrms/common/kafka/KafkaTopics.java` |
 | Outbox entity | `hrms-common/src/main/java/com/hrms/common/outbox/OutboxEvent.java` |
 | Keycloak sync tasks (P0-6) | `identity-service/src/main/java/com/hrms/identity/keycloak/KeycloakSync*.java` |
+| Keycloak sync ops API | `identity-service/src/main/java/com/hrms/identity/keycloak/KeycloakSyncTaskController.java` |
 | Global exception | `hrms-common/src/main/java/com/hrms/common/web/GlobalExceptionHandler.java` |
 | Document upload validator | `identity-service/src/main/java/com/hrms/identity/document/DocumentContentValidator.java` |
 | Roles constants | `hrms-common/src/main/java/com/hrms/common/security/Roles.java` |
