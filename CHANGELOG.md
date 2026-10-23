@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## [Bảo mật — Siết scope đọc (IDOR) + P0-5 JWT aud: phần 1 IDOR/authorization] 2026-10-23
+
+Giai đoạn hardening (hướng 2) — hạng mục 1/6: **chống truy cập trái phép chéo hồ sơ (IDOR)**
+cho mọi endpoint đọc có tham chiếu nhân sự. Trước đây nhiều GET chỉ kiểm tra *role* mà không
+kiểm tra *scope* → MANAGER/DEPT_LEAD/EMPLOYEE có thể đọc dữ liệu ngoài phạm vi bằng cách
+đoán/nắm id. Nay áp `EmployeeScope` (ALL/DEPARTMENT/SELF) nhất quán.
+
+### Nội dung thay đổi
+
+**Attendance service**
+- Mới `EmployeeAccess` (final class) + `EmployeeAccessResolver` (`@Component`): dựng phạm vi
+  (ALL → toàn bộ; DEPARTMENT → phòng quản lý + nhánh con ∪ trực thuộc ∪ self; SELF → trực thuộc
+  ∪ self), fail-closed khi không khớp hồ sơ (`username = employeeCode`).
+- `EmployeeService.list/getByCode`: siết scope — trước đây MANAGER/SELF thấy *toàn bộ*; nay
+  chỉ self ∪ trực thuộc (ngoài phạm vi → 403).
+- `LeaveQuotaService.getQuota/listQuotas` + `LeaveQuotaController`: thêm scope/username —
+  đọc quota ngoài phạm vi → 403; list lọc theo scope.
+- `LeaveSettingsService.getNote/listWorkDays` + `LeaveSettingsController`: như trên.
+- `ShiftAssignmentService.list` + `ShiftAssignmentController`: lọc theo scope; lọc theo
+  `employeeId` ngoài phạm vi → 403.
+
+**Identity service**
+- `EmployeeViewer.of(Jwt, Authentication)`: factory dựng viewer từ token (username/email/scope);
+  `EmployeeController.viewer()` dùng lại.
+- `EmployeeRepository.findIdsInScope(managerScope, deptScope, viewerId)`: id nhân sự trong phạm vi
+  (tái dùng mệnh đề scoping của `search`) để lọc các đọc chéo aggregate.
+- `ContractService.search/listByEmployee/expiringSoon` + `ContractController`: siết scope —
+  `listByEmployee` ngoài phạm vi → 403; `search`/`expiringSoon` lọc theo id trong phạm vi;
+  fail-closed khi MANAGER không có hồ sơ NV.
+
+### Tests / Smoke
+- `EmployeeAccessTest` (5), cập nhật `EmployeeServiceTest`/`ShiftAssignmentServiceTest`/
+  `LeaveQuotaServiceTest`/`ContractControllerTest` (chữ ký mới). Backend: identity 140, attendance
+  133, common 19 — PASS.
+- `verify-p1-scoping.sh` thêm mục 3b: contract + attendance IDOR theo MANAGER (self ∪ trực thuộc
+  thấy được; ngoài phạm vi 403) → `PASS=52`.
+- `verify-identity.sh`: `manager1` seed không gắn hồ sơ NV → fail-closed (không thấy hợp đồng/lương)
+  → `PASS=281`. `verify-roles.sh` `PASS=23`.
+
+### Lưu ý hành vi
+- MANAGER/DEPT_LEAD phải có hồ sơ NV (khớp `username = employeeCode`) mới thấy dữ liệu; tài khoản
+  quản lý seed không gắn hồ sơ → danh sách rỗng (fail-closed, nhất quán với `/employees`).
+- Org-chart vẫn toàn công ty (giữ nguyên theo quyết định).
+
 ## [Quỹ phép — Sửa kỳ công: 12 kỳ/năm TC (bỏ kỳ đuôi clip)] 2026-10-22
 
 **Bug**: với lưới kỳ `26→25`, `PeriodEngine.fiscalPeriods` clip kỳ đầu theo fyStart

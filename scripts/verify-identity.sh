@@ -132,9 +132,10 @@ check "POST hop dong boi MANAGER" 403 "$(code_of "$R")"
 R=$(req GET "$HR" "/api/v1/contracts?employeeId=$EMP_ID")
 check "GET contracts (HR)" 200 "$(code_of "$R")"
 check_has "HR thay salary" "$(has "$R" '"salary":15000000')" yes
-R=$(req GET "$MGR" "/api/v1/contracts?employeeId=$EMP_ID")
-check "GET contracts (MANAGER)" 200 "$(code_of "$R")"
-check_has "MANAGER khong thay salary" "$(has "$R" '"salary":null')" yes
+  R=$(req GET "$MGR" "/api/v1/contracts?employeeId=$EMP_ID")
+  check "GET contracts (MANAGER)" 200 "$(code_of "$R")"
+  # manager1 seed khong gan ho so NV -> scope fail-closed: khong thay hop dong/luong nao.
+  check_has "MANAGER khong thay salary" "$(has "$R" '15000000')" no
 R=$(req PATCH "$HR" "/api/v1/contracts/$CONTRACT_ID" '{"salary":16000000}')
 check "PATCH doi luong" 200 "$(code_of "$R")"
 R=$(req PATCH "$HR" "/api/v1/contracts/$CONTRACT_ID/terminate" '')

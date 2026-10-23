@@ -1,6 +1,7 @@
 package com.hrms.attendance.leave;
 
 import com.hrms.attendance.employee.Employee;
+import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.leave.PeriodEngine.Period;
 import com.hrms.attendance.leave.dto.LeaveNoteRequest;
@@ -10,6 +11,7 @@ import com.hrms.attendance.leave.dto.LeaveWorkDayResponse;
 import com.hrms.attendance.leave.dto.LeaveWorkDayUpsertRequest;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -42,6 +44,7 @@ public class LeaveSettingsService {
   private final LeaveEmployeeNoteRepository noteRepository;
   private final LeaveWorkDayRepository workDayRepository;
   private final EmployeeRepository employeeRepository;
+  private final EmployeeAccessResolver accessResolver;
 
   // ---- Settings ----
 
@@ -98,7 +101,10 @@ public class LeaveSettingsService {
   // ---- Ghi chú NV/năm ----
 
   @Transactional(readOnly = true)
-  public String getNote(String employeeId, int year) {
+  public String getNote(String employeeId, int year, String username, EmployeeScope scope) {
+    if (scope != EmployeeScope.ALL) {
+      accessResolver.resolve(username, scope).assertCanAccess(requireEmployee(employeeId));
+    }
     return noteRepository.findByEmployeeIdAndYear(employeeId, year)
         .map(LeaveEmployeeNote::getNote)
         .orElse(null);
@@ -135,8 +141,12 @@ public class LeaveSettingsService {
    * <p>Write tx (không phải readOnly): self-invocation getOrCreateSettings cần commit self-heal.
    */
   @Transactional
-  public List<LeaveWorkDayResponse> listWorkDays(String employeeId, int year) {
-    requireEmployee(employeeId);
+  public List<LeaveWorkDayResponse> listWorkDays(
+      String employeeId, int year, String username, EmployeeScope scope) {
+    Employee employee = requireEmployee(employeeId);
+    if (scope != EmployeeScope.ALL) {
+      accessResolver.resolve(username, scope).assertCanAccess(employee);
+    }
     LeaveSettings settings = getOrCreateSettings();
     List<Period> periods = PeriodEngine.fiscalPeriods(settings, year);
     if (periods.isEmpty()) {

@@ -153,6 +153,50 @@ check "GET history NGOAI pham vi -> 403" 403 "$(code_of "$R")"
 R=$(req GET "$MGR_TOK" "/api/v1/employees/$RPT_EMP_ID/history")
 check "GET history TRONG pham vi -> 200" 200 "$(code_of "$R")"
 
+echo "== 3b. Contract + attendance scoping/IDOR (MANAGER)"
+# HR tao hop dong cho thuoc cap + NV ngoai pham vi (de khang dinh loc IDOR co y nghia)
+R=$(req POST "$HR" "/api/v1/employees/$RPT_EMP_ID/contracts" '{"contractType":"FULL_TIME","startDate":"2025-01-01"}')
+check "POST hop dong thuoc cap" 201 "$(code_of "$R")"
+R=$(req POST "$HR" "/api/v1/employees/$OT_EMP_ID/contracts" '{"contractType":"FULL_TIME","startDate":"2025-01-01"}')
+check "POST hop dong NV ngoai pham vi" 201 "$(code_of "$R")"
+
+R=$(req GET "$MGR_TOK" "/api/v1/employees/$RPT_EMP_ID/contracts")
+check "GET hop dong thuoc cap (MANAGER) -> 200" 200 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/employees/$OT_EMP_ID/contracts")
+check "GET hop dong NGOAI pham vi -> 403" 403 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/contracts")
+check "GET /contracts (MANAGER) -> 200" 200 "$(code_of "$R")"
+check_has "contracts thay thuoc cap" "$(has "$R" "$RPT_EMP_ID")" yes
+check_has "contracts khong thay NV ngoai pham vi" "$(has "$R" "$OT_EMP_ID")" no
+R=$(req GET "$MGR_TOK" "/api/v1/contracts?employeeId=$OT_EMP_ID")
+check "GET /contracts loc NV ngoai pham vi -> 200" 200 "$(code_of "$R")"
+check_has "loc employeeId khong lo du lieu ngoai pham vi" "$(has "$R" "$OT_EMP_ID")" no
+
+# Cho attendance projection nhan employee.created cua ca 2 NV (RPT + OT)
+for i in $(seq 1 20); do
+  sleep 1
+  A=$(req GET "$HR" "/api/v1/attendance/employees?size=200")
+  [ "$(has "$A" "$RPT_CODE")" = yes ] && [ "$(has "$A" "$OT_CODE")" = yes ] && break
+done
+
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/employees?size=100")
+check "GET attendance employees (MANAGER) -> 200" 200 "$(code_of "$R")"
+check_has "attendance thay thuoc cap" "$(has "$R" "$RPT_CODE")" yes
+check_has "attendance khong thay NV ngoai pham vi" "$(has "$R" "$OT_CODE")" no
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/employees/$RPT_CODE")
+check "GET attendance emp trong pham vi -> 200" 200 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/employees/$OT_CODE")
+check "GET attendance emp ngoai pham vi -> 403" 403 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/leave/quotas/$RPT_EMP_ID?year=2026")
+check "GET quota thuoc cap -> 200" 200 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/leave/quotas/$OT_EMP_ID?year=2026")
+check "GET quota NV ngoai pham vi -> 403" 403 "$(code_of "$R")"
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/leave/quotas?year=2026&q=$OT_CODE")
+check "GET quotas list loc khoa NV ngoai pham vi -> 200" 200 "$(code_of "$R")"
+check_has "quotas list khong co NV ngoai pham vi" "$(has "$R" "$OT_CODE")" no
+R=$(req GET "$MGR_TOK" "/api/v1/attendance/shift-assignments?employeeId=$OT_EMP_ID")
+check "GET shift-assignments NV ngoai pham vi -> 403" 403 "$(code_of "$R")"
+
 echo "== 4. Cleanup: nghi viec 3 NV (tat luon user Keycloak)"
 for id in "$RPT_EMP_ID" "$OT_EMP_ID" "$MGR_EMP_ID"; do
   R=$(req DELETE "$HR" "/api/v1/employees/$id?reason=cleanup%20verify-p1-scoping")

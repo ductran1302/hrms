@@ -137,9 +137,6 @@ public class EmployeeController {
    * {@code Authentication} authorities (cùng nguồn với {@code @PreAuthorize}).
    */
   private EmployeeViewer viewer(Jwt jwt, Authentication authentication) {
-    return new EmployeeViewer(
-        jwt.getClaimAsString("preferred_username"),
-        jwt.getClaimAsString("email"),
-        EmployeeScope.fromAuthorities(authentication.getAuthorities()));
+    return EmployeeViewer.of(jwt, authentication);
   }
 }

@@ -106,4 +106,22 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
       @Param("managerScope") UUID managerScope,
       @Param("deptScope") List<UUID> deptScope,
       @Param("viewerId") UUID viewerId);
+
+  /**
+   * Id nhân viên trong phạm vi người xem — tái dùng mệnh đề scoping của {@link #search}
+   * (dùng để lọc các đọc chéo aggregate như hợp đồng). Cả hai null → toàn bộ id.
+   */
+  @Query("""
+      select e.id from Employee e
+      where (:managerScope is null
+           or e.managerId = :managerScope
+           or e.id = :viewerId)
+        and (:deptScope is null
+           or e.departmentId in :deptScope
+           or e.managerId = :viewerId
+           or e.id = :viewerId)
+      """)
+  List<UUID> findIdsInScope(@Param("managerScope") UUID managerScope,
+      @Param("deptScope") List<UUID> deptScope,
+      @Param("viewerId") UUID viewerId);
 }

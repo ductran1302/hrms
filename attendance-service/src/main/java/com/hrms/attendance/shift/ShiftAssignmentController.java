@@ -2,6 +2,7 @@ package com.hrms.attendance.shift;
 
 import com.hrms.attendance.shift.dto.ShiftAssignmentRequest;
 import com.hrms.attendance.shift.dto.ShiftAssignmentResponse;
+import com.hrms.common.security.EmployeeScope;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,11 +36,14 @@ public class ShiftAssignmentController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Lịch sử gán ca (lọc theo nhân viên / từ khóa mã-tên-phòng)")
+  @Operation(summary = "Lịch sử gán ca theo scope (lọc nhân viên / từ khóa mã-tên-phòng; ngoài scope → 403)")
   public List<ShiftAssignmentResponse> list(
       @RequestParam(required = false) String employeeId,
-      @RequestParam(required = false) String q) {
-    return shiftAssignmentService.list(employeeId, q);
+      @RequestParam(required = false) String q,
+      @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
+    String username = jwt == null ? null : jwt.getClaimAsString("preferred_username");
+    return shiftAssignmentService.list(employeeId, q, username,
+        EmployeeScope.fromAuthorities(authentication.getAuthorities()));
   }
 
   @GetMapping("/my")

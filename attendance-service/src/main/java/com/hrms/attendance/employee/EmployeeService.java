@@ -1,6 +1,5 @@
 package com.hrms.attendance.employee;
 
-import com.hrms.attendance.department.DepartmentService;
 import com.hrms.attendance.event.ProcessedEvent;
 import com.hrms.attendance.event.ProcessedEventRepository;
 import com.hrms.attendance.leave.LeaveEmployeeNoteRepository;
@@ -14,10 +13,8 @@ import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Thứ tự event theo employee được đảm bảo (cùng partition key) nên không cần
  * so version khi upsert.
  *
- * <p>Scoping (5-role): ALL (ADMIN/GLOBAL_LEAD) và SELF (MANAGER) → toàn bộ
- * (giữ nguyên hành vi attendance); DEPARTMENT (DEPT_LEAD) → chỉ nhân sự thuộc
- * phòng mình quản lý (gồm nhánh con) + trực thuộc + self — fail-closed khi
- * không khớp hồ sơ.
+ * <p>Scoping (5-role, xem {@link EmployeeAccess}): ALL (ADMIN/GLOBAL_LEAD) → toàn bộ;
+ * DEPARTMENT (DEPT_LEAD) → phòng mình quản lý (gồm nhánh con) + trực thuộc + self;
+ * SELF (MANAGER/EMPLOYEE) → trực thuộc + self — fail-closed khi không khớp hồ sơ.
+ *
+ * <p>Đối chiếu {@code ROLE_ADMIN} khác biệt của attendance: {@code EMPLOYEE} bị chặn ở
+ * {@code @PreAuthorize}; {@code MANAGER} trước đây thấy toàn bộ — nay siết còn self ∪ trực thuộc.
  */
 @Slf4j
 @Service
@@ -42,7 +41,7 @@ public class EmployeeService {
 
   private final EmployeeRepository employeeRepository;
   private final ProcessedEventRepository processedEventRepository;
-  private final DepartmentService departmentService;
+  private final EmployeeAccessResolver accessResolver;
   private final ShiftAssignmentRepository shiftAssignmentRepository;
   private final LeaveEntitlementRepository leaveEntitlementRepository;
   private final LeaveEmployeeNoteRepository leaveNoteRepository;
@@ -116,49 +115,23 @@ public class EmployeeService {
     } else {
       all = employeeRepository.findByStatusOrderByFullNameAsc(status);
     }
-    if (scope != EmployeeScope.DEPARTMENT) {
+    if (scope == EmployeeScope.ALL) {
       return all;
     }
-    Optional<Employee> self = resolveSelf(username);
-    if (self.isEmpty()) {
-      return List.of(); // fail-closed: không khớp hồ sơ → không thấy ai
-    }
-    String selfId = self.get().getEmployeeId();
-    Set<String> deptIds = departmentService.managedSubtreeIds(selfId);
-    return all.stream()
-        .filter(e -> deptIds.contains(e.getDepartmentId())
-            || selfId.equals(e.getManagerId())
-            || selfId.equals(e.getEmployeeId()))
-        .toList();
+    EmployeeAccess access = accessResolver.resolve(username, scope);
+    return all.stream().filter(access::canAccess).toList();
   }
 
+  /** Chi tiết theo mã NV — ngoài scope → 403 (fail-closed khi không khớp hồ sơ người gọi). */
   @Transactional(readOnly = true)
   public Employee getByCode(String employeeCode, EmployeeScope scope, String username) {
     Employee employee = employeeRepository
         .findByEmployeeCode(employeeCode)
         .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeCode));
-    if (scope == EmployeeScope.DEPARTMENT) {
-      Optional<Employee> self = resolveSelf(username);
-      if (self.isEmpty()) {
-        throw new AccessDeniedException("Bạn không có quyền xem nhân sự này");
-      }
-      String selfId = self.get().getEmployeeId();
-      boolean inScope = selfId.equals(employee.getEmployeeId())
-          || selfId.equals(employee.getManagerId())
-          || departmentService.managedSubtreeIds(selfId).contains(employee.getDepartmentId());
-      if (!inScope) {
-        throw new AccessDeniedException("Bạn không có quyền xem nhân sự này");
-      }
+    if (scope != EmployeeScope.ALL) {
+      accessResolver.resolve(username, scope).assertCanAccess(employee);
     }
     return employee;
-  }
-
-  /** Khớp username đăng nhập (= employeeCode) với projection — không khớp → rỗng. */
-  private Optional<Employee> resolveSelf(String username) {
-    if (username == null || username.isBlank()) {
-      return Optional.empty();
-    }
-    return employeeRepository.findByEmployeeCode(username);
   }
 
   private Employee findOrCreate(String employeeId, String employeeCode) {

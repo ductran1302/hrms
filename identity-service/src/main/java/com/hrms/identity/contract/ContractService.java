@@ -3,19 +3,27 @@ package com.hrms.identity.contract;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import com.hrms.identity.contract.dto.ContractCreateRequest;
 import com.hrms.identity.contract.dto.ContractExtendRequest;
 import com.hrms.identity.contract.dto.ContractResponse;
 import com.hrms.identity.contract.dto.ContractUpdateRequest;
+import com.hrms.identity.department.DepartmentRepository;
+import com.hrms.identity.department.DepartmentStatus;
 import com.hrms.identity.employee.Employee;
 import com.hrms.identity.employee.EmployeeRepository;
+import com.hrms.identity.employee.EmployeeViewer;
 import com.hrms.identity.history.JobHistoryService;
 import com.hrms.identity.keycloak.KeycloakSyncService;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,6 +47,7 @@ public class ContractService {
 
   private final ContractRepository contractRepository;
   private final EmployeeRepository employeeRepository;
+  private final DepartmentRepository departmentRepository;
   private final JobHistoryService jobHistoryService;
   private final KeycloakSyncService keycloakSyncService;
   private final com.hrms.identity.employee.RoleAssignmentService roleAssignmentService;
@@ -88,32 +97,73 @@ public class ContractService {
   }
 
   @Transactional(readOnly = true)
-  public List<ContractResponse> search(UUID employeeId, ContractStatus status) {
+  public List<ContractResponse> search(UUID employeeId, ContractStatus status,
+      EmployeeViewer viewer) {
     boolean includeSalary = isSalaryVisible();
+    Set<UUID> allowed = allowedEmployeeIds(viewer);
     return contractRepository.search(employeeId, status).stream()
+        .filter(contract -> allowed == null || allowed.contains(contract.getEmployeeId()))
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
   }
 
   @Transactional(readOnly = true)
-  public List<ContractResponse> listByEmployee(UUID employeeId) {
+  public List<ContractResponse> listByEmployee(UUID employeeId, EmployeeViewer viewer) {
     boolean includeSalary = isSalaryVisible();
+    Set<UUID> allowed = allowedEmployeeIds(viewer);
+    if (allowed != null && !allowed.contains(employeeId)) {
+      throw new AccessDeniedException("Bạn không có quyền xem hợp đồng của nhân viên này");
+    }
     return contractRepository.findByEmployee_IdOrderByStartDateDesc(employeeId).stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
   }
 
-  /** Hợp đồng ACTIVE sắp hết hạn trong {@code days} ngày tới (cảnh báo). */
+  /** Hợp đồng ACTIVE sắp hết hạn trong {@code days} ngày tới (cảnh báo, theo scope người gọi). */
   @Transactional(readOnly = true)
-  public List<ContractResponse> expiringSoon(int days) {
+  public List<ContractResponse> expiringSoon(int days, EmployeeViewer viewer) {
     int window = Math.max(1, Math.min(days, 365));
     LocalDate today = LocalDate.now();
     boolean includeSalary = isSalaryVisible();
+    Set<UUID> allowed = allowedEmployeeIds(viewer);
     return contractRepository
         .findByStatusAndEndDateBetween(ContractStatus.ACTIVE, today, today.plusDays(window))
         .stream()
+        .filter(contract -> allowed == null || allowed.contains(contract.getEmployeeId()))
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
+  }
+
+  /** Id nhân viên hợp lệ với người xem; {@code null} = không giới hạn (ADMIN/GLOBAL_LEAD). */
+  private Set<UUID> allowedEmployeeIds(EmployeeViewer viewer) {
+    if (viewer.unrestricted()) {
+      return null;
+    }
+    Optional<Employee> self = resolveViewer(viewer);
+    if (self.isEmpty()) {
+      return Set.of(); // fail-closed: không khớp hồ sơ → không thấy hợp đồng nào
+    }
+    UUID selfId = self.get().getId();
+    List<UUID> deptScope = viewer.scope() == EmployeeScope.DEPARTMENT
+        ? departmentRepository.findIdsByManager_IdAndStatus(selfId, DepartmentStatus.ACTIVE)
+        : null;
+    if (deptScope != null && deptScope.isEmpty()) {
+      deptScope = null; // DEPT_LEAD không quản phòng nào → chỉ trực thuộc + self
+    }
+    return new HashSet<>(employeeRepository.findIdsInScope(selfId, deptScope, selfId));
+  }
+
+  /** Khớp user đăng nhập với hồ sơ NV: username = employeeCode trước, fallback email. */
+  private Optional<Employee> resolveViewer(EmployeeViewer viewer) {
+    if (viewer.username() != null && !viewer.username().isBlank()) {
+      Optional<Employee> byCode = employeeRepository.findByEmployeeCode(viewer.username());
+      if (byCode.isPresent()) {
+        return byCode;
+      }
+    }
+    return (viewer.email() == null || viewer.email().isBlank())
+        ? Optional.empty()
+        : employeeRepository.findFirstByEmail(viewer.email());
   }
 
   @Transactional

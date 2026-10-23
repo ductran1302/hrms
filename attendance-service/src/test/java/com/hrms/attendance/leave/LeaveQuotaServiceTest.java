@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrms.attendance.employee.Employee;
+import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.leave.dto.LeaveEntitlementResponse;
 import com.hrms.attendance.leave.dto.LeaveGrantRequest;
@@ -20,6 +21,7 @@ import com.hrms.attendance.leave.seniority.LinearSeniorityRule;
 import com.hrms.attendance.leave.seniority.SeniorityRuleRegistry;
 import com.hrms.attendance.leave.seniority.VietnamTieredSeniorityRule;
 import com.hrms.common.exception.BusinessRuleException;
+import com.hrms.common.security.EmployeeScope;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -53,6 +55,9 @@ class LeaveQuotaServiceTest {
 
   @Mock
   private EmployeeRepository employeeRepository;
+
+  @Mock
+  private EmployeeAccessResolver accessResolver;
 
   @Mock
   private LeaveSettingsService settingsService;
@@ -372,7 +377,7 @@ class LeaveQuotaServiceTest {
             manual(LeaveSource.CARRYOVER, new BigDecimal("2.0000")),
             manual(LeaveSource.ADJUSTMENT, new BigDecimal("-1.0000"))));
 
-    LeaveQuotaResponse quota = service.getQuota("e-1", 2026);
+    LeaveQuotaResponse quota = service.getQuota("e-1", 2026, "hr", EmployeeScope.ALL);
 
     assertEquals(new BigDecimal("18.5000"), quota.totalDays());
     assertEquals(new BigDecimal("18.5000"), quota.remainingDays());

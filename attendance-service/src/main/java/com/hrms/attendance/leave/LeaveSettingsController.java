@@ -5,11 +5,13 @@ import com.hrms.attendance.leave.dto.LeaveSettingsRequest;
 import com.hrms.attendance.leave.dto.LeaveSettingsResponse;
 import com.hrms.attendance.leave.dto.LeaveWorkDayResponse;
 import com.hrms.attendance.leave.dto.LeaveWorkDayUpsertRequest;
+import com.hrms.common.security.EmployeeScope;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,9 +47,11 @@ public class LeaveSettingsController {
 
   @GetMapping("/quotas/{employeeId}/note")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Ghi chú HR của NV trong năm")
-  public String getNote(@PathVariable String employeeId, @RequestParam int year) {
-    String note = leaveSettingsService.getNote(employeeId, year);
+  @Operation(summary = "Ghi chú HR của NV trong năm (ngoài scope → 403)")
+  public String getNote(@PathVariable String employeeId, @RequestParam int year,
+      @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
+    String note = leaveSettingsService.getNote(employeeId, year, usernameOf(jwt),
+        scopeOf(authentication));
     return note == null ? "" : note;
   }
 
@@ -65,10 +69,12 @@ public class LeaveSettingsController {
 
   @GetMapping("/quotas/{employeeId}/work-days")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Ngày công theo kỳ trong năm TC (DEFAULT/MANUAL)")
+  @Operation(summary = "Ngày công theo kỳ trong năm TC (DEFAULT/MANUAL; ngoài scope → 403)")
   public List<LeaveWorkDayResponse> listWorkDays(
-      @PathVariable String employeeId, @RequestParam int year) {
-    return leaveSettingsService.listWorkDays(employeeId, year);
+      @PathVariable String employeeId, @RequestParam int year,
+      @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
+    return leaveSettingsService.listWorkDays(employeeId, year, usernameOf(jwt),
+        scopeOf(authentication));
   }
 
   @PutMapping("/quotas/{employeeId}/work-days")
@@ -80,5 +86,13 @@ public class LeaveSettingsController {
       @AuthenticationPrincipal Jwt jwt) {
     return leaveSettingsService.upsertWorkDay(
         employeeId, request, jwt.getClaimAsString("preferred_username"));
+  }
+
+  private static String usernameOf(Jwt jwt) {
+    return jwt == null ? null : jwt.getClaimAsString("preferred_username");
+  }
+
+  private static EmployeeScope scopeOf(Authentication authentication) {
+    return EmployeeScope.fromAuthorities(authentication.getAuthorities());
   }
 }

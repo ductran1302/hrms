@@ -47,6 +47,9 @@ class EmployeeServiceTest {
   @Mock
   private LeaveWorkDayRepository leaveWorkDayRepository;
 
+  @Mock
+  private EmployeeAccessResolver accessResolver;
+
   @InjectMocks
   private EmployeeService employeeService;
 

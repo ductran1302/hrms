@@ -1,11 +1,14 @@
 package com.hrms.attendance.shift;
 
 import com.hrms.attendance.employee.Employee;
+import com.hrms.attendance.employee.EmployeeAccess;
+import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.shift.dto.ShiftAssignmentRequest;
 import com.hrms.attendance.shift.dto.ShiftAssignmentResponse;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,9 +37,22 @@ public class ShiftAssignmentService {
   private final ShiftAssignmentRepository assignmentRepository;
   private final WorkShiftRepository workShiftRepository;
   private final EmployeeRepository employeeRepository;
+  private final EmployeeAccessResolver accessResolver;
 
+  /**
+   * Lịch sử gán ca theo scope người gọi: ALL xem toàn bộ; MANAGER/DEPT_LEAD chỉ thấy
+   * nhân sự trong scope. Lọc theo {@code employeeId} ngoài scope → 403.
+   */
   @Transactional(readOnly = true)
-  public List<ShiftAssignmentResponse> list(String employeeId, String q) {
+  public List<ShiftAssignmentResponse> list(String employeeId, String q, String username,
+      EmployeeScope scope) {
+    EmployeeAccess access = scope == EmployeeScope.ALL
+        ? EmployeeAccess.all() : accessResolver.resolve(username, scope);
+    if (employeeId != null && !employeeId.isBlank()) {
+      Employee target = employeeRepository.findById(employeeId)
+          .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", employeeId));
+      access.assertCanAccess(target);
+    }
     List<ShiftAssignment> assignments =
         employeeId != null && !employeeId.isBlank()
             ? assignmentRepository.findByEmployeeIdOrderByEffectiveFromDesc(employeeId)
@@ -70,7 +86,7 @@ public class ShiftAssignmentService {
     for (ShiftAssignment assignment : assignments) {
       Employee employee = employees.get(assignment.getEmployeeId());
       WorkShift shift = shifts.get(assignment.getWorkShiftId());
-      if (employee == null || shift == null) {
+      if (employee == null || shift == null || !access.canAccess(employee)) {
         continue;
       }
       if (!keyword.isEmpty()

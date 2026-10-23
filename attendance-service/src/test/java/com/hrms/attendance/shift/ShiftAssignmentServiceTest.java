@@ -10,11 +10,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrms.attendance.employee.Employee;
+import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.shift.dto.ShiftAssignmentRequest;
 import com.hrms.attendance.shift.dto.ShiftAssignmentResponse;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -39,6 +41,9 @@ class ShiftAssignmentServiceTest {
 
   @Mock
   private EmployeeRepository employeeRepository;
+
+  @Mock
+  private EmployeeAccessResolver accessResolver;
 
   @InjectMocks
   private ShiftAssignmentService service;
@@ -198,7 +203,7 @@ class ShiftAssignmentServiceTest {
     when(employeeRepository.findAllById(any())).thenReturn(List.of(employee));
     when(workShiftRepository.findAllById(any())).thenReturn(List.of(shift));
 
-    List<ShiftAssignmentResponse> result = service.list(null, "NV001");
+    List<ShiftAssignmentResponse> result = service.list(null, "NV001", "hr", EmployeeScope.ALL);
 
     assertEquals(2, result.size());
     assertTrue(result.get(0).latest());
@@ -212,6 +217,6 @@ class ShiftAssignmentServiceTest {
     when(employeeRepository.findAllById(any())).thenReturn(List.of(employee));
     when(workShiftRepository.findAllById(any())).thenReturn(List.of(shift));
 
-    assertTrue(service.list(null, "KHONGTONTAI").isEmpty());
+    assertTrue(service.list(null, "KHONGTONTAI", "hr", EmployeeScope.ALL).isEmpty());
   }
 }

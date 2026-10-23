@@ -1,6 +1,8 @@
 package com.hrms.attendance.leave;
 
 import com.hrms.attendance.employee.Employee;
+import com.hrms.attendance.employee.EmployeeAccess;
+import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.leave.PeriodEngine.Period;
 import com.hrms.attendance.leave.dto.LeaveEntitlementResponse;
@@ -10,6 +12,7 @@ import com.hrms.attendance.leave.seniority.SeniorityContext;
 import com.hrms.attendance.leave.seniority.SeniorityRuleRegistry;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.security.EmployeeScope;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -63,6 +66,7 @@ public class LeaveQuotaService {
   private final LeaveSeniorityTierRepository tierRepository;
   private final LeaveEntitlementRepository entitlementRepository;
   private final EmployeeRepository employeeRepository;
+  private final EmployeeAccessResolver accessResolver;
   private final LeaveSettingsService settingsService;
   private final LeaveEmployeeNoteRepository noteRepository;
   private final SeniorityRuleRegistry seniorityRuleRegistry;
@@ -371,21 +375,37 @@ public class LeaveQuotaService {
 
   // ---- Truy vấn quota ----
 
-  /** Tổng hợp quota của 1 NV — ensure dòng auto trước khi tính (lazy self-heal). */
+  /**
+   * Tổng hợp quota của 1 NV — ensure dòng auto trước khi tính (lazy self-heal).
+   * Ngoài scope của người gọi (trừ ADMIN/GLOBAL_LEAD) → 403 (chống IDOR).
+   */
   @Transactional
-  public LeaveQuotaResponse getQuota(String employeeId, int year) {
+  public LeaveQuotaResponse getQuota(String employeeId, int year, String username,
+      EmployeeScope scope) {
     Employee employee = requireEmployee(employeeId);
+    if (scope != EmployeeScope.ALL) {
+      accessResolver.resolve(username, scope).assertCanAccess(employee);
+    }
     ensureAuto(employee, year);
     return buildQuota(employee, year, Map.of());
   }
 
-  /** Bảng tổng hợp cho HR/MANAGER — ensure dòng auto cho mọi NV khớp từ khóa. */
+  /**
+   * Bảng tổng hợp cho HR/MANAGER — chỉ NV trong scope người gọi (MANAGER: self ∪ trực thuộc;
+   * DEPT_LEAD: phòng quản lý ∪ trực thuộc ∪ self), ensure dòng auto cho NV khớp từ khóa.
+   */
   @Transactional
-  public List<LeaveQuotaResponse> listQuotas(int year, String q) {
+  public List<LeaveQuotaResponse> listQuotas(int year, String q, String username,
+      EmployeeScope scope) {
     policyService.getInForce(year); // self-heal FY chưa cấu hình trước khi list.
+    EmployeeAccess access = scope == EmployeeScope.ALL
+        ? EmployeeAccess.all() : accessResolver.resolve(username, scope);
     String keyword = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
     List<LeaveQuotaResponse> result = new ArrayList<>();
     for (Employee employee : employeeRepository.findByStatusOrderByFullNameAsc("ACTIVE")) {
+      if (!access.canAccess(employee)) {
+        continue;
+      }
       boolean matches = keyword.isEmpty()
           || employee.getEmployeeCode().toLowerCase(Locale.ROOT).contains(keyword)
           || employee.getFullName().toLowerCase(Locale.ROOT).contains(keyword)

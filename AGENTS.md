@@ -415,9 +415,17 @@ public class KafkaTopics {
 - **PATCH `/api/v1/accounts/{username}/roles`** (ADMIN, 204): validate subset `Roles.all()` (422),
   chặn tự hạ mình khi target==actor (422). KC running đã có HR_ADMIN → chạy `scripts/kc-init-roles.sh`
   (rename + tạo role + group HR; idempotent).
-- **Attendance scope:** `DEPT_LEAD` → `DepartmentService.managedSubtreeIds` (projection
-  `departments` table, event `hrms.department.v1` idempotent qua `processed_events`);
-  ALL/SELF full như cũ (MANAGER giữ hành vi).
+- **Scoping đọc (IDOR) — 2026-10-23:** mọi GET tham chiếu nhân sự áp `EmployeeScope`; fail-closed
+  khi `username` không khớp hồ sơ (`employeeCode`).
+  - **Attendance:** `EmployeeAccess` + `EmployeeAccessResolver` (employee/) — ALL → toàn bộ;
+    DEPARTMENT → `DepartmentService.managedSubtreeIds` ∪ trực thuộc ∪ self; SELF → trực thuộc ∪ self.
+    Áp cho `EmployeeService.list/getByCode` (MANAGER nay chỉ self ∪ trực thuộc, KHÔNG còn toàn bộ),
+    `LeaveQuotaService.getQuota/listQuotas`, `LeaveSettingsService.getNote/listWorkDays`,
+    `ShiftAssignmentService.list` (ngoài scope → 403; list lọc theo scope).
+  - **Identity contracts:** `EmployeeViewer.of(jwt,auth)` + `EmployeeRepository.findIdsInScope`;
+    `ContractService.search/expiringSoon` lọc theo id trong scope, `listByEmployee` ngoài scope → 403.
+  - MANAGER/DEPT_LEAD seed không gắn hồ sơ NV → thấy rỗng (đúng, giống `/employees`).
+- **KHÔNG đổi:** org-chart vẫn toàn công ty.
 - **KC realm:** `keycloak/realm-hrms.json` 5 roles + groups HR/Board/DeptLeads/Managers;
   user `hr` realmRoles `["ADMIN"]`.
 
@@ -875,6 +883,7 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Global exception | `hrms-common/src/main/java/com/hrms/common/web/GlobalExceptionHandler.java` |
 | Document upload validator | `identity-service/src/main/java/com/hrms/identity/document/DocumentContentValidator.java` |
 | Roles constants | `hrms-common/src/main/java/com/hrms/common/security/Roles.java` |
+| Attendance IDOR scope helper | `attendance-service/src/main/java/com/hrms/attendance/employee/EmployeeAccess.java` (`EmployeeAccessResolver.java`) |
 | Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |
 | FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |
 | FE Cài đặt→Tham số/Chính sách phép | `frontend/src/pages/SettingsPoliciesPage.tsx` |

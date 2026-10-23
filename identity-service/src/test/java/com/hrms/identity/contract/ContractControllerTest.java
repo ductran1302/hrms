@@ -74,7 +74,7 @@ class ContractControllerTest {
 
   @Test
   void expiringSoon_withAdmin_returns200() throws Exception {
-    when(contractService.expiringSoon(30)).thenReturn(List.of(activeResponse()));
+    when(contractService.expiringSoon(eq(30), any())).thenReturn(List.of(activeResponse()));
 
     mockMvc.perform(get("/api/v1/contracts/expiring-soon")
             .with(jwt().authorities(ADMIN)))

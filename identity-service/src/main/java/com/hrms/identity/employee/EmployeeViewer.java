@@ -1,6 +1,8 @@
 package com.hrms.identity.employee;
 
 import com.hrms.common.security.EmployeeScope;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
  * Người đang gọi API nhân viên — dùng cho scoping và mask PII:
@@ -18,6 +20,14 @@ import com.hrms.common.security.EmployeeScope;
  * @param scope    phạm vi dữ liệu suy từ realm role
  */
 public record EmployeeViewer(String username, String email, EmployeeScope scope) {
+
+  /** Dựng viewer từ JWT + Authentication (username/email claim, scope suy từ authorities). */
+  public static EmployeeViewer of(Jwt jwt, Authentication authentication) {
+    return new EmployeeViewer(
+        jwt.getClaimAsString("preferred_username"),
+        jwt.getClaimAsString("email"),
+        EmployeeScope.fromAuthorities(authentication.getAuthorities()));
+  }
 
   /** true nếu xem toàn bộ, không giới hạn phạm vi và không mask. */
   public boolean unrestricted() {
