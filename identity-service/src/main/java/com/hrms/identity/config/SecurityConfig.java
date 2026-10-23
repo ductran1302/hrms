@@ -1,5 +1,7 @@
 package com.hrms.identity.config;
 
+import java.util.Collection;
+
 import com.hrms.common.security.KeycloakRealmRolesConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -11,7 +13,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -36,6 +41,9 @@ public class SecurityConfig {
 
   @Value("${hrms.keycloak.issuer}")
   private String issuer;
+
+  @Value("${hrms.keycloak.audience}")
+  private String audience;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -65,7 +73,20 @@ public class SecurityConfig {
   @Bean
   public JwtDecoder jwtDecoder() {
     NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-    decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+    decoder.setJwtValidator(jwtValidator());
     return decoder;
+  }
+
+  /**
+   * Validator mặc định (timestamp + issuer) + bắt buộc claim {@code aud} chứa
+   * audience của service — chống dùng token cấp cho mục đích khác.
+   */
+  private OAuth2TokenValidator<Jwt> jwtValidator() {
+    OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<Object>(
+        "aud", aud -> aud instanceof Collection<?> audiences
+            ? audiences.contains(audience)
+            : audience.equals(aud));
+    return new DelegatingOAuth2TokenValidator<>(
+        JwtValidators.createDefaultWithIssuer(issuer), audienceValidator);
   }
 }

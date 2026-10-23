@@ -522,6 +522,26 @@ rollback / giữ connection khi KC chậm):
   (status/operation/attempts/lastError) + nút retry; dòng tài khoản có tag đỏ "Lỗi đồng bộ"
   khi username có task FAILED. API `searchSyncTasks`/`retrySyncTask` trong `api/accounts.ts`.
 
+### 4.17 JWT Audience (P0-5)
+
+- **Mọi resource server** (identity, attendance, gateway) build decoder với
+  `DelegatingOAuth2TokenValidator(JwtValidators.createDefaultWithIssuer(issuer),
+  JwtClaimValidator<List<String>>("aud", aud -> aud.contains(audience)))`.
+  Thiếu/sai `aud` → **401** (token hợp lệ chữ ký + issuer vẫn bị loại).
+- Config `hrms.keycloak.audience` — env `JWT_AUDIENCE`, default **`hrms-api`** (dùng chung
+  cho mọi service; single entry point là gateway).
+- Keycloak: protocol mapper `hrms-api-audience` (`oidc-audience-mapper`,
+  `included.custom.audience=hrms-api`, bật cho access token, tắt id token) gắn trên client
+  `hrms-spa` — có trong `keycloak/realm-hrms.json` (fresh import).
+- **Realm đang chạy** (fresh import không áp dụng): chạy `scripts/kc-add-audience.sh`
+  (idempotent — kiểm tra mapper, POST nếu thiếu, rồi verify token có `aud=hrms-api`).
+- `hrms-identity` (client_credentials, chỉ gọi Keycloak Admin API) **cố ý không có**
+  audience mapper → token của nó bị resource server từ chối (đúng: không phải token người dùng).
+- **Sau khi bật:** token cũ (phát hành trước khi có mapper) bị 401 — user phải đăng nhập lại;
+  smoke scripts tự lấy token mới mỗi lần chạy.
+- Smoke: `verify-identity.sh` §0 — kiểm tra token hr có `aud=hrms-api` và token
+  service-account (không aud) bị 401.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -892,6 +912,8 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | FE types | `frontend/src/api/types.ts` |
 | FE routes | `frontend/src/App.tsx` |
 | FE auth context | `frontend/src/auth/AuthContext.tsx` |
+| JWT audience mapper (P0-5) | `keycloak/realm-hrms.json` (client `hrms-spa`) + `scripts/kc-add-audience.sh` |
+| JWT decoders (aud check) | `*/config/SecurityConfig.java` (`jwtValidator()`) |
 | Smoke tests | `scripts/verify-*.sh` |
 
 ---

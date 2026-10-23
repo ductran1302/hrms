@@ -34,6 +34,9 @@ hrms:
   keycloak:
     # Issuer cố định trong token (Keycloak cấu hình KC_HOSTNAME=http://localhost:8081)
     issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
+    # Audience bắt buộc trong claim "aud" của token — phải khớp audience mapper
+    # "hrms-api" gắn trên client hrms-spa (keycloak/realm-hrms.json)
+    audience: ${JWT_AUDIENCE:hrms-api}
     admin:
       # Admin API: tạo/tắt user khi tạo/nghỉ việc (mã NV = username đăng nhập).
       # Thay password-grant admin-cli bằng client_credentials qua client

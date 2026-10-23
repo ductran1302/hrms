@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## [Bảo mật — P0-5: xác thực audience (aud) của JWT] 2026-10-23
+
+Giai đoạn hardening (hướng 2) — hạng mục 2/6: **bắt buộc claim `aud`**. Trước đây cả 3
+resource server chỉ kiểm tra chữ ký + `iss` (`JwtValidators.createDefaultWithIssuer`) →
+token cấp cho mục đích khác (vd token service-account `hrms-identity` chỉ dùng gọi
+Keycloak Admin API) vẫn được chấp nhận. Nay token thiếu `aud=hrms-api` → **401**.
+
+### Nội dung thay đổi
+- **Cả 3 service** (`identity`, `attendance`, `gateway`): `jwtValidator()` =
+  `DelegatingOAuth2TokenValidator(default(issuer), JwtClaimValidator<List<String>>("aud", ...))`;
+  thêm config `hrms.keycloak.audience` (env `JWT_AUDIENCE`, default `hrms-api`) trong
+  `application.yml` từng service.
+- **Keycloak**: thêm protocol mapper `hrms-api-audience` (`oidc-audience-mapper`,
+  `included.custom.audience=hrms-api`, chỉ access token) trên client `hrms-spa` trong
+  `keycloak/realm-hrms.json`. Realm đang chạy: script mới `scripts/kc-add-audience.sh`
+  (idempotent) tạo mapper + tự verify token có `aud=hrms-api`.
+- **Không** gắn mapper cho `hrms-identity` (client_credentials) — token của nó chỉ dùng
+  Keycloak Admin API và cố ý bị resource server từ chối.
+
+### Tests / Smoke
+- Backend unit/MVC: identity 140, attendance 133, common 19 — PASS (MVC slice dùng
+  `jwt()` post-processor nên không phụ thuộc aud; validator được xác minh qua smoke).
+- `verify-identity.sh` thêm mục §0: token `hr` có `aud=hrms-api` (PASS) và token
+  service-account (không aud) bị **401** → `PASS=283`.
+- `verify-p1-scoping.sh` `PASS=52`, `verify-roles.sh` `PASS=23`, `verify-attendance.sh` OK,
+  `verify-gateway-routes.sh` ALL OK. Kiểm tra trực tiếp: user token → 200, service-account
+  token → 401.
+
+### Lưu ý triển khai
+- Token cũ (phát hành trước khi có mapper) bị 401 → **user phải đăng nhập lại**.
+- Máy môi trường mới import `realm-hrms.json` là đủ; realm đang chạy phải chạy
+  `scripts/kc-add-audience.sh` (fresh import không áp dụng lại).
+
 ## [Bảo mật — Siết scope đọc (IDOR) + P0-5 JWT aud: phần 1 IDOR/authorization] 2026-10-23
 
 Giai đoạn hardening (hướng 2) — hạng mục 1/6: **chống truy cập trái phép chéo hồ sơ (IDOR)**

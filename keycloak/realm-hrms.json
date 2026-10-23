@@ -80,6 +80,19 @@
         "refresh.token.max.reuse": "0",
         "client.session.idle.timeouts.reset": "true"
       },
+      "protocolMappers": [
+        {
+          "name": "hrms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hrms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
       "defaultClientScopes": [
         "web-origins",
         "acr",

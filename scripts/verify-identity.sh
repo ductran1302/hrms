@@ -63,6 +63,29 @@ SUF=$RANDOM$RANDOM
 DEPT_CODE="D$SUF"
 EMP_CODE="NV$SUF"
 
+echo "== 0. P0-5: audience (aud) cua JWT"
+jwt_aud() { # token -> gia tri aud (array hoac chuoi)
+  local p pad
+  p=$(echo "$1" | cut -d. -f2 | tr '_-' '/+')
+  pad=$(( (4 - ${#p} % 4) % 4 ))
+  [ "$pad" -gt 0 ] && p="$p$(printf '=%.0s' $(seq 1 "$pad"))"
+  echo "$p" | base64 -d 2>/dev/null | sed -n 's/.*"aud":\[\?\([^]]*\)\]\?.*/\1/p'
+}
+check_has "token hr co aud hrms-api" "$(has "$(jwt_aud "$HR")" 'hrms-api')" yes
+if [ -n "${HRMS_IDENTITY_CLIENT_SECRET:-}" ]; then
+  # Token service-account (client_credentials, KHÔNG qua audience mapper) -> bị 401
+  SVC_TOKEN=$(curl -s -X POST "$KC/protocol/openid-connect/token" \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -d "client_id=hrms-identity&client_secret=$HRMS_IDENTITY_CLIENT_SECRET&grant_type=client_credentials" \
+    | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+  if [ -n "$SVC_TOKEN" ]; then
+    R=$(req GET "$SVC_TOKEN" /api/v1/employees)
+    check "token khong aud bi tu choi" 401 "$(code_of "$R")"
+  else
+    check "lay token service-account" ok fail
+  fi
+fi
+
 echo "== 1. RBAC: danh sach nhan vien (PageResponse)"
 R=$(req GET "" /api/v1/employees);               check "GET list khong token" 401 "$(code_of "$R")"
 R=$(req GET "$EMP" /api/v1/employees);           check "GET list employee1" 403 "$(code_of "$R")"
