@@ -26,6 +26,7 @@ import { errorMessage } from '../api/client';
 import type { Account } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import ActionIcon from '../components/ActionIcon';
+import KeycloakSyncPanel from '../components/KeycloakSyncPanel';
 
 const { Text } = Typography;
 
@@ -59,6 +60,8 @@ export default function SettingsAccountsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
+  /** Username có task đồng bộ Keycloak FAILED — đánh dấu dòng tài khoản chưa đồng bộ. */
+  const [syncFailed, setSyncFailed] = useState<Set<string>>(new Set());
 
   const [resetOpen, setResetOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<Account | null>(null);
@@ -191,6 +194,16 @@ export default function SettingsAccountsPage() {
         ),
     },
     {
+      title: t('settings.accounts.column.sync'),
+      width: 120,
+      render: (_, a) =>
+        syncFailed.has(a.username) ? (
+          <Tag color="red">{t('settings.accounts.sync.failedBadge')}</Tag>
+        ) : (
+          '—'
+        ),
+    },
+    {
       title: t('settings.accounts.column.created'),
       dataIndex: 'createdTimestamp',
       width: 110,
@@ -280,13 +293,15 @@ export default function SettingsAccountsPage() {
           />
         </Space>
 
+        <KeycloakSyncPanel onFailedUsernamesChange={setSyncFailed} />
+
         <Table<Account>
           rowKey="username"
           size="small"
           loading={loading}
           columns={columns}
           dataSource={accounts}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1220 }}
           pagination={{
             current: page,
             pageSize,

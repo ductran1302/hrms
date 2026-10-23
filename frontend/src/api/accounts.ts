@@ -1,5 +1,11 @@
 import client from './client';
-import type { Account, ChangePasswordPayload, PageResponse } from './types';
+import type {
+  Account,
+  ChangePasswordPayload,
+  KeycloakSyncStatusValue,
+  KeycloakSyncTask,
+  PageResponse,
+} from './types';
 
 export function searchAccounts(params: {
   q?: string;
@@ -34,5 +40,23 @@ export function setAccountEnabled(username: string, enabled: boolean): Promise<v
 export function updateAccountRoles(username: string, roles: string[]): Promise<void> {
   return client
     .patch(`/api/v1/accounts/${encodeURIComponent(username)}/roles`, { roles })
+    .then((r) => r.data);
+}
+
+/** Admin xem hàng đợi đồng bộ tài khoản Keycloak (P0-6), lọc theo status tùy chọn. */
+export function searchSyncTasks(params: {
+  status?: KeycloakSyncStatusValue;
+  page?: number;
+  size?: number;
+} = {}): Promise<PageResponse<KeycloakSyncTask>> {
+  return client
+    .get<PageResponse<KeycloakSyncTask>>('/api/v1/accounts/sync-tasks', { params })
+    .then((r) => r.data);
+}
+
+/** Admin thử lại task đồng bộ FAILED (reset PENDING và xử lý lại ngay). */
+export function retrySyncTask(id: string): Promise<KeycloakSyncTask> {
+  return client
+    .post<KeycloakSyncTask>(`/api/v1/accounts/sync-tasks/${encodeURIComponent(id)}/retry`)
     .then((r) => r.data);
 }

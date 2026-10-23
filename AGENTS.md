@@ -510,6 +510,9 @@ rollback / giữ connection khi KC chậm):
   afterCommit. Scheduler dọn task `DONE` cũ hơn `hrms.keycloak.sync.retention-days`
   (default 30, 0=tắt) theo `cleanup-cron` (default 3:30 hằng ngày) — `FAILED` giữ lại
   cho tới khi ADMIN retry.
+- **FE:** `KeycloakSyncPanel` (Cài đặt→Tài khoản) — badge số task FAILED + bảng task
+  (status/operation/attempts/lastError) + nút retry; dòng tài khoản có tag đỏ "Lỗi đồng bộ"
+  khi username có task FAILED. API `searchSyncTasks`/`retrySyncTask` trong `api/accounts.ts`.
 
 ---
 
@@ -875,6 +878,7 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |
 | FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |
 | FE Cài đặt→Tham số/Chính sách phép | `frontend/src/pages/SettingsPoliciesPage.tsx` |
+| FE Keycloak sync panel | `frontend/src/components/KeycloakSyncPanel.tsx` |
 | FE API client | `frontend/src/api/client.ts` |
 | FE types | `frontend/src/api/types.ts` |
 | FE routes | `frontend/src/App.tsx` |

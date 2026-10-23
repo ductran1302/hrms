@@ -9,6 +9,7 @@
       "email": "Email",
       "roles": "Vai trò",
       "enabled": "Trạng thái",
+      "sync": "Đồng bộ",
       "created": "Ngày tạo",
       "updated": "Cập nhật gần nhất"
     },
@@ -34,6 +35,35 @@
       "title": "Sửa vai trò",
       "hint": "Vai trò quyết định quyền và phạm vi dữ liệu tài khoản thấy được.",
       "minOne": "Chọn ít nhất một vai trò"
+    },
+    "sync": {
+      "title": "Đồng bộ Keycloak",
+      "subtitle": "Hàng đợi đồng bộ tài khoản Keycloak. Task thất bại (đã thử 5 lần) cần thử lại thủ công.",
+      "showAll": "Hiện tất cả",
+      "onlyFailed": "Chỉ lỗi",
+      "reload": "Tải lại",
+      "none": "Không có task nào",
+      "failedBadge": "Lỗi đồng bộ",
+      "retry": "Thử lại",
+      "confirmRetry": "Thử lại task đồng bộ này?",
+      "retryQueued": "Đã xếp lại — đang xử lý",
+      "column": {
+        "status": "Trạng thái",
+        "operation": "Thao tác",
+        "username": "Username",
+        "attempts": "Số lần",
+        "error": "Lỗi",
+        "updated": "Cập nhật"
+      },
+      "status": {
+        "PENDING": "Đang chờ",
+        "DONE": "Đã xong",
+        "FAILED": "Thất bại"
+      },
+      "operation": {
+        "CREATE_USER": "Tạo tài khoản",
+        "SET_ENABLED": "Bật/tắt tài khoản"
+      }
     },
     "empty": "Không có tài khoản nào",
     "resetSuccess": "Đã đặt lại mật khẩu"

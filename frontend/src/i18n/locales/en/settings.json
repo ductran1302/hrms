@@ -9,6 +9,7 @@
       "email": "Email",
       "roles": "Roles",
       "enabled": "Status",
+      "sync": "Sync",
       "created": "Created",
       "updated": "Last updated"
     },
@@ -34,6 +35,35 @@
       "title": "Edit roles",
       "hint": "Roles decide what this account can access.",
       "minOne": "Select at least one role"
+    },
+    "sync": {
+      "title": "Keycloak sync",
+      "subtitle": "Keycloak account sync queue. Failed tasks (5 attempts) must be retried manually.",
+      "showAll": "Show all",
+      "onlyFailed": "Failed only",
+      "reload": "Reload",
+      "none": "No tasks",
+      "failedBadge": "Sync failed",
+      "retry": "Retry",
+      "confirmRetry": "Retry this sync task?",
+      "retryQueued": "Requeued — processing",
+      "column": {
+        "status": "Status",
+        "operation": "Operation",
+        "username": "Username",
+        "attempts": "Attempts",
+        "error": "Error",
+        "updated": "Updated"
+      },
+      "status": {
+        "PENDING": "Pending",
+        "DONE": "Done",
+        "FAILED": "Failed"
+      },
+      "operation": {
+        "CREATE_USER": "Create account",
+        "SET_ENABLED": "Enable/disable account"
+      }
     },
     "empty": "No accounts found",
     "resetSuccess": "Password has been reset"

@@ -516,3 +516,24 @@ export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;
 }
+
+export type KeycloakSyncStatusValue = 'PENDING' | 'DONE' | 'FAILED';
+
+export type KeycloakSyncOperationValue = 'CREATE_USER' | 'SET_ENABLED';
+
+/** Task đồng bộ tài khoản Keycloak (màn vận hành P0-6) — ADMIN xem/retry task FAILED. */
+export interface KeycloakSyncTask {
+  id: string;
+  operation: KeycloakSyncOperationValue;
+  username: string;
+  fullName: string | null;
+  email: string | null;
+  roleName: string | null;
+  enabled: boolean | null;
+  status: KeycloakSyncStatusValue;
+  attempts: number;
+  nextAttemptAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
