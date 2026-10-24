@@ -35,6 +35,11 @@ hrms:
     # Audience bắt buộc trong claim "aud" của token — phải khớp audience mapper
     # "hrms-api" gắn trên client hrms-spa (keycloak/realm-hrms.json)
     audience: ${JWT_AUDIENCE:hrms-api}
+  # Rate limit tại gateway (per username, fallback IP; cửa sổ 60s, in-memory).
+  # Multi-instance → phải thay bằng Redis/Bucket4j phân tán.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    requests-per-minute: ${RATE_LIMIT_RPM:600}
 
 management:
   endpoints:

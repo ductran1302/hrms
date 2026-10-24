@@ -542,6 +542,21 @@ rollback / giữ connection khi KC chậm):
 - Smoke: `verify-identity.sh` §0 — kiểm tra token hr có `aud=hrms-api` và token
   service-account (không aud) bị 401.
 
+### 4.18 Rate Limiting (gateway)
+
+- `RateLimitFilter` (`GlobalFilter`, order `HIGHEST_PRECEDENCE+100`) chỉ áp cho `/api/**`
+  (actuator/health không giới hạn). Key = `principal.getName()` (JWT đã xác thực, security
+  chạy trước gateway filter) — fallback IP (`X-Forwarded-For` → remote address) khi không có tên.
+- Thuật toán `FixedWindowRateLimiter`: cửa sổ 60s, in-memory (`ConcurrentHashMap`), tối đa
+  `requests-per-minute` lượt/key; vượt → **429** + `Retry-After` + JSON
+  `{"code":"RATE_LIMIT_EXCEEDED","message":...}`. Dọn key cũ khi vượt 50k key.
+- Config: `hrms.rate-limit.enabled` (env `RATE_LIMIT_ENABLED`, default true),
+  `hrms.rate-limit.requests-per-minute` (env `RATE_LIMIT_RPM`, default **600**);
+  compose app stack truyền 2 env này cho gateway.
+- **Giới hạn đã biết:** 1 instance (in-memory) → scale ngang phải chuyển Redis/Bucket4j;
+  fixed window cho phép burst gấp đôi ở ranh giới cửa sổ; request sai token bị chặn ở
+  security (401) trước filter nên không tính vào hạn mức.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -914,6 +929,7 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | FE auth context | `frontend/src/auth/AuthContext.tsx` |
 | JWT audience mapper (P0-5) | `keycloak/realm-hrms.json` (client `hrms-spa`) + `scripts/kc-add-audience.sh` |
 | JWT decoders (aud check) | `*/config/SecurityConfig.java` (`jwtValidator()`) |
+| Rate limit (gateway) | `gateway-service/src/main/java/com/hrms/gateway/ratelimit/` |
 | Smoke tests | `scripts/verify-*.sh` |
 
 ---

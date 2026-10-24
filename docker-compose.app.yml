@@ -40,6 +40,8 @@ services:
     environment:
       IDENTITY_URI: http://identity:8080
       ATTENDANCE_URI: http://attendance:8080
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-600}
     ports:
       - "8080:8080"
     depends_on:

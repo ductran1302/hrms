@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## [Bảo mật — Rate limiting tại gateway] 2026-10-24
+
+Giai đoạn hardening (hướng 2) — hạng mục 3/6: **giới hạn tần suất gọi API** ở single entry
+point (gateway). Chống lạm dụng/lỗi client vòng lặp, giảm tải cho identity/attendance.
+
+### Nội dung thay đổi
+- Mới `FixedWindowRateLimiter` (in-memory, cửa sổ 60s, `ConcurrentHashMap`, dọn key cũ khi
+  > 50k) + `RateLimitFilter` (`GlobalFilter`, order `HIGHEST_PRECEDENCE+100`) chỉ áp `/api/**`.
+- Key = `principal.getName()` (JWT — security filter chạy trước); fallback IP
+  (`X-Forwarded-For` → remote address) khi principal không có tên.
+- Vượt hạn mức → **429** + `Retry-After` + body
+  `{"code":"RATE_LIMIT_EXCEEDED","message":...}`. Actuator/health không bị giới hạn.
+- Config: `hrms.rate-limit.enabled` / `requests-per-minute` (env `RATE_LIMIT_ENABLED`,
+  `RATE_LIMIT_RPM`, default true / 600); compose app stack truyền 2 env cho gateway;
+  `.env.example` bổ sung 2 biến (comment).
+
+### Tests / Smoke
+- `FixedWindowRateLimiterTest` (5): trong hạn mức, vượt → retryAfter, sang cửa sổ mới reset,
+  key độc lập, limit ≤ 0 lỗi. `RateLimitFilterTest` (2): key theo username, fallback khi
+  principal không tên.
+- Gateway: 12 test PASS. Kiểm thử thực tế với `RATE_LIMIT_RPM=3`: 3 request → 200, request 4
+  → 429 (`Retry-After: 26`), `/actuator/health` → 200. Khôi phục default 600.
+- Smoke sau khôi phục: `verify-gateway-routes.sh` ALL OK, `verify-identity.sh` PASS=283.
+
+### Giới hạn đã biết
+- In-memory 1 instance → scale ngang phải chuyển Redis/Bucket4j phân tán.
+- Fixed window cho phép burst gấp đôi ở ranh giới cửa sổ.
+- Request sai token bị security chặn (401) trước filter → không tính hạn mức (chống flood
+  token rác cần thêm limit ở nginx/edge).
+
 ## [Bảo mật — P0-5: xác thực audience (aud) của JWT] 2026-10-23
 
 Giai đoạn hardening (hướng 2) — hạng mục 2/6: **bắt buộc claim `aud`**. Trước đây cả 3
