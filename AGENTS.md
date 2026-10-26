@@ -20,13 +20,13 @@ docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean install -DskipTests -
 
 # Chạy service dev (background) — PHẢI cd /workspaces/HRMS để DOCS_DIR data/documents đúng (xem §7.7)
 # + nạp .env (container hrms-dev cũ không env_file; thiếu DB_PASSWORD/HRMS_IDENTITY_CLIENT_SECRET → start fail, xem §7.8)
-docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && SERVER_PORT=8183 java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
 
 # Xem log
 docker exec hrms-dev tail -f /tmp/identity.log
 
 # Smoke test (verify-p1-scoping TRỨC TIẾP đọc env HRMS_IDENTITY_CLIENT_SECRET → nạp .env trước)
-# + các script API mặc định localhost:8080 — khi app stack chạy và dev identity KHÔNG chạy,
+# + các script API mặc định localhost:8183 — khi app stack chạy và dev identity KHÔNG chạy,
 #   override API=http://gateway:8080 (xem §7.2)
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-identity.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-p1-scoping.sh"
@@ -63,16 +63,21 @@ docker compose -f docker-compose.app.yml up -d frontend
 
 ## 3. Port Assignments
 
-| Service | Dev Port | App Stack Port | Notes |
+> **Host ports tránh dải 8080–8089** (trùng dự án khác, chốt 2026-10-26): host dùng dải **818x**;
+> port **nội bộ Docker (identity:8080, gateway:8080, attendance:8080, keycloak:8080,
+> schema-registry:8081) giữ nguyên** — trong mạng container không trùng với host.
+
+| Service | Dev Port (host) | App Stack Port (host) | Notes |
 |---|---|---|---|
-| identity | 8080 | 8080 | Dev conflict khi app stack chạy |
-| gateway | 8085 | 8080 | App stack map container 8080 → host |
-| attendance | 8086 | 8080 | |
+| identity | 8183 | 8080 (nội bộ) | Dev chạy `SERVER_PORT=8183`, VS Code forwardPorts 8183 |
+| gateway | 8185 | **8180** | App stack map container 8080 → host 8180; dev `SERVER_PORT=8185` |
+| attendance | 8186 | 8080 (nội bộ) | Dev `SERVER_PORT=8186`; app stack không publish host |
 | frontend | 5173 | 3000 | Vite dev vs nginx |
-| keycloak | 8081 | — | Host |
+| keycloak | **8181** | — | Host + issuer `KC_HOSTNAME=http://localhost:8181` |
+| schema-registry | 8182 | — | Host (container nội bộ 8081) |
 | kafka | 9092 (host) / 29092 (in-network) | — | |
 
-**Lưu ý:** Khi app stack (`docker-compose.app.yml`) đang chạy → `localhost:8080` là app gateway, không phải identity dev.
+**Lưu ý:** Khi app stack (`docker-compose.app.yml`) đang chạy → `localhost:8180` là app gateway (dev identity vẫn 8183 — không còn chồng nhau như cũ).
 
 ---
 
@@ -746,7 +751,7 @@ class EmployeeControllerTest {
 # scripts/verify-*.sh
 set -u
 
-API=http://localhost:8080
+API=http://localhost:8183
 KC=http://keycloak:8080/realms/hrms
 
 token() { curl -s -X POST "$KC/protocol/openid-connect/token" \
@@ -789,14 +794,14 @@ FIX: Thêm package vào org.apache.avro.SERIALIZABLE_PACKAGES=com.hrms trong roo
 
 ```
 Khi docker-compose.app.yml đang chạy:
-- localhost:8080 = app gateway (KHÔNG phải identity dev)
-- TỪ TRONG dev container: localhost:8080 KHÔNG trỏ app gateway
-  (không host-network) → smoke scripts (mặc định localhost:8080/8085)
+- localhost:8180 = app gateway (KHÔNG phải identity dev)
+- TỪ TRONG dev container: localhost:8180 KHÔNG trỏ app gateway
+  (không host-network) → smoke scripts (mặc định localhost:8183/8185/8186)
   PHẢI override: API=http://gateway:8080
   (verify-attendance: ATT_URL=http://attendance:8080 GW_URL=http://gateway:8080;
    verify-gateway-routes: GW=http://gateway:8080)
 - identity dev chỉ truy cập từ trong dev container:
-  docker exec hrms-dev curl http://localhost:8080/swagger-ui/index.html
+  docker exec hrms-dev curl http://localhost:8183/swagger-ui/index.html
 ```
 
 ### 7.3 CORS
@@ -811,8 +816,8 @@ Gateway CORS cần allow origin FE:
 ### 7.4 Keycloak Issuer
 
 ```
-Token luôn có iss=http://localhost:8081/realms/hrms
-Dù request qua localhost:8081 (host) hay keycloak:8080 (in-network).
+Token luôn có iss=http://localhost:8181/realms/hrms
+Dù request qua localhost:8181 (host) hay keycloak:8080 (in-network).
 Service tự build JwtDecoder với issuer cố định (hrms.keycloak.issuer).
 ```
 
@@ -836,7 +841,7 @@ Append-only: KHÔNG sửa migration đã chạy → tạo V<n+1> mới.
 LỖI: upload tài liệu -> 500 "Không ghi được file: /data"
 NGUYÊN NHÂN: java -jar chạy với cwd=/ (docker exec default) → DOCS_DIR data/documents
              resolve thành /data/documents (không tồn tại/permission)
-FIX: docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+FIX: docker exec -d hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && SERVER_PORT=8183 java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
 ```
 
 ### 7.8 Dev jar thiếu env + CRLF/EOL

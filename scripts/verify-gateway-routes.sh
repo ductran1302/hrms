@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Kiểm tra route gateway cho các API identity mới.
-# Default: dev gateway (8085). Override: GW=http://gateway:8080 (app stack) ./verify-gateway-routes.sh
+# Default: dev gateway (8185). Override: GW=http://gateway:8080 (app stack) ./verify-gateway-routes.sh
 set -u
-GW=${GW:-http://localhost:8085}
+GW=${GW:-http://localhost:8185}
 KC=http://keycloak:8080/realms/hrms
 TOK=$(curl -s -X POST "$KC/protocol/openid-connect/token" \
   -d 'client_id=hrms-spa&grant_type=password&username=hr&password=hr@123&scope=openid' \

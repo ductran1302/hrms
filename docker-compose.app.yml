@@ -43,7 +43,8 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-600}
     ports:
-      - "8080:8080"
+      # Host 8180 (tránh trùng 8080-8089 với dự án khác) → container 8080 (nội bộ giữ nguyên)
+      - "8180:8080"
     depends_on:
       - identity
       - attendance

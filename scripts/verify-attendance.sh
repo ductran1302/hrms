@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Smoke test attendance-service (dev): RBAC, projection, DLQ.
-# Chạy trong container hrms-dev. Prereq: attendance jar đang chạy ở SERVER_PORT=8086.
+# Chạy trong container hrms-dev. Prereq: attendance jar đang chạy ở SERVER_PORT=8186.
 set -u
-ATT="${ATT_URL:-http://localhost:8086}"
-GW="${GW_URL:-http://localhost:8085}"
+ATT="${ATT_URL:-http://localhost:8186}"
+GW="${GW_URL:-http://localhost:8185}"
 KC_TOKEN="${KC_TOKEN_URL:-http://keycloak:8080/realms/hrms/protocol/openid-connect/token}"
 
 token() { # $1=username $2=password

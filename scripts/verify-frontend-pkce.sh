@@ -3,7 +3,7 @@
 set -u
 KC="http://keycloak:8080/realms/hrms"
 FE_ORIGIN="${FE_ORIGIN:-http://localhost:5173/}"
-GATEWAY="${GATEWAY:-http://localhost:8085}"
+GATEWAY="${GATEWAY:-http://localhost:8185}"
 REDIR_ENC=$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$FE_ORIGIN")
 REDIR="$FE_ORIGIN"
 JAR=/tmp/pkce-cookies.txt
@@ -23,8 +23,8 @@ echo "authorize: $code (expect 200, login form)"
 
 ACTION=$(grep -o 'action="[^"]*"' /tmp/kc-login.html | head -1 | cut -d'"' -f2 | sed 's/&amp;/\&/g')
 [ -n "$ACTION" ] || { echo "FAIL tim form action"; exit 1; }
-# form action là URL public (localhost:8081) — trong container phải gọi keycloak:8080
-ACTION=${ACTION/http:\/\/localhost:8081/http:\/\/keycloak:8080}
+# form action là URL public (localhost:8181) — trong container phải gọi keycloak:8080
+ACTION=${ACTION/http:\/\/localhost:8181/http:\/\/keycloak:8080}
 
 # 2. submit username/password → 302 về redirect_uri?code=...
 redirect=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{redirect_url}' \

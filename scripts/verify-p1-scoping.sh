@@ -17,7 +17,7 @@
 #   docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-p1-scoping.sh
 set -u
 
-API=${API:-http://localhost:8080}
+API=${API:-http://localhost:8183}
 KC=${KC:-http://keycloak:8080/realms/hrms}
 KC_BASE=${KC_BASE:-http://keycloak:8080}
 PASS=0

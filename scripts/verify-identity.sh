@@ -4,7 +4,7 @@
 # Idempotent: dùng mã ngẫu nhiên mỗi lần chạy. Chạy trong hrms-dev:
 #   docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
 # API/KC override được qua env (mặc định giữ nguyên như cũ).
-API=${API:-http://localhost:8080}
+API=${API:-http://localhost:8183}
 KC=${KC:-http://keycloak:8080/realms/hrms}
 PASS=0
 FAIL=0
@@ -408,7 +408,7 @@ R=$(req GET "$LE_TOK" "/api/v1/holidays/my?year=2026")
 check "GET my-holidays (NV gan lich)" 200 "$(code_of "$R")"
 check_has "my-holidays dung lich da gan" "$(has "$R" "$HOL_NAME")" yes
 # g. attendance projection nhan event holiday.changed (outbox poll ~1-2s)
-# NOTE: verify chay trong hrms-dev — localhost:8080 la dev identity (khong qua gateway);
+# NOTE: verify chạy trong hrms-dev — localhost:8183 là dev identity (không qua gateway);
 # goi attendance service truc tiep qua DNS container.
 ATT=http://attendance:8080
 sleep 3

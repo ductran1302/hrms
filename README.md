@@ -76,10 +76,10 @@ Mở:
 |---|---|---|
 | Kafka UI | http://localhost:8090 | — |
 | Zipkin | http://localhost:9411 | — |
-| Schema Registry | http://localhost:8082/subjects | — |
-| Keycloak (realm hrms) | http://localhost:8081/realms/hrms | issuer + discovery |
+| Schema Registry | http://localhost:8182/subjects | — |
+| Keycloak (realm hrms) | http://localhost:8181/realms/hrms | issuer + discovery |
 | Frontend (Vite dev) | http://localhost:5173 | cần `npm run dev` trong container |
-| Swagger UI | http://localhost:8080/swagger-ui.html | identity (:8080), attendance (:8086) |
+| Swagger UI | http://localhost:8183/swagger-ui.html | identity (:8183), attendance (:8186) |
 
 > **Về Keycloak Admin Console:** chưa cần cho giai đoạn này. Toàn bộ cấu hình realm
 > (client, roles, users) nằm trong `keycloak/realm-hrms.json` và được import tự động.
@@ -110,7 +110,7 @@ OAuth client:
 
 ```powershell
 $body = 'client_id=hrms-spa&grant_type=password&username=hr&password=hr@123&scope=openid profile email'
-$t = Invoke-RestMethod -Uri 'http://localhost:8081/realms/hrms/protocol/openid-connect/token' `
+$t = Invoke-RestMethod -Uri 'http://localhost:8181/realms/hrms/protocol/openid-connect/token' `
        -Method Post -ContentType 'application/x-www-form-urlencoded' -Body $body
 $t.access_token
 ```
@@ -121,12 +121,12 @@ $t.access_token
 |---|---|---|
 | `hrms-postgres` | 5432 | 4 DB: `identity_db`, `attendance_db`, `payroll_db`, `notification_db` |
 | `hrms-kafka` | 9092 (host) / 29092 (in-network) | KRaft, 1 node |
-| `hrms-schema-registry` | 8082 | Avro schema registry |
-| `hrms-keycloak` | 8081 | OIDC / JWT issuer |
+| `hrms-schema-registry` | 8182 | Avro schema registry |
+| `hrms-keycloak` | 8181 | OIDC / JWT issuer |
 | `hrms-zipkin` | 9411 | Distributed tracing |
 | `hrms-kafka-ui` | 8090 | Kafka admin UI |
 
-> **Quy ước kết nối:** service chạy trong network compose dùng hostname `kafka:29092`, `postgres:5432`, `keycloak:8080`. Host dùng `localhost` + port ở trên. **Schema Registry luôn trỏ `localhost:8082`** (dùng làm cả advertised, tránh lỗi container không phân biệt được host/container).
+> **Quy ước kết nối:** service chạy trong network compose dùng hostname `kafka:29092`, `postgres:5432`, `keycloak:8080`. Host dùng `localhost` + port ở trên. **Schema Registry luôn trỏ `localhost:8182`** (dùng làm cả advertised, tránh lỗi container không phân biệt được host/container).
 
 ## Lệnh thường dùng
 
@@ -218,10 +218,10 @@ mvn -f pom.xml clean verify -Pit
 # build (chạy trong dev container)
 docker exec hrms-dev mvn -f /workspaces/HRMS/pom.xml clean install -DskipTests
 
-# chạy nền + xem log (port 8080 trong dev container, không publish ra host)
+# chạy nền + xem log (port 8183 trong dev container — host qua VS Code forwardPorts)
 # - cd /workspaces/HRMS: DOCS_DIR data/documents resolve đúng (xem AGENTS §7.7)
 # - nạp .env: container hrms-dev cũ không env_file — thiếu DB_PASSWORD/HRMS_IDENTITY_CLIENT_SECRET → start fail (AGENTS §7.8)
-docker exec -d hrms-dev bash -lc "cd /workspaces/HRMS && set -a && . ./.env && set +a && java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
+docker exec -d hrms-dev bash -lc "cd /workspaces/HRMS && set -a && . ./.env && set +a && SERVER_PORT=8183 java -jar identity-service/target/identity-service-0.1.0-SNAPSHOT.jar > /tmp/identity.log 2>&1"
 docker exec hrms-dev tail -f /tmp/identity.log
 
 # smoke test: 401/403/201/409/422 + outbox → Kafka (cần hạ tầng đang chạy)
@@ -235,26 +235,26 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
 | `/api/v1/employees/{id}` | PATCH | `HR_ADMIN` |
 | `/api/v1/employees/{id}` | DELETE (nghỉ việc, soft) | `HR_ADMIN` |
 
-> **Keycloak issuer:** compose đặt `KC_HOSTNAME=http://localhost:8081` → token luôn có
-> `iss=http://localhost:8081/realms/hrms` dù request qua `localhost:8081` (host) hay
+> **Keycloak issuer:** compose đặt `KC_HOSTNAME=http://localhost:8181` → token luôn có
+> `iss=http://localhost:8181/realms/hrms` dù request qua `localhost:8181` (host) hay
 > `keycloak:8080` (in-network). Service tự build `JwtDecoder`: JWKS lấy in-network,
 > validate `iss` theo giá trị cố định (`hrms.keycloak.issuer`).
 
 ### Chạy gateway-service (dev)
 
 Gateway **không phụ thuộc `hrms-common`** (WebFlux) — tự khai báo JWT decoder, CORS,
-correlation filter riêng. Trong dev container chạy `SERVER_PORT=8085` (8080 đã cho
-identity); compose app (Bước 8) sẽ map container 8080 → host 8080.
+correlation filter riêng. Trong dev container chạy `SERVER_PORT=8185` (8183 đã cho
+identity); compose app (Bước 8) sẽ map container 8080 → host 8180.
 
 ```powershell
-docker exec -d hrms-dev bash -lc "SERVER_PORT=8085 java -jar /workspaces/HRMS/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar > /tmp/gateway.log 2>&1"
+docker exec -d hrms-dev bash -lc "SERVER_PORT=8185 java -jar /workspaces/HRMS/gateway-service/target/gateway-service-0.1.0-SNAPSHOT.jar > /tmp/gateway.log 2>&1"
 docker exec hrms-dev tail -f /tmp/gateway.log
 ```
 
 | Route | Predicate | Upstream |
 |---|---|---|
-| `identity-employees` | `Path=/api/v1/employees/**` | `IDENTITY_URI` (mặc định `http://localhost:8080`) |
-| `attendance-employees` | `Path=/api/v1/attendance/**` | `ATTENDANCE_URI` (mặc định `http://localhost:8086`) |
+| `identity-employees` | `Path=/api/v1/employees/**` | `IDENTITY_URI` (mặc định `http://localhost:8183`) |
+| `attendance-employees` | `Path=/api/v1/attendance/**` | `ATTENDANCE_URI` (mặc định `http://localhost:8186`) |
 
 - **JWT** validate tại gateway (JWKS + issuer) rồi **forward `Authorization`** xuống
   service — identity re-validate và enforce role (403 tại service, không phải gateway).
@@ -275,7 +275,7 @@ nhân sự được giữ) và ghi projection vào `attendance_db`. Idempotent t
 
 ```powershell
 # nạp .env: attendance cũng dùng ${DB_PASSWORD:?} fail-fast (xem AGENTS §7.8)
-docker exec -d hrms-dev bash -lc "set -a && . /workspaces/HRMS/.env && set +a && SERVER_PORT=8086 java -jar /workspaces/HRMS/attendance-service/target/attendance-service-0.1.0-SNAPSHOT.jar > /tmp/attendance.log 2>&1"
+docker exec -d hrms-dev bash -lc "set -a && . /workspaces/HRMS/.env && set +a && SERVER_PORT=8186 java -jar /workspaces/HRMS/attendance-service/target/attendance-service-0.1.0-SNAPSHOT.jar > /tmp/attendance.log 2>&1"
 docker exec hrms-dev tail -f /tmp/attendance.log
 
 # smoke test: RBAC 401/200/403 + E2E tạo nhân viên qua gateway → projection (cần hạ tầng + identity + gateway đang chạy)
@@ -309,8 +309,8 @@ Mỗi service tự phục vụ Swagger UI (per-service, không aggregate qua gat
 
 | Service | Swagger UI | OpenAPI JSON |
 |---|---|---|
-| identity (8080) | http://localhost:8080/swagger-ui.html | http://localhost:8080/v3/api-docs |
-| attendance (8086) | http://localhost:8086/swagger-ui.html | http://localhost:8086/v3/api-docs |
+| identity (8183) | http://localhost:8183/swagger-ui.html | http://localhost:8183/v3/api-docs |
+| attendance (8186) | http://localhost:8186/swagger-ui.html | http://localhost:8186/v3/api-docs |
 
 Cách dùng: mở Swagger UI → bấm **Authorize** → dán `access_token` lấy theo mục
 "Lấy token" ở trên (scheme `bearerAuth`, JWT) → **Try it out**.
@@ -328,7 +328,7 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-swagger.sh
 
 React 18 + Vite + TypeScript, UI **AntD v5 + ProComponents**, đăng nhập qua Keycloak
 (client `hrms-spa`, PKCE S256, `onLoad: login-required` → tự redirect tới trang login).
-API gọi thẳng gateway `http://localhost:8085` (CORS allow origin `http://localhost:5173`
+API gọi thẳng gateway `http://localhost:8185` (CORS allow origin `http://localhost:5173`
 và `http://localhost:3000` — browser gửi `Origin` cho mọi POST/PUT/PATCH/DELETE nên thiếu
 origin sẽ bị CORS reject 403 ngay cả khi request same-origin qua proxy).
 
@@ -365,7 +365,7 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-frontend-pkce.sh
 
 > **Port:** `.devcontainer/docker-compose.dev.yml` publish `5173:5173` (VS Code `forwardPorts`
 > cũng có sẵn). Đổi port thì sửa thêm `redirectUris`/`webOrigins` trong `keycloak/realm-hrms.json`.
-> Env override: `VITE_KEYCLOAK_URL`, `VITE_API_BASE` (mặc định `http://localhost:8081`, `http://localhost:8085`).
+> Env override: `VITE_KEYCLOAK_URL`, `VITE_API_BASE` (mặc định `http://localhost:8181`, `http://localhost:8185`).
 
 ### Tracing (Zipkin)
 
@@ -396,7 +396,7 @@ docker compose -f docker-compose.app.yml up -d --build
 
 | Endpoint | URL | Ghi chú |
 |---|---|---|
-| App gateway | http://localhost:8080 | route identity + attendance |
+| App gateway | http://localhost:8180 | route identity + attendance |
 | App frontend | http://localhost:3000 | nginx same-origin proxy → gateway |
 
 Flow: browser → nginx (:3000, serve SPA + `/api/**` proxy → gateway) → gateway →
@@ -410,10 +410,10 @@ docker compose -f docker-compose.app.yml down            # dừng app stack (gi�
 docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổi code
 ```
 
-> **Xung đột port 8080:** khi app stack chạy, `localhost:8080` là **app gateway** —
-> Swagger UI dev (identity :8080) chỉ truy cập từ trong dev container
-> (`docker exec hrms-dev curl http://localhost:8080/swagger-ui/index.html`).
-> Dừng app stack để dùng lại Swagger dev qua host.
+> **Port host (tránh 8080–8089):** app gateway = `localhost:8180`; Keycloak = `localhost:8181`;
+> dev services = identity 8183 / gateway 8185 / attendance 8186 (VS Code forwardPorts).
+> Swagger UI dev truy cập từ host qua `localhost:8183`, hoặc từ trong dev container
+> (`docker exec hrms-dev curl http://localhost:8183/swagger-ui/index.html`).
 
 > **Keycloak admin:** realm `hrms` import tự động từ `keycloak/realm-hrms.json`
 > (không cần Admin Console). Muốn import lại: xóa volume keycloak rồi

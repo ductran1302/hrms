@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kiểm tra springdoc + Bearer Auth cho identity (8080) và attendance (8086).
+# Kiểm tra springdoc + Bearer Auth cho identity (8183) và attendance (8186).
 set -u
 fail=0
 
@@ -14,16 +14,16 @@ check() { # $1=tên $2=url $3=grep-pattern $4=file
   fi
 }
 
-check "identity api-docs"     http://localhost:8080/v3/api-docs bearerAuth /tmp/api-id.json
-check "attendance api-docs"   http://localhost:8086/v3/api-docs bearerAuth /tmp/api-att.json
-check "identity Title"        http://localhost:8080/v3/api-docs "Identity API" /tmp/api-id.json
-check "attendance Title"      http://localhost:8086/v3/api-docs "Attendance API" /tmp/api-att.json
-check "attendance summary"    http://localhost:8086/v3/api-docs "/api/v1/attendance/employees" /tmp/api-att.json
-check "attendance bearer def" http://localhost:8086/v3/api-docs '"bearerAuth":{"type":"http","scheme":"bearer","bearerFormat":"JWT"}' /tmp/api-att.json
-check "attendance op security" http://localhost:8086/v3/api-docs '"security":[{"bearerAuth"' /tmp/api-att.json
-check "identity op security"  http://localhost:8080/v3/api-docs '"security":[{"bearerAuth"' /tmp/api-id.json
+check "identity api-docs"     http://localhost:8183/v3/api-docs bearerAuth /tmp/api-id.json
+check "attendance api-docs"   http://localhost:8186/v3/api-docs bearerAuth /tmp/api-att.json
+check "identity Title"        http://localhost:8183/v3/api-docs "Identity API" /tmp/api-id.json
+check "attendance Title"      http://localhost:8186/v3/api-docs "Attendance API" /tmp/api-att.json
+check "attendance summary"    http://localhost:8186/v3/api-docs "/api/v1/attendance/employees" /tmp/api-att.json
+check "attendance bearer def" http://localhost:8186/v3/api-docs '"bearerAuth":{"type":"http","scheme":"bearer","bearerFormat":"JWT"}' /tmp/api-att.json
+check "attendance op security" http://localhost:8186/v3/api-docs '"security":[{"bearerAuth"' /tmp/api-att.json
+check "identity op security"  http://localhost:8183/v3/api-docs '"security":[{"bearerAuth"' /tmp/api-id.json
 
-for svc in "identity:8080" "attendance:8086"; do
+for svc in "identity:8183" "attendance:8186"; do
   name=${svc%%:*}; port=${svc##*:}
   loc=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://localhost:$port/swagger-ui.html")
   echo "swagger-ui $name ($port): $loc"

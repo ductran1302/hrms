@@ -2,7 +2,7 @@
 # Verify seed phòng IT + idempotent (restart không nhân đôi).
 # API/KC override được qua env (mặc định giữ nguyên như cũ).
 set -u
-API=${API:-http://localhost:8080}
+API=${API:-http://localhost:8183}
 KC=${KC:-http://keycloak:8080/realms/hrms}
 TOK=$(curl -s -X POST "$KC/protocol/openid-connect/token" \
   -d 'client_id=hrms-spa&grant_type=password&username=hr&password=hr@123&scope=openid' \

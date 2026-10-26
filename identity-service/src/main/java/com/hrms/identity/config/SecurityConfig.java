@@ -28,7 +28,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
  * Resource server: validate JWT Keycloak (JWKS in-network), map role realm sang ROLE_xxx.
  *
  * <p>Không dùng {@code issuer-uri} của Boot vì discovery lấy theo request-host sẽ ra
- * {@code keycloak:8080} trong khi token issuer là {@code localhost:8081} — tự build decoder:
+ * {@code keycloak:8080} trong khi token issuer là {@code localhost:8181} — tự build decoder:
  * fetch JWKS qua {@code keycloak:8080} (mạng compose), validate {@code iss} theo giá trị cố định.
  */
 @Configuration

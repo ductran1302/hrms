@@ -32,8 +32,8 @@ spring:
 
 hrms:
   keycloak:
-    # Issuer cố định trong token (Keycloak cấu hình KC_HOSTNAME=http://localhost:8081)
-    issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
+    # Issuer cố định trong token (Keycloak cấu hình KC_HOSTNAME=http://localhost:8181)
+    issuer: ${ISSUER_URI:http://localhost:8181/realms/hrms}
     # Audience bắt buộc trong claim "aud" của token — phải khớp audience mapper
     # "hrms-api" gắn trên client hrms-spa (keycloak/realm-hrms.json)
     audience: ${JWT_AUDIENCE:hrms-api}

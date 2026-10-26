@@ -3,7 +3,7 @@
 # (2) dong voi login/nghi viec -> disable user. Chay trong hrms-dev:
 #   docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-new-features.sh
 # API/KC override được qua env (mặc định giữ nguyên như cũ).
-API=${API:-http://localhost:8080}
+API=${API:-http://localhost:8183}
 KC=${KC:-http://keycloak:8080/realms/hrms}
 KC_BASE=${KC_BASE:-http://keycloak:8080}
 PASS=0

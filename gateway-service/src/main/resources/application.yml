@@ -13,25 +13,28 @@ spring:
     gateway:
       routes:
         - id: identity-employees
-          uri: ${IDENTITY_URI:http://localhost:8080}
+          # Default = dev (identity jar trong hrms-dev, SERVER_PORT=8183);
+          # app stack override qua env IDENTITY_URI=http://identity:8080
+          uri: ${IDENTITY_URI:http://localhost:8183}
           predicates:
             - Path=/api/v1/employees/**
         - id: attendance-employees
-          uri: ${ATTENDANCE_URI:http://localhost:8086}
+          # Default = dev (attendance jar, SERVER_PORT=8186); app stack override qua env
+          uri: ${ATTENDANCE_URI:http://localhost:8186}
           predicates:
             - Path=/api/v1/attendance/**
         # Các API identity còn lại (departments/contracts/history/org-chart/...) —
         # phải đặt SAU route attendance để /api/v1/attendance/** không rơi vào đây.
         - id: identity-api
-          uri: ${IDENTITY_URI:http://localhost:8080}
+          uri: ${IDENTITY_URI:http://localhost:8183}
           predicates:
             - Path=/api/v1/**
       # CORS khai báo trong SecurityConfig (Security filter chain chạy trước gateway)
 
 hrms:
   keycloak:
-    # Phải khớp issuer trong token (Keycloak KC_HOSTNAME=http://localhost:8081)
-    issuer: ${ISSUER_URI:http://localhost:8081/realms/hrms}
+    # Phải khớp issuer trong token (Keycloak KC_HOSTNAME=http://localhost:8181)
+    issuer: ${ISSUER_URI:http://localhost:8181/realms/hrms}
     # Audience bắt buộc trong claim "aud" của token — phải khớp audience mapper
     # "hrms-api" gắn trên client hrms-spa (keycloak/realm-hrms.json)
     audience: ${JWT_AUDIENCE:hrms-api}

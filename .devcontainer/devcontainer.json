@@ -26,9 +26,11 @@
       }
     }
   },
-  "forwardPorts": [8080, 5173, 4173],
+  "forwardPorts": [8183, 8185, 8186, 5173, 4173],
   "portsAttributes": {
-    "8080": { "label": "gateway-service", "onAutoForward": "notify" },
+    "8183": { "label": "identity-service (dev)", "onAutoForward": "notify" },
+    "8185": { "label": "gateway-service (dev)", "onAutoForward": "notify" },
+    "8186": { "label": "attendance-service (dev)", "onAutoForward": "notify" },
     "5173": { "label": "frontend (vite dev)", "onAutoForward": "notify" },
     "4173": { "label": "frontend (vite preview)", "onAutoForward": "silent" }
   },

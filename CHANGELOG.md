@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## [Cấu hình — chuyển host port ra khỏi dải 8080–8089] 2026-10-26
+
+Host port của HRMS trùng với dự án khác trên cùng máy → chuyển **toàn bộ host-facing port**
+sang dải **818x**; port **nội bộ Docker giữ nguyên** (không đổi network topology):
+
+| Vai trò | Cũ (host) | Mới (host) | Nội bộ Docker (giữ) |
+|---|---|---|---|
+| App gateway (`docker-compose.app.yml`) | 8080 | **8180** | gateway:8080 |
+| Keycloak (`KEYCLOAK_PORT`, issuer `KC_HOSTNAME`) | 8081 | **8181** | keycloak:8080 |
+| Schema Registry (`SCHEMA_REGISTRY_PORT` + advertised) | 8082 | **8182** | schema-registry:8081 |
+| Dev identity (jar `SERVER_PORT`, forwardPorts) | 8080 | **8183** | — |
+| Dev gateway (jar `SERVER_PORT`, FE `API_BASE`) | 8085 | **8185** | — |
+| Dev attendance (jar `SERVER_PORT`) | 8086 | **8186** | — |
+
+### Ảnh hưởng bắt buộc
+- **Issuer đổi theo**: token mới có `iss=http://localhost:8181/realms/hrms` → phải
+  rebuild 3 backend image (default `ISSUER_URI` trong application.yml) + FE
+  (`VITE_KEYCLOAK_URL` default) + `docker compose up -d keycloak` (KC_HOSTNAME mới);
+  token cũ (iss 8081) bị 401 — user đăng nhập lại.
+- `.env`/`.env.example`: `KEYCLOAK_PORT=8181`, `SCHEMA_REGISTRY_PORT=8182`.
+- Scripts smoke: default `API/ATT/GW` → localhost:8183/8186/8185; các URL in-network
+  (`keycloak:8080`, `http://gateway:8080` override...) giữ nguyên.
+- Gateway route default (dev): `IDENTITY_URI=http://localhost:8183`,
+  `ATTENDANCE_URI=http://localhost:8186` (app stack vẫn env override sang in-network).
+- `.devcontainer/devcontainer.json`: forwardPorts `[8183, 8185, 8186, 5173, 4173]`.
+- Dev identity jar đổi lệnh start: `SERVER_PORT=8183 java -jar identity-service/...`.
+- KHÔNG đổi: `server.port` default 8080 (app stack container), `EXPOSE`, nginx
+  `proxy_pass gateway:8080`, JWKS/admin `keycloak:8080`, kafka-ui 8090, Vite 5173.
+
 ## [Bảo mật — Rate limiting tại gateway] 2026-10-24
 
 Giai đoạn hardening (hướng 2) — hạng mục 3/6: **giới hạn tần suất gọi API** ở single entry

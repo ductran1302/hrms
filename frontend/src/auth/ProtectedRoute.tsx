@@ -26,7 +26,7 @@ export default function ProtectedRoute({ roles, children }: Props) {
         status="error"
         title={t('keycloakError')}
         subTitle={t('keycloakErrorDesc', {
-          url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8081',
+          url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8181',
         })}
         extra={
           <Button type="primary" onClick={auth.login}>

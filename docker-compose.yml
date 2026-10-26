@@ -56,12 +56,12 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "${SCHEMA_REGISTRY_PORT:-8082}:8081"
+      - "${SCHEMA_REGISTRY_PORT:-8182}:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-      SCHEMA_REGISTRY_ADVERTISED_LISTENERS: ${SCHEMA_REGISTRY_ADVERTISED:-http://localhost:8082}
+      SCHEMA_REGISTRY_ADVERTISED_LISTENERS: ${SCHEMA_REGISTRY_ADVERTISED:-http://localhost:8182}
       SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8081/subjects >/dev/null"]
@@ -75,7 +75,7 @@ services:
     restart: unless-stopped
     command: ["start-dev", "--import-realm", "--http-port=8080", "--health-enabled=true"]
     ports:
-      - "${KEYCLOAK_PORT:-8081}:8080"
+      - "${KEYCLOAK_PORT:-8181}:8080"
     environment:
       # KC 25 nhận KEYCLOAK_ADMIN (style cũ); style KC_BOOTSTRAP_ADMIN_* (từ v26) giữ kèm
       # Fail-fast: secret lấy từ .env, không còn default trong git
@@ -83,9 +83,10 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chưa được set — copy .env.example thành .env}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chưa được set — copy .env.example thành .env}
-      # Issuer cố định: token luôn có iss=http://localhost:8081/realms/hrms dù request qua
-      # localhost:8081 (host) hay keycloak:8080 (in-network) — service validate nhất quán
-      KC_HOSTNAME: http://localhost:8081
+      # Issuer cố định: token luôn có iss=http://localhost:8181/realms/hrms dù request qua
+      # localhost:8181 (host) hay keycloak:8080 (in-network) — service validate nhất quán
+      # (host 8181 tránh trùng dải 8080-8089; port nội bộ keycloak:8080 giữ nguyên)
+      KC_HOSTNAME: http://localhost:8181
       KC_LOG_LEVEL: info
     volumes:
       - ./keycloak/realm-hrms.json:/opt/keycloak/data/import/realm-hrms.json:ro
