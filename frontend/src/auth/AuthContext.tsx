@@ -6,6 +6,7 @@ interface AuthContextValue {
   initFailed: boolean;
   authenticated: boolean;
   username: string;
+  fullName: string;
   roles: string[];
   hasRole: (...roles: string[]) => boolean;
   login: () => void;
@@ -19,6 +20,7 @@ interface InitState {
   initFailed: boolean;
   authenticated: boolean;
   username: string;
+  fullName: string;
   roles: string[];
 }
 
@@ -27,6 +29,7 @@ const initial: InitState = {
   initFailed: false,
   authenticated: false,
   username: '',
+  fullName: '',
   roles: [],
 };
 
@@ -37,12 +40,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     keycloak
       .init({ onLoad: 'login-required', pkceMethod: 'S256' })
       .then(() => {
+        const parsed = keycloak.tokenParsed as {
+          preferred_username?: string;
+          name?: string;
+          given_name?: string;
+          family_name?: string;
+          realm_access?: { roles?: string[] };
+        } | undefined;
+
+        // Lấy họ tên từ claim 'name' (ưu tiên), sau đó ghép given_name + family_name
+        const fullNameFromToken =
+          parsed?.name ??
+          [parsed?.given_name, parsed?.family_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ?? '';
+
         setState({
           initialized: true,
           initFailed: false,
           authenticated: keycloak.authenticated === true,
-          username: keycloak.tokenParsed?.preferred_username ?? '',
-          roles: (keycloak.tokenParsed?.realm_access as { roles?: string[] } | undefined)?.roles ?? [],
+          username: parsed?.preferred_username ?? '',
+          fullName: fullNameFromToken,
+          roles: (parsed?.realm_access as { roles?: string[] } | undefined)?.roles ?? [],
         });
         // Không refresh theo interval (P1): 2 luồng refresh đồng thời (interval +
         // axios interceptor) có thể đua nhau gây refresh token lỗi. Chỉ refresh

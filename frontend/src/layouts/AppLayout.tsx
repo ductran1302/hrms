@@ -227,7 +227,7 @@ export default function AppLayout() {
               <span className="hr-user">
                 <Avatar size={36} icon={<UserOutlined />} className="hr-user-avatar" />
                 <span className="hr-user-meta">
-                  <span className="hr-user-name">{auth.username}</span>
+                  <span className="hr-user-name">{auth.fullName || auth.username}</span>
                   <span className="hr-user-role">{roleLabel}</span>
                 </span>
                 <DownOutlined className="hr-user-arrow" />
