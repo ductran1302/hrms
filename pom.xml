@@ -202,6 +202,35 @@
         </plugins>
       </build>
     </profile>
+    <!--
+      Quét lỗ hổng dependency (OWASP dependency-check): mvn verify -Psecurity-scan
+      Tách khỏi CI mặc định vì cần tải NVD (chậm, có thể bị rate-limit). Có thể đặt
+      NVD_API_KEY (env) để tăng hạn mức; failBuildOnCVSS=9 = chỉ chặn mức critical.
+    -->
+    <profile>
+      <id>security-scan</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.owasp</groupId>
+            <artifactId>dependency-check-maven</artifactId>
+            <version>10.0.4</version>
+            <configuration>
+              <failBuildOnCVSS>9</failBuildOnCVSS>
+              <skipProvidedScope>true</skipProvidedScope>
+              <skipTestScope>true</skipTestScope>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <repositories>

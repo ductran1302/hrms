@@ -1,0 +1,22 @@
+name: dependency-review
+
+# Chặn PR đưa vào dependency có lỗ hổng mức high/critical (so với base branch).
+# Push thẳng lên master dùng Dependabot + audit thủ công (mvn verify -Psecurity-scan).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

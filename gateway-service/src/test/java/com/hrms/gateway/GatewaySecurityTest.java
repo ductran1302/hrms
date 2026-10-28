@@ -70,6 +70,18 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void securityHeadersArePresentOnEveryResponse() {
+        client.get().uri("/api/v1/employees")
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.UNAUTHORIZED)
+                .expectHeader().valueEquals("X-Content-Type-Options", "nosniff")
+                .expectHeader().valueEquals("X-Frame-Options", "DENY")
+                .expectHeader().valueEquals("Referrer-Policy", "strict-origin-when-cross-origin")
+                .expectHeader().valueEquals("Permissions-Policy",
+                        "camera=(), microphone=(), geolocation=()");
+    }
+
+    @Test
     void correlationIdIsGeneratedAndEchoedOnEveryResponse() {
         client.get().uri("/api/v1/employees")
                 .exchange()

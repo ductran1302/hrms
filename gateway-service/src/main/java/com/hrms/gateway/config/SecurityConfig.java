@@ -57,13 +57,15 @@ public class SecurityConfig {
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                         .jwtAuthenticationConverter(reactiveConverter())))
-                // Security headers (không bật CSP ở đây — gateway trả JSON;
-                // CSP cho SPA nằm ở nginx infra/nginx/frontend.conf)
+                // Security headers (không bật CSP/HSTS ở đây — gateway trả JSON nội bộ,
+                // CSP + HSTS cho SPA/edge nằm ở nginx infra/nginx/frontend.conf khi có TLS)
                 .headers(headers -> headers
                         .contentTypeOptions(Customizer.withDefaults())
                         .frameOptions(frame -> frame.mode(XFrameOptionsServerHttpHeadersWriter.Mode.DENY))
                         .referrerPolicy(referrer -> referrer.policy(
-                                ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)));
+                                ReferrerPolicyServerHttpHeadersWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                        .permissionsPolicy(policy -> policy.policy(
+                                "camera=(), microphone=(), geolocation=()")));
         return http.build();
     }
 

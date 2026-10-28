@@ -585,6 +585,24 @@ rollback / giữ connection khi KC chậm):
   và `@EnableJpaRepositories` (không scan toàn `com.hrms` — tránh validate `outbox_events`).
 - Chưa có API đọc audit (chỉ ghi + log `AUDIT action=...`); muốn tra DB trực tiếp bằng psql.
 
+### 4.20 Security Headers & Dependency Scan
+
+- **SPA (edge)**: `infra/nginx/frontend.conf` gắn `X-Content-Type-Options`, `X-Frame-Options:
+  DENY`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (CSP: `script-src
+  'self'`, `frame-ancestors 'none'`; `connect-src`/`frame-src` mở đúng origin Keycloak — khi
+  deploy domain thật PHẢI sửa CSP). HSTS chỉ bật ở edge khi có TLS (hiện dev HTTP nên không bật).
+- **Gateway**: `SecurityConfig` (WebFlux) bật `contentTypeOptions` + `frameOptions DENY` +
+  `referrerPolicy strict-origin-when-cross-origin` + `permissionsPolicy`; **không** CSP (gateway
+  trả JSON nội bộ) và **không** HSTS (TLS do edge/reverse proxy).
+- **Dependency scan**:
+  - CI PR: `.github/workflows/dependency-review.yml` (`actions/dependency-review-action@v4`,
+    `fail-on-severity: high`) — chặn PR thêm dependency có lỗ hổng high/critical.
+  - Cập nhật định kỳ: `.github/dependabot.yml` (maven, npm/frontend, docker các service,
+    github-actions; nhóm minor/patch).
+  - Quét thủ công/local: `mvn verify -Psecurity-scan` (OWASP `dependency-check-maven` 10.0.4,
+    `failBuildOnCVSS=9`, bỏ test/provided scope). Cần tải NVD → không chạy trong CI mặc định;
+    đặt `NVD_API_KEY` để tăng hạn mức tải.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -960,6 +978,8 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Rate limit (gateway) | `gateway-service/src/main/java/com/hrms/gateway/ratelimit/` |
 | Audit logging | `hrms-common/src/main/java/com/hrms/common/audit/` (`AuditService`) |
 | Audit migrations | identity `V12__audit_log.sql`, attendance `V17__audit_log.sql` |
+| Security headers (SPA) | `infra/nginx/frontend.conf` |
+| Dependency scan | `.github/workflows/dependency-review.yml`, `.github/dependabot.yml`, profile `security-scan` (root `pom.xml`) |
 | Smoke tests | `scripts/verify-*.sh` |
 
 ---

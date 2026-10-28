@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [Bảo mật — Security headers + Dependency scan] 2026-10-27
+
+Giai đoạn hardening (hướng 2) — hạng mục 5/6: **siết header bảo mật + quét lỗ hổng dependency**
+theo định kỳ/PR.
+
+### Nội dung thay đổi
+- Gateway `SecurityConfig`: thêm `Permissions-Policy` (`camera=(), microphone=(), geolocation=()`)
+  bên cạnh `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` đã có. Gateway
+  vẫn KHÔNG bật CSP (trả JSON nội bộ) và KHÔNG bật HSTS (TLS do edge/reverse proxy).
+- `GatewaySecurityTest.securityHeadersArePresentOnEveryResponse` khoá hành vi header trên
+  response 401 (mọi response đều có header).
+- SPA edge (`infra/nginx/frontend.conf`) đã có đủ headers + CSP từ trước — giữ nguyên, ghi
+  chú deploy domain thật phải đổi CSP/`connect-src`/`frame-src` và bật HSTS khi có TLS.
+- `.github/workflows/dependency-review.yml`: chặn PR thêm dependency có lỗ hổng
+  `high`/`critical` (`actions/dependency-review-action@v4`, `fail-on-severity: high`).
+- `.github/dependabot.yml`: cập nhật weekly cho maven, npm (`/frontend`), docker
+  (các service + compose) và github-actions; nhóm minor/patch để giảm nhiễu PR.
+- Root `pom.xml`: profile `security-scan` chạy OWASP `dependency-check-maven` 10.0.4
+  (`failBuildOnCVSS=9`, bỏ test/provided) — thủ công/local: `mvn verify -Psecurity-scan`
+  (cần tải NVD; đặt `NVD_API_KEY` để tăng hạn mức), không chạy trong CI mặc định.
+
 ## [Bảo mật — Audit logging] 2026-10-27
 
 Giai đoạn hardening (hướng 2) — hạng mục 4/6: **audit log cho thao tác nhạy cảm** (ai làm gì,
