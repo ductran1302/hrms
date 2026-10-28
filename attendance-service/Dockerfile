@@ -3,7 +3,7 @@ WORKDIR /src
 COPY . .
 RUN mvn -B -pl attendance-service -am clean package -DskipTests
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:22-jre-jammy
 WORKDIR /app
 COPY --from=build /src/attendance-service/target/attendance-service-*.jar app.jar
 EXPOSE 8080
