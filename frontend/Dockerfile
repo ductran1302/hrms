@@ -7,7 +7,7 @@ ARG VITE_API_BASE
 ENV VITE_API_BASE=${VITE_API_BASE}
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 COPY infra/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
