@@ -48,13 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           realm_access?: { roles?: string[] };
         } | undefined;
 
-        // Lấy họ tên từ claim 'name' (ưu tiên), sau đó ghép given_name + family_name
+        // Ghép family_name + given_name theo thứ tự tên Việt (họ trước) — khớp
+        // backend fullName(user)=lastName+" "+firstName. KHÔNG dùng claim 'name'
+        // của Keycloak (firstName+lastName → "Hoàng Minh Nguyễn" thay vì
+        // "Nguyễn Hoàng Minh"). Fallback 'name' khi user KC chưa có họ/tên.
         const fullNameFromToken =
-          parsed?.name ??
-          [parsed?.given_name, parsed?.family_name]
+          [parsed?.family_name, parsed?.given_name]
             .filter(Boolean)
             .join(' ')
-            .trim() ?? '';
+            .trim() ||
+          parsed?.name ||
+          '';
 
         setState({
           initialized: true,
