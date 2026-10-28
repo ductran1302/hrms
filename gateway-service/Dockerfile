@@ -3,7 +3,7 @@ WORKDIR /src
 COPY . .
 RUN mvn -B -pl gateway-service -am clean package -DskipTests
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:22-jre-jammy
 WORKDIR /app
 COPY --from=build /src/gateway-service/target/gateway-service-*.jar app.jar
 EXPOSE 8080
