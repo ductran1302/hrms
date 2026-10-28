@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.identity.contract.ContractRepository;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
@@ -37,6 +38,9 @@ class EmployeeDocumentServiceTest {
   private EmployeeRepository employeeRepository;
   @Mock
   private ContractRepository contractRepository;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private EmployeeDocumentService service;

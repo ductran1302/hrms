@@ -9,6 +9,7 @@ import com.hrms.attendance.leave.dto.LeaveSettingsRequest;
 import com.hrms.attendance.leave.dto.LeaveSettingsResponse;
 import com.hrms.attendance.leave.dto.LeaveWorkDayResponse;
 import com.hrms.attendance.leave.dto.LeaveWorkDayUpsertRequest;
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
@@ -45,6 +46,7 @@ public class LeaveSettingsService {
   private final LeaveWorkDayRepository workDayRepository;
   private final EmployeeRepository employeeRepository;
   private final EmployeeAccessResolver accessResolver;
+  private final AuditService auditService;
 
   // ---- Settings ----
 
@@ -95,6 +97,10 @@ public class LeaveSettingsService {
         settings.getFyStartMonth(), settings.getFyStartDay(),
         settings.getPeriodStartDay(), settings.getPeriodEndDay(),
         settings.getSaturdayPolicy(), settings.getMinWorkPercent());
+    auditService.success("LEAVE_SETTINGS_UPDATE", "LeaveSettings", settings.getId(),
+        "fy=" + settings.getFyStartDay() + "/" + settings.getFyStartMonth()
+            + " saturday=" + settings.getSaturdayPolicy()
+            + " minWorkPercent=" + settings.getMinWorkPercent());
     return LeaveSettingsResponse.from(settings);
   }
 
@@ -131,6 +137,8 @@ public class LeaveSettingsService {
     note.setNote(text);
     note.setUpdatedBy(actor);
     noteRepository.save(note);
+    auditService.success("LEAVE_NOTE_UPDATE", "LeaveEmployeeNote", note.getId(),
+        "employeeId=" + employeeId + " year=" + year);
   }
 
   // ---- Ngày công theo kỳ ----
@@ -225,6 +233,8 @@ public class LeaveSettingsService {
     row.setSource(WorkDaySource.MANUAL);
     row.setUpdatedBy(actor);
     workDayRepository.save(row);
+    auditService.success("LEAVE_WORK_DAY_UPDATE", "LeaveWorkDay", row.getId(),
+        "employeeId=" + employeeId + " period=" + period.start() + " days=" + row.getWorkDays());
     log.info("Nhập tay ngày công NV {} kỳ {} = {}", employeeId, period.start(), row.getWorkDays());
     return LeaveWorkDayResponse.from(row, full);
   }

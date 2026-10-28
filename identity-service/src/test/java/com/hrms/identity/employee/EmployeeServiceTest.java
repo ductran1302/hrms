@@ -12,6 +12,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
@@ -75,6 +76,9 @@ class EmployeeServiceTest {
 
   @Mock
   private RoleAssignmentService roleAssignmentService;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private EmployeeService service;

@@ -2,6 +2,7 @@ package com.hrms.attendance.leave;
 
 import com.hrms.attendance.leave.dto.LeavePolicyRequest;
 import com.hrms.attendance.leave.dto.LeavePolicyResponse;
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.Roles;
@@ -39,6 +40,7 @@ public class LeavePolicyService {
   private final LeaveSeniorityTierRepository tierRepository;
   private final LeaveEntitlementRepository entitlementRepository;
   private final LeaveSettingsService settingsService;
+  private final AuditService auditService;
 
   // ---- Đọc / self-heal ----
 
@@ -189,6 +191,8 @@ public class LeavePolicyService {
     }
     log.info("Tạo chính sách phép {} v{} (DRAFT, {}, hiệu lực từ {}) bởi {}", year, versionNo,
         policy.getSeniorityRule(), effectiveFrom, actor);
+    auditService.success("LEAVE_POLICY_CREATE", "LeavePolicy", policy.getId(),
+        "year=" + year + " v" + versionNo);
     return toResponse(policy);
   }
 
@@ -228,6 +232,8 @@ public class LeavePolicyService {
     policyRepository.save(policy);
     log.info("Sửa bản nháp chính sách phép {} v{} bởi {}", policy.getYear(),
         policy.getVersionNo(), actor);
+    auditService.success("LEAVE_POLICY_UPDATE", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     return toResponse(policy);
   }
 
@@ -241,6 +247,8 @@ public class LeavePolicyService {
     policyRepository.save(policy);
     log.info("Gửi phê duyệt chính sách {} v{} bởi {}", policy.getYear(), policy.getVersionNo(),
         actor);
+    auditService.success("LEAVE_POLICY_SUBMIT", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     return toResponse(policy);
   }
 
@@ -254,6 +262,8 @@ public class LeavePolicyService {
     policyRepository.save(policy);
     log.info("Phê duyệt chính sách {} v{} bởi {}", policy.getYear(), policy.getVersionNo(),
         actor);
+    auditService.success("LEAVE_POLICY_APPROVE", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     return toResponse(policy);
   }
 
@@ -266,6 +276,8 @@ public class LeavePolicyService {
     policy.setApprovedAt(null);
     policyRepository.save(policy);
     log.info("Từ chối chính sách {} v{} bởi {}", policy.getYear(), policy.getVersionNo(), actor);
+    auditService.success("LEAVE_POLICY_REJECT", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     return toResponse(policy);
   }
 
@@ -320,6 +332,9 @@ public class LeavePolicyService {
     policyRepository.save(policy);
     log.info("Kích hoạt chính sách {} v{} (hiệu lực {}–{}) bởi {}", policy.getYear(),
         policy.getVersionNo(), policy.getEffectiveFrom(), policy.getEffectiveTo(), actor);
+    auditService.success("LEAVE_POLICY_ACTIVATE", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo()
+            + " effectiveFrom=" + policy.getEffectiveFrom());
     return toResponse(policy);
   }
 
@@ -335,6 +350,8 @@ public class LeavePolicyService {
     policy.setStatus(PolicyStatus.CANCELLED);
     policyRepository.save(policy);
     log.info("Hủy chính sách {} v{} bởi {}", policy.getYear(), policy.getVersionNo(), actor);
+    auditService.success("LEAVE_POLICY_CANCEL", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     return toResponse(policy);
   }
 
@@ -350,6 +367,8 @@ public class LeavePolicyService {
     roleQuotaRepository.deleteByPolicyId(policy.getId());
     tierRepository.deleteByPolicyId(policy.getId());
     policyRepository.delete(policy);
+    auditService.success("LEAVE_POLICY_DELETE", "LeavePolicy", id,
+        "year=" + policy.getYear() + " v" + policy.getVersionNo());
     log.info("Xóa bản nháp chính sách {} v{}", policy.getYear(), policy.getVersionNo());
   }
 

@@ -1,5 +1,6 @@
 package com.hrms.identity.document;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.identity.contract.Contract;
@@ -35,6 +36,7 @@ public class EmployeeDocumentService {
   private final EmployeeDocumentRepository documentRepository;
   private final EmployeeRepository employeeRepository;
   private final ContractRepository contractRepository;
+  private final AuditService auditService;
 
   @Value("${hrms.storage.documents-dir:data/documents}")
   private String documentsDir;
@@ -81,6 +83,8 @@ public class EmployeeDocumentService {
     document.setUploadedBy(actorId);
     document.setUploadedAt(Instant.now());
     documentRepository.save(document);
+    auditService.success("DOCUMENT_UPLOAD", "EmployeeDocument", document.getId(),
+        "employeeId=" + employeeId + " type=" + type);
     log.info("Uploaded document {} for employee {} (contract={}) by {}", document.getId(),
         employeeId, contractId, actorId);
     return toResponse(document);
@@ -118,6 +122,8 @@ public class EmployeeDocumentService {
       log.warn("Không xóa được file {}: {}", document.getFilePath(), ex.getMessage());
     }
     documentRepository.delete(document);
+    auditService.success("DOCUMENT_DELETE", "EmployeeDocument", documentId,
+        "employeeId=" + employeeId);
   }
 
   private void ensureEmployeeExists(UUID employeeId) {

@@ -1,5 +1,6 @@
 package com.hrms.identity.employee;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
@@ -58,6 +59,7 @@ public class EmployeeService {
   private final KeycloakSyncService keycloakSyncService;
   private final HolidayCalendarRepository holidayCalendarRepository;
   private final RoleAssignmentService roleAssignmentService;
+  private final AuditService auditService;
 
   @Transactional
   public EmployeeResponse create(EmployeeCreateRequest request, String actorId) {
@@ -76,6 +78,8 @@ public class EmployeeService {
         defaultRole);
     writeOutbox(employee, EmployeeEventTypes.CREATED, actorId, null, null, null,
         List.of(defaultRole));
+    auditService.success("EMPLOYEE_CREATE", "Employee", employee.getId(),
+        "employeeCode=" + employeeCode);
     return mapper.toResponse(employee);
   }
 
@@ -432,6 +436,7 @@ public class EmployeeService {
       employeeRepository.save(employee);
       writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId, changed, null, null,
           readRolesSafe(employee.getEmployeeCode()));
+      auditService.success("EMPLOYEE_UPDATE", "Employee", id, "changed=" + changed);
     }
     return mapper.toResponse(employee);
   }
@@ -452,6 +457,8 @@ public class EmployeeService {
         Instant.now().toEpochMilli(), null);
     // Tắt tài khoản đăng nhập — task trong cùng transaction, xử lý sau commit (P0-6).
     keycloakSyncService.enqueueEnabled(employee.getEmployeeCode(), false);
+    auditService.success("EMPLOYEE_TERMINATE", "Employee", id,
+        "employeeCode=" + employee.getEmployeeCode());
   }
 
   /**
@@ -474,6 +481,8 @@ public class EmployeeService {
     jobHistoryService.record(id, "calendar", oldCode, newCode, actorId);
     writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId,
         List.of("calendarId"), null, null, readRolesSafe(employee.getEmployeeCode()));
+    auditService.success("EMPLOYEE_ASSIGN_CALENDAR", "Employee", id,
+        "calendar=" + newCode);
     return mapper.toResponse(employee);
   }
 

@@ -1,5 +1,6 @@
 package com.hrms.identity.contract;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
@@ -51,6 +52,7 @@ public class ContractService {
   private final JobHistoryService jobHistoryService;
   private final KeycloakSyncService keycloakSyncService;
   private final com.hrms.identity.employee.RoleAssignmentService roleAssignmentService;
+  private final AuditService auditService;
 
   @Transactional
   public ContractResponse create(UUID employeeId, ContractCreateRequest request) {
@@ -87,6 +89,8 @@ public class ContractService {
     // transaction và xử lý sau commit (P0-6); processor idempotent — tài khoản đã có role
     // thì không đổi quyền.
     ensureAccount(employee);
+    auditService.success("CONTRACT_CREATE", "Contract", contract.getId(),
+        "employeeId=" + employeeId + " type=" + contract.getContractType());
     return toResponse(contract, isSalaryVisible());
   }
 
@@ -222,6 +226,7 @@ public class ContractService {
     }
 
     contractRepository.save(contract);
+    auditService.success("CONTRACT_UPDATE", "Contract", id, "employeeId=" + employeeId);
     return toResponse(contract, isSalaryVisible());
   }
 
@@ -251,6 +256,8 @@ public class ContractService {
       contract.setNote(request.note());
     }
     contractRepository.save(contract);
+    auditService.success("CONTRACT_EXTEND", "Contract", id,
+        "endDate=" + request.endDate());
     return toResponse(contract, isSalaryVisible());
   }
 
@@ -296,6 +303,8 @@ public class ContractService {
         request.salary() == null ? null : String.valueOf(request.salary()), currentActor());
     jobHistoryService.record(employeeId, "contract.status", null,
         contract.getStatus().name(), currentActor());
+    auditService.success("CONTRACT_REPLACE", "Contract", contract.getId(),
+        "replaces=" + old.getId() + " employeeId=" + employeeId);
     return toResponse(contract, isSalaryVisible());
   }
 
@@ -312,6 +321,8 @@ public class ContractService {
         contract.getStatus().name(), ContractStatus.TERMINATED.name(), currentActor(), reason);
     contract.setStatus(ContractStatus.TERMINATED);
     contractRepository.save(contract);
+    auditService.success("CONTRACT_TERMINATE", "Contract", id,
+        "employeeId=" + contract.getEmployeeId());
     return toResponse(contract, isSalaryVisible());
   }
 
@@ -328,6 +339,8 @@ public class ContractService {
           ContractStatus.ACTIVE.name(), ContractStatus.EXPIRED.name(), "system");
       contract.setStatus(ContractStatus.EXPIRED);
       contractRepository.save(contract);
+      auditService.success("CONTRACT_EXPIRE", "Contract", contract.getId(),
+          "employeeId=" + contract.getEmployeeId());
     }
     return overdue.size();
   }

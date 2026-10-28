@@ -10,6 +10,7 @@ import com.hrms.attendance.leave.dto.LeaveGrantRequest;
 import com.hrms.attendance.leave.dto.LeaveQuotaResponse;
 import com.hrms.attendance.leave.seniority.SeniorityContext;
 import com.hrms.attendance.leave.seniority.SeniorityRuleRegistry;
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
@@ -70,6 +71,7 @@ public class LeaveQuotaService {
   private final LeaveSettingsService settingsService;
   private final LeaveEmployeeNoteRepository noteRepository;
   private final SeniorityRuleRegistry seniorityRuleRegistry;
+  private final AuditService auditService;
 
   // ---- Tính tự động + ledger ----
 
@@ -119,6 +121,8 @@ public class LeaveQuotaService {
         "Tính lại quỹ phép năm {}: {} nhân viên, {} kỳ/năm, policy v{} ({}) — FY start {}/{}",
         year, employees.size(), periods.size(), inForce.getVersionNo(), inForce.getStatus(),
         settings.getFyStartMonth(), settings.getFyStartDay());
+    auditService.success("LEAVE_QUOTA_RECALCULATE", "LeaveQuota", null,
+        "year=" + year + " employees=" + employees.size());
     return employees.size();
   }
 
@@ -343,6 +347,8 @@ public class LeaveQuotaService {
       applySnapshot(carryover, inForce);
       entitlementRepository.save(carryover);
       log.info("Cập nhật CARRYOVER tay {} ngày cho NV {} năm {}", days, employeeId, year);
+      auditService.success("LEAVE_ENTITLEMENT_GRANT", "LeaveEntitlement", carryover.getId(),
+          "employeeId=" + employeeId + " year=" + year + " source=CARRYOVER days=" + days);
       return LeaveEntitlementResponse.from(carryover);
     }
 
@@ -359,6 +365,8 @@ public class LeaveQuotaService {
     applySnapshot(entitlement, null);
     entitlementRepository.save(entitlement);
     log.info("Cấp {} {} ngày cho NV {} năm {}", source, days, employeeId, year);
+    auditService.success("LEAVE_ENTITLEMENT_GRANT", "LeaveEntitlement", entitlement.getId(),
+        "employeeId=" + employeeId + " year=" + year + " source=" + source + " days=" + days);
     return LeaveEntitlementResponse.from(entitlement);
   }
 
@@ -371,6 +379,9 @@ public class LeaveQuotaService {
           "Không xóa được dòng tự động (" + entitlement.getSource() + ") — dùng tính lại/thay đổi chính sách");
     }
     entitlementRepository.delete(entitlement);
+    auditService.success("LEAVE_ENTITLEMENT_DELETE", "LeaveEntitlement", id,
+        "employeeId=" + entitlement.getEmployeeId() + " year=" + entitlement.getYear()
+            + " source=" + entitlement.getSource());
   }
 
   // ---- Truy vấn quota ----

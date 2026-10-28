@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.attendance.employee.Employee;
 import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
@@ -68,6 +69,9 @@ class LeaveQuotaServiceTest {
   @Spy
   private SeniorityRuleRegistry seniorityRuleRegistry = new SeniorityRuleRegistry(
       List.of(new VietnamTieredSeniorityRule(), new LinearSeniorityRule()));
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private LeaveQuotaService service;

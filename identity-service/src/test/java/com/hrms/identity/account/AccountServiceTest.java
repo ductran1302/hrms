@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.outbox.OutboxRepository;
 import com.hrms.common.web.PageResponse;
@@ -37,6 +38,9 @@ class AccountServiceTest {
 
   @Mock
   private OutboxRepository outboxRepository;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private AccountService accountService;

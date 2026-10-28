@@ -562,6 +562,29 @@ rollback / giữ connection khi KC chậm):
   fixed window cho phép burst gấp đôi ở ranh giới cửa sổ; request sai token bị chặn ở
   security (401) trước filter nên không tính vào hạn mức.
 
+### 4.19 Audit Logging (`com.hrms.common.audit`)
+
+- **Bảng `audit_log`** append-only, **mỗi service DB riêng** (migration: identity `V12`,
+  attendance `V17`), không FK. Entity `AuditLog` KHÔNG kế thừa `BaseEntity`.
+- **`AuditService.success/failure(action, targetType, targetId, detail)`** — `@Transactional`
+  REQUIRED: gọi trong transaction nghiệp vụ thì audit + dữ liệu commit/rollback cùng nhau;
+  gọi ngoài transaction (thao tác Keycloak của `AccountService`) tự mở tx riêng.
+  - `actor`: JWT `preferred_username` → `sub` → `authentication.getName()` → `system`
+    (Kafka consumer/scheduler).
+  - `correlationId`: MDC do `CorrelationIdFilter` set; `clientIp`: `X-Forwarded-For` →
+    `remoteAddr`; `detail` cắt 500 ký tự.
+- **KHÔNG ghi dữ liệu nhạy cảm vào `detail`** (mật khẩu, lương, PII) — chỉ field name/id/count.
+- Call sites hiện có:
+  - identity: `ACCOUNT_PASSWORD_CHANGE|PASSWORD_RESET|SET_ENABLED|ROLES_UPDATE|ROLES_RESYNC`,
+    `EMPLOYEE_CREATE|UPDATE|TERMINATE|ASSIGN_CALENDAR`, `CONTRACT_CREATE|UPDATE|EXTEND|
+    REPLACE|TERMINATE|EXPIRE`, `DOCUMENT_UPLOAD|DELETE`, `KEYCLOAK_SYNC_RETRY`.
+  - attendance: `LEAVE_POLICY_*` (create/update/submit/approve/reject/activate/cancel/delete),
+    `LEAVE_QUOTA_RECALCULATE`, `LEAVE_ENTITLEMENT_GRANT|DELETE`, `LEAVE_SETTINGS_UPDATE`,
+    `LEAVE_NOTE_UPDATE`, `LEAVE_WORK_DAY_UPDATE`, `SHIFT_ASSIGN|UNASSIGN`.
+- **Attendance `PersistenceConfig`** phải thêm `com.hrms.common.audit` vào cả `@EntityScan`
+  và `@EnableJpaRepositories` (không scan toàn `com.hrms` — tránh validate `outbox_events`).
+- Chưa có API đọc audit (chỉ ghi + log `AUDIT action=...`); muốn tra DB trực tiếp bằng psql.
+
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)
@@ -935,6 +958,8 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | JWT audience mapper (P0-5) | `keycloak/realm-hrms.json` (client `hrms-spa`) + `scripts/kc-add-audience.sh` |
 | JWT decoders (aud check) | `*/config/SecurityConfig.java` (`jwtValidator()`) |
 | Rate limit (gateway) | `gateway-service/src/main/java/com/hrms/gateway/ratelimit/` |
+| Audit logging | `hrms-common/src/main/java/com/hrms/common/audit/` (`AuditService`) |
+| Audit migrations | identity `V12__audit_log.sql`, attendance `V17__audit_log.sql` |
 | Smoke tests | `scripts/verify-*.sh` |
 
 ---

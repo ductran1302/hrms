@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## [Bảo mật — Audit logging] 2026-10-27
+
+Giai đoạn hardening (hướng 2) — hạng mục 4/6: **audit log cho thao tác nhạy cảm** (ai làm gì,
+trên đối tượng nào, lúc nào, kết quả). Append-only, mỗi service ghi vào DB riêng.
+
+### Nội dung thay đổi
+- `hrms-common` (`com.hrms.common.audit`): entity `AuditLog` (`audit_log`, không kế thừa
+  `BaseEntity`), `AuditLogRepository`, `AuditService.success/failure(action, targetType,
+  targetId, detail)` — actor từ SecurityContext (JWT `preferred_username` → `sub` → `system`),
+  `correlationId` từ MDC, `clientIp` từ request (`X-Forwarded-For`), detail cắt 500 ký tự.
+  Gọi trong transaction nghiệp vụ → audit và dữ liệu commit/rollback cùng nhau.
+- Migration: identity `V12__audit_log.sql`, attendance `V17__audit_log.sql` (bảng +
+  index `occurred_at desc`, `actor`, `(target_type, target_id)`).
+- Attendance `PersistenceConfig` scan thêm `com.hrms.common.audit` (entity + repository) —
+  vẫn KHÔNG scan toàn `com.hrms` (tránh validate `outbox_events`).
+- Call sites (detail KHÔNG chứa mật khẩu/lương/PII):
+  - identity: `ACCOUNT_PASSWORD_CHANGE|PASSWORD_RESET|SET_ENABLED|ROLES_UPDATE|ROLES_RESYNC`,
+    `EMPLOYEE_CREATE|UPDATE|TERMINATE|ASSIGN_CALENDAR`, `CONTRACT_CREATE|UPDATE|EXTEND|
+    REPLACE|TERMINATE|EXPIRE`, `DOCUMENT_UPLOAD|DELETE`, `KEYCLOAK_SYNC_RETRY`.
+  - attendance: `LEAVE_POLICY_CREATE|UPDATE|SUBMIT|APPROVE|REJECT|ACTIVATE|CANCEL|DELETE`,
+    `LEAVE_QUOTA_RECALCULATE`, `LEAVE_ENTITLEMENT_GRANT|DELETE`, `LEAVE_SETTINGS_UPDATE`,
+    `LEAVE_NOTE_UPDATE`, `LEAVE_WORK_DAY_UPDATE`, `SHIFT_ASSIGN|UNASSIGN`.
+- Đã kiểm chứng end-to-end: smoke identity 283 / p1-scoping 52 / attendance OK → bảng
+  `audit_log` ghi đủ actor `hr`, correlationId + clientIp; contract expiry job ghi
+  `CONTRACT_EXPIRE` với actor `system`.
+
 ## [Cấu hình — chuyển host port ra khỏi dải 8080–8089] 2026-10-26
 
 Host port của HRMS trùng với dự án khác trên cùng máy → chuyển **toàn bộ host-facing port**

@@ -6,6 +6,7 @@ import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
 import com.hrms.attendance.shift.dto.ShiftAssignmentRequest;
 import com.hrms.attendance.shift.dto.ShiftAssignmentResponse;
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
@@ -38,6 +39,7 @@ public class ShiftAssignmentService {
   private final WorkShiftRepository workShiftRepository;
   private final EmployeeRepository employeeRepository;
   private final EmployeeAccessResolver accessResolver;
+  private final AuditService auditService;
 
   /**
    * Lịch sử gán ca theo scope người gọi: ALL xem toàn bộ; MANAGER/DEPT_LEAD chỉ thấy
@@ -134,6 +136,9 @@ public class ShiftAssignmentService {
     assignment.setEffectiveFrom(from);
     assignment.setAssignedBy(actorId);
     assignmentRepository.save(assignment);
+    auditService.success("SHIFT_ASSIGN", "ShiftAssignment", assignment.getId(),
+        "employeeId=" + employee.getEmployeeId() + " shift=" + shift.getName()
+            + " from=" + from);
     log.info("Gán ca '{}' cho NV {} từ {}", shift.getName(), employee.getEmployeeCode(), from);
     return ShiftAssignmentResponse.from(
         assignment,
@@ -156,6 +161,8 @@ public class ShiftAssignmentService {
           "Chỉ gỡ được bản gán mới nhất — bản kế tiếp đã hiệu lực từ " + latest.get().getEffectiveFrom());
     }
     assignmentRepository.delete(assignment);
+    auditService.success("SHIFT_UNASSIGN", "ShiftAssignment", id,
+        "employeeId=" + assignment.getEmployeeId() + " from=" + assignment.getEffectiveFrom());
     log.info("Gỡ gán ca của NV {} (từ {})", assignment.getEmployeeId(), assignment.getEffectiveFrom());
   }
 

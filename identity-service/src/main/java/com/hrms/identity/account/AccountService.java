@@ -1,5 +1,6 @@
 package com.hrms.identity.account;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.kafka.EmployeeEventTypes;
 import com.hrms.common.kafka.KafkaTopics;
@@ -40,6 +41,7 @@ public class AccountService {
   private final KeycloakAdminClient keycloakAdminClient;
   private final EmployeeRepository employeeRepository;
   private final OutboxRepository outboxRepository;
+  private final AuditService auditService;
 
   /** Danh sách tài khoản phân trang — {@code q} khớp theo username/họ tên/email (KC search). */
   public PageResponse<AccountResponse> search(String q, int page, int size) {
@@ -62,12 +64,14 @@ public class AccountService {
       throw new BusinessRuleException("Mật khẩu hiện tại không đúng");
     }
     keycloakAdminClient.resetPassword(username, request.newPassword());
+    auditService.success("ACCOUNT_PASSWORD_CHANGE", "Account", username, null);
     log.info("User '{}' đã đổi mật khẩu", username);
   }
 
   /** Admin đặt lại mật khẩu cho tài khoản bất kỳ. */
   public void resetPassword(String username, String newPassword) {
     keycloakAdminClient.resetPassword(username, newPassword);
+    auditService.success("ACCOUNT_PASSWORD_RESET", "Account", username, null);
     log.info("Admin đã đặt lại mật khẩu cho '{}'", username);
   }
 
@@ -77,6 +81,7 @@ public class AccountService {
       throw new BusinessRuleException("Không thể tắt tài khoản của chính mình");
     }
     keycloakAdminClient.setUserEnabled(username, enabled);
+    auditService.success("ACCOUNT_SET_ENABLED", "Account", username, "enabled=" + enabled);
   }
 
   /**
@@ -106,6 +111,7 @@ public class AccountService {
     }
     keycloakAdminClient.updateRealmRoles(username, desired);
     emitRolesEvent(username, desired);
+    auditService.success("ACCOUNT_ROLES_UPDATE", "Account", username, "roles=" + desired);
     log.info("Admin '{}' đã cập nhật roles {} cho '{}'", actor, desired, username);
   }
 
@@ -127,6 +133,7 @@ public class AccountService {
       }
       first += MAX_SIZE;
     } while (batch.size() == MAX_SIZE);
+    auditService.success("ACCOUNT_ROLES_RESYNC", "Account", null, "emitted=" + emitted);
     log.info("Resync role events: {} user phát hành event", emitted);
     return emitted;
   }

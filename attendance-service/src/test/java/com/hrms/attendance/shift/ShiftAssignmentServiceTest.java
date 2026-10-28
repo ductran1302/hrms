@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.attendance.employee.Employee;
 import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
@@ -44,6 +45,9 @@ class ShiftAssignmentServiceTest {
 
   @Mock
   private EmployeeAccessResolver accessResolver;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private ShiftAssignmentService service;

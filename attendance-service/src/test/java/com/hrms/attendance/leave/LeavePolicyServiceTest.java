@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.attendance.leave.dto.LeavePolicyRequest;
 import com.hrms.attendance.leave.dto.LeavePolicyResponse;
 import com.hrms.common.exception.BusinessRuleException;
@@ -43,6 +44,9 @@ class LeavePolicyServiceTest {
 
   @Mock
   private LeaveSettingsService settingsService;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private LeavePolicyService service;

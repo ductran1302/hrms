@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.web.PageResponse;
@@ -36,6 +37,9 @@ class KeycloakSyncTaskServiceTest {
   private KeycloakSyncTaskRepository taskRepository;
   @Mock
   private KeycloakSyncProcessor processor;
+
+  @Mock
+  private AuditService auditService;
 
   @InjectMocks
   private KeycloakSyncTaskService service;

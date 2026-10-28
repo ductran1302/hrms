@@ -1,5 +1,6 @@
 package com.hrms.identity.keycloak;
 
+import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.web.PageResponse;
@@ -31,6 +32,7 @@ public class KeycloakSyncTaskService {
 
   private final KeycloakSyncTaskRepository taskRepository;
   private final KeycloakSyncProcessor processor;
+  private final AuditService auditService;
 
   @Transactional(readOnly = true)
   public PageResponse<KeycloakSyncTaskResponse> search(KeycloakSyncStatus status, int page,
@@ -72,6 +74,8 @@ public class KeycloakSyncTaskService {
         }
       }
     });
+    auditService.success("KEYCLOAK_SYNC_RETRY", "KeycloakSyncTask", id,
+        "operation=" + task.getOperation() + " username=" + task.getUsername());
     log.info("ADMIN retry Keycloak sync task {} (operation={}, username={})", id,
         task.getOperation(), task.getUsername());
     return response;
