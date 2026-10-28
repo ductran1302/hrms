@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## [Bảo mật — Testcontainers IT cho audit log] 2026-10-28
+
+Giai đoạn hardening (hướng 2) — hạng mục 6/6: **integration test (PostgreSQL thật)** cho
+audit log, chạy trong CI qua profile `-Pit`.
+
+### Nội dung thay đổi
+- `identity-service/src/test/java/com/hrms/identity/audit/AuditLogIT.java`:
+  - audit trong transaction commit → row `audit_log` đầy đủ (actor `system`, targetId, detail);
+  - audit trong transaction throw → rollback, KHÔNG còn row (audit cùng transaction nghiệp vụ);
+  - gọi `AuditService` ngoài transaction (kiểu `AccountService`) → tự mở tx và persist.
+- Không đổi code production; CI `mvn clean verify -Pit` chạy thêm IT này.
+
 ## [Bảo mật — Security headers + Dependency scan] 2026-10-27
 
 Giai đoạn hardening (hướng 2) — hạng mục 5/6: **siết header bảo mật + quét lỗ hổng dependency**

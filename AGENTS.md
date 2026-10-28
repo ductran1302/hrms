@@ -783,7 +783,27 @@ class EmployeeControllerTest {
 - `create_withValidData_savesEmployeeAndOutbox`
 - `list_withoutToken_returns401`
 
-**KHÔNG dùng Testcontainers** (chưa implement), chỉ pure unit + MVC slice tests.
+**Integration tests (Testcontainers)** — chỉ chạy khi bật profile `-Pit` (failsafe quét `*IT`):
+
+```java
+@SpringBootTest
+@Testcontainers
+class AuditLogIT {
+  @Container
+  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+
+  @DynamicPropertySource
+  static void database(DynamicPropertyRegistry registry) {
+    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+    // ... tắt outbox/seed, kafka trỏ localhost (không kết nối thật)
+  }
+}
+```
+
+- Chạy: `mvn clean verify -Pit` (CI bật sẵn; dev container **không có** docker socket nên
+  không chạy được IT trong `hrms-dev` — chỉ compile `test-compile`).
+- Hiện có: `EmployeeOutboxIT`, `EmployeeProjectionIT`, `LeaveSettingsPersistenceIT`,
+  `AuditLogIT` (audit join tx: commit/rollback cùng nghiệp vụ + tự mở tx khi gọi ngoài).
 
 ### 6.2 Smoke Tests (Shell)
 
