@@ -32,8 +32,7 @@
   "notePlaceholder": "HR note for this employee (max 500 chars)",
   "recalculateHint": "Working days are pre-filled on Recalculate",
   "column": {
-    "employeeCode": "Code",
-    "fullName": "Full name",
+    "employee": "Employee",
     "department": "Department",
     "position": "Position",
     "base": "Annual",

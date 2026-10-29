@@ -32,8 +32,7 @@
   "notePlaceholder": "Ghi chú riêng của HR cho nhân viên này (tối đa 500 ký tự)",
   "recalculateHint": "Ngày công được pre-fill khi bấm Tính lại",
   "column": {
-    "employeeCode": "Mã NV",
-    "fullName": "Họ tên",
+    "employee": "Nhân viên",
     "department": "Phòng ban",
     "position": "Chức vụ",
     "base": "Hằng năm",

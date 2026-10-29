@@ -202,8 +202,20 @@ export default function LeaveQuotaPage() {
   };
 
   const columns: ColumnsType<LeaveQuota> = [
-    { title: t('leave.column.employeeCode'), dataIndex: 'employeeCode', width: 100 },
-    { title: t('leave.column.fullName'), dataIndex: 'fullName', width: 170, ellipsis: true },
+    {
+      title: t('leave.column.employee'),
+      width: 210,
+      fixed: 'left',
+      ellipsis: true,
+      render: (_, record) => (
+        <span style={{ lineHeight: 1.35 }}>
+          <div style={{ fontWeight: 500 }}>{record.fullName}</div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {record.employeeCode}
+          </Text>
+        </span>
+      ),
+    },
     { title: t('leave.column.department'), dataIndex: 'departmentName', width: 130, ellipsis: true },
     { title: t('leave.column.position'), dataIndex: 'position', width: 130, ellipsis: true },
     { title: t('leave.column.base'), dataIndex: 'baseDays', width: 80, align: 'right', render: fmt },
@@ -243,9 +255,10 @@ export default function LeaveQuotaPage() {
     },
     {
       title: t('actions'),
-      width: 130,
+      width: 150,
+      fixed: 'right',
       render: (_, record) => (
-        <Space>
+        <Space size={4}>
           {canWrite && (
             <>
               <ActionIcon
@@ -506,7 +519,7 @@ export default function LeaveQuotaPage() {
           loading={loading}
           columns={columns}
           dataSource={rows}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1430 }}
           pagination={{ pageSize: 20, hideOnSinglePage: true }}
           locale={{ emptyText: <Empty description={t('leave.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         />
