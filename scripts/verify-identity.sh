@@ -323,7 +323,9 @@ HD3=$(id_of "$R")
 # g. canh bao het han: HĐ ACTIVE keo den trong 30 ngay
 R=$(req PATCH "$HR" "/api/v1/contracts/$HD3/terminate" '')
 check "terminate HĐ không giới hạn" 200 "$(code_of "$R")"
-R=$(req POST "$HR" "/api/v1/employees/$EMP_HD2/contracts" '{"contractType":"FULL_TIME","startDate":"2026-01-01","endDate":"2026-10-28"}')
+# endDate = +20 ngay (dong — test se fail khi ngay chot di qua thoi diem ke toan)
+HD_END=$(date -d "+20 days" +%F)
+R=$(req POST "$HR" "/api/v1/employees/$EMP_HD2/contracts" "{\"contractType\":\"FULL_TIME\",\"startDate\":\"2026-01-01\",\"endDate\":\"$HD_END\"}")
 HD4=$(id_of "$R"); echo "HD4=$HD4"
 check_has "HĐ gần hạn IN_EFFECT" "$(has "$R" '"effectiveStatus":"IN_EFFECT"')" yes
 R=$(req GET "$HR" "/api/v1/contracts/expiring-soon?days=30")
@@ -575,6 +577,8 @@ check "EMPLOYEE delete policy version bi 403" 403 "$(code_of "$R")"
 R=$(areq GET "$HR" "/api/v1/attendance/leave/settings")
 check "GET leave settings" 200 "$(code_of "$R")"
 check_has "settings co fyStartMonth" "$(has "$R" 'fyStartMonth')" yes
+# luu settings goc de khoi phuc sau khi test validation (khong nen doi cau hinh that)
+SET_ORIG=$(echo "$R" | head -n -1)
 R=$(areq PUT "$HR" "/api/v1/attendance/leave/settings" '{"fyStartMonth":1,"fyStartDay":1,"periodStartDay":10,"periodEndDay":5,"saturdayPolicy":"OFF","minWorkPercent":50}')
 check "PUT settings ky hong (10->5)" 422 "$(code_of "$R")"
 R=$(areq PUT "$HR" "/api/v1/attendance/leave/settings" '{"fyStartMonth":1,"fyStartDay":1,"periodStartDay":26,"periodEndDay":25,"saturdayPolicy":"OFF","minWorkPercent":50}')
@@ -599,6 +603,48 @@ check_has "work-day tro thanh MANUAL" "$(has "$R" 'MANUAL')" yes
 # backfill roles -> attendance mirror (1 lan, idempotent)
 R=$(req POST "$HR" "/api/v1/accounts/resync-role-events")
 check "POST resync-role-events" 201 "$(code_of "$R")"
+
+# --- 13b. Thoi han hieu luc (expires_at) + BONUS spill ---
+# khoi phuc settings goc truoc de fyEnd tinh dung theo cau hinh that cua he thong
+SET_BODY=$(echo "$SET_ORIG" | jq -c '{fyStartMonth,fyStartDay,periodStartDay,periodEndDay,saturdayPolicy,minWorkPercent}')
+R=$(areq PUT "$HR" "/api/v1/attendance/leave/settings" "$SET_BODY")
+check "khoi phuc settings goc" 200 "$(code_of "$R")"
+FM=$(echo "$SET_ORIG" | jq -r '.fyStartMonth')
+FD=$(echo "$SET_ORIG" | jq -r '.fyStartDay')
+FYE=$(date -d "$((YEAR + 1))-$(printf %02d "$FM")-$(printf %02d "$FD") -1 day" +%F)
+SPILL=$(date -d "$((YEAR + 1))-$(printf %02d "$FM")-$(printf %02d "$FD") +90 day" +%F)
+# a. BONUS khong truyen han -> mac dinh cuoi nam tai chinh
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" \
+  "{\"source\":\"BONUS\",\"days\":0.5,\"reason\":\"verify expiry $SUF\"}")
+check "grant BONUS khong han -> 201" 201 "$(code_of "$R")"
+check_has "BONUS mac dinh het han fyEnd ($FYE)" "$(has "$R" "\"expiresAt\":\"$FYE\"")" yes
+EXP1_ID=$(id_of "$R")
+# b. BONUS custom han (vuot cuoi nam TC) -> echo dung, chua het han
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" \
+  "{\"source\":\"BONUS\",\"days\":0.5,\"reason\":\"verify spill $SUF\",\"expiresAt\":\"$SPILL\"}")
+check "grant BONUS custom han -> 201" 201 "$(code_of "$R")"
+check_has "BONUS custom expiresAt echo" "$(has "$R" "\"expiresAt\":\"$SPILL\"")" yes
+check_has "BONUS custom chua het han" "$(has "$R" '"expired":false')" yes
+EXP2_ID=$(id_of "$R")
+# c. chi BONUS duoc tuy chinh han; han qua khu bi chan
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" \
+  "{\"source\":\"ADJUSTMENT\",\"days\":0.5,\"expiresAt\":\"$SPILL\"}")
+check "ADJUSTMENT + expiresAt -> 422" 422 "$(code_of "$R")"
+R=$(areq POST "$HR" "/api/v1/attendance/leave/quotas/$QP_ID/entitlements?year=$YEAR" \
+  '{"source":"BONUS","days":0.5,"expiresAt":"2020-01-01"}')
+check "BONUS het han qua khu -> 422" 422 "$(code_of "$R")"
+# d. spill: BONUS con han cua nam nay hien trong quota nam sau (giu year goc)
+R=$(areq GET "$HR" "/api/v1/attendance/leave/quotas/$QP_ID?year=$((YEAR + 1))")
+check "GET quota nam sau" 200 "$(code_of "$R")"
+check_has "BONUS con han spill sang nam sau (year=$YEAR)" "$(has "$R" "\"year\":$YEAR")" yes
+check_has "dong het han fyEnd KHONG spill" \
+  "$(has "$R" "\"expiresAt\":\"$FYE\"")" no
+# cleanup 2 dong BONUS verify expiry + nghi viec NV
+R=$(areq DELETE "$HR" "/api/v1/attendance/leave/entitlements/$EXP1_ID")
+check "DELETE entitlement expiry 1" 204 "$(code_of "$R")"
+R=$(areq DELETE "$HR" "/api/v1/attendance/leave/entitlements/$EXP2_ID")
+check "DELETE entitlement expiry 2" 204 "$(code_of "$R")"
+
 # cleanup: xoa BONUS da cap + nghi viec NV
 R=$(areq DELETE "$HR" "/api/v1/attendance/leave/entitlements/$BONUS_ID")
 check "DELETE entitlement BONUS" 204 "$(code_of "$R")"

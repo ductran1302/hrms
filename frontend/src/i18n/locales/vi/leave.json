@@ -60,7 +60,12 @@
     "deleteEntitlement": "Xóa dòng này?",
     "source": "Nguồn",
     "grantedBy": "Người cấp",
-    "createdAt": "Thời gian"
+    "createdAt": "Thời gian",
+    "expiresAt": "Hết hạn",
+    "expiresAtHint": "Bỏ trống = cuối năm tài chính ({{date}}). Chọn sau ngày này → phép vẫn còn hạn ở năm sau.",
+    "expiresAtPlaceholder": "Cuối năm tài chính",
+    "expiredTag": "Đã hết hạn",
+    "fromYear": "từ năm {{year}}"
   },
   "workday": {
     "title": "Ngày công theo kỳ",

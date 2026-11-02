@@ -60,7 +60,12 @@
     "deleteEntitlement": "Delete this entry?",
     "source": "Source",
     "grantedBy": "Granted by",
-    "createdAt": "Time"
+    "createdAt": "Time",
+    "expiresAt": "Expires",
+    "expiresAtHint": "Leave empty = end of fiscal year ({{date}}). Later dates stay valid into next year.",
+    "expiresAtPlaceholder": "End of fiscal year",
+    "expiredTag": "Expired",
+    "fromYear": "from {{year}}"
   },
   "workday": {
     "title": "Working days by period",

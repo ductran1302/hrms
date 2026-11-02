@@ -279,11 +279,13 @@ class LeaveQuotaServiceTest {
   void grant_bonus_savesWithActor() {
     when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
     when(policyService.getInForce(2026)).thenReturn(policy);
+    when(settingsService.getOrCreateSettings()).thenReturn(defaultSettings());
     when(entitlementRepository.save(any(LeaveEntitlement.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
     LeaveEntitlementResponse response = service.grant(
-        "e-1", 2026, new LeaveGrantRequest("BONUS", new BigDecimal("0.1"), "Xuất sắc"), "hr");
+        "e-1", 2026,
+        new LeaveGrantRequest("BONUS", new BigDecimal("0.1"), "Xuất sắc", null), "hr");
 
     assertEquals(new BigDecimal("0.1000"), response.days());
     assertEquals("hr", response.grantedBy());
@@ -291,42 +293,94 @@ class LeaveQuotaServiceTest {
     assertFalse(response.isAuto(), "cấp tay là is_auto=false");
     assertEquals(null, response.policyId(), "BONUS không phụ thuộc policy → policy_id null");
     assertNotNull(response.calculatedAt(), "cấp tay vẫn ghi calculated_at");
+    // Không truyền expiresAt → mặc định cuối năm TC (FY 1/1 → 31/12/2026).
+    assertEquals(java.time.LocalDate.of(2026, 12, 31), response.expiresAt(),
+        "BONUS không truyền hạn → hết hạn cuối năm tài chính");
+    assertFalse(response.expired());
+  }
+
+  @Test
+  void grant_bonus_customExpiresAt_savedAndEchoed() {
+    when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
+    when(policyService.getInForce(2026)).thenReturn(policy);
+    when(settingsService.getOrCreateSettings()).thenReturn(defaultSettings());
+    when(entitlementRepository.save(any(LeaveEntitlement.class)))
+        .thenAnswer(inv -> inv.getArgument(0));
+    java.time.LocalDate custom = java.time.LocalDate.now(ZoneOffset.UTC).plusDays(30);
+
+    LeaveEntitlementResponse response = service.grant(
+        "e-1", 2026,
+        new LeaveGrantRequest("BONUS", new BigDecimal("1"), "Voucher mid-year", custom), "hr");
+
+    assertEquals(custom, response.expiresAt(),
+        "BONUS được tùy chỉnh thời hạn (kể cả vượt cuối năm TC)");
+    assertFalse(response.expired());
+  }
+
+  @Test
+  void grant_bonus_expiresAtInPast_throws() {
+    when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
+    when(policyService.getInForce(2026)).thenReturn(policy);
+    assertThrows(BusinessRuleException.class, () -> service.grant(
+        "e-1", 2026,
+        new LeaveGrantRequest("BONUS", new BigDecimal("1"), null,
+            java.time.LocalDate.now(ZoneOffset.UTC).minusDays(1)),
+        "hr"));
+  }
+
+  @Test
+  void grant_adjustmentWithExpiresAt_throws() {
+    // Chỉ BONUS được tùy chỉnh — ADJUSTMENT/CARRYOVER luôn mặc định cuối năm TC.
+    when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
+    when(policyService.getInForce(2026)).thenReturn(policy);
+    assertThrows(BusinessRuleException.class, () -> service.grant(
+        "e-1", 2026,
+        new LeaveGrantRequest("ADJUSTMENT", new BigDecimal("1"), null,
+            java.time.LocalDate.now(ZoneOffset.UTC).plusDays(30)),
+        "hr"));
   }
 
   @Test
   void grant_carryover_exceedsMax_throws() {
     when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
     when(policyService.getInForce(2026)).thenReturn(policy);
+    when(settingsService.getOrCreateSettings()).thenReturn(defaultSettings());
     when(entitlementRepository.findByEmployeeIdAndYearAndSource(
         "e-1", 2026, LeaveSource.CARRYOVER)).thenReturn(Optional.empty());
 
     // carryoverMax = 5 → 6 ngày bị chặn
     assertThrows(BusinessRuleException.class, () -> service.grant(
-        "e-1", 2026, new LeaveGrantRequest("CARRYOVER", new BigDecimal("6"), null), "hr"));
+        "e-1", 2026,
+        new LeaveGrantRequest("CARRYOVER", new BigDecimal("6"), null, null), "hr"));
   }
 
   @Test
   void grant_carryover_upsertSingleRow_manualNotOverwrittenByRecalc() {
     when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
     when(policyService.getInForce(2026)).thenReturn(policy);
+    when(settingsService.getOrCreateSettings()).thenReturn(defaultSettings());
     when(entitlementRepository.findByEmployeeIdAndYearAndSource(
         "e-1", 2026, LeaveSource.CARRYOVER)).thenReturn(Optional.empty());
     when(entitlementRepository.save(any(LeaveEntitlement.class)))
         .thenAnswer(inv -> inv.getArgument(0));
 
     LeaveEntitlementResponse response = service.grant(
-        "e-1", 2026, new LeaveGrantRequest("CARRYOVER", new BigDecimal("3"), null), "hr");
+        "e-1", 2026,
+        new LeaveGrantRequest("CARRYOVER", new BigDecimal("3"), null, null), "hr");
 
     assertEquals(new BigDecimal("3.0000"), response.days());
     assertFalse(response.isAuto(), "CARRYOVER do ADMIN cấp → is_auto=false, recalc không đè");
     assertEquals(policy.getId(), response.policyId(),
         "CARRYOVER validate theo carryoverMax → snapshot policy in-force");
+    assertEquals(java.time.LocalDate.of(2026, 12, 31), response.expiresAt(),
+        "CARRYOVER luôn hết hạn cuối năm TC (không tùy chỉnh được)");
   }
 
   @Test
   void grant_autoSource_throws() {
     assertThrows(BusinessRuleException.class, () -> service.grant(
-        "e-1", 2026, new LeaveGrantRequest("BASE", new BigDecimal("1"), null), "hr"));
+        "e-1", 2026,
+        new LeaveGrantRequest("BASE", new BigDecimal("1"), null, null), "hr"));
   }
 
   @Test
@@ -373,7 +427,7 @@ class LeaveQuotaServiceTest {
         .thenReturn(Optional.empty());
     when(roleQuotaRepository.findByPolicyIdOrderByRoleAsc(policy.getId()))
         .thenReturn(List.of());
-    when(entitlementRepository.findByEmployeeIdAndYearOrderBySourceAsc("e-1", 2026))
+    when(entitlementRepository.findDetail(eq("e-1"), eq(2026), eq(LeaveSource.BONUS), any()))
         .thenReturn(List.of(
             auto(LeaveSource.BASE, new BigDecimal("12.0000")),
             auto(LeaveSource.SENIORITY, new BigDecimal("5.0000")),
@@ -387,6 +441,76 @@ class LeaveQuotaServiceTest {
     assertEquals(new BigDecimal("18.5000"), quota.remainingDays());
     assertEquals(5, quota.entitlements().size());
     assertEquals("DEPT_LEAD", quota.roles(), "response trả roles mirror");
+  }
+
+  @Test
+  void getQuota_expiredBonus_excludedFromTotals_shownInDetail() {
+    stubAllPeriodsEligible();
+    when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
+    when(entitlementRepository.findByEmployeeIdAndYearAndSource(eq("e-1"), eq(2026), any()))
+        .thenReturn(Optional.empty());
+    when(roleQuotaRepository.findByPolicyIdOrderByRoleAsc(policy.getId()))
+        .thenReturn(List.of());
+    LeaveEntitlement expiredBonus = manual(LeaveSource.BONUS, new BigDecimal("3.0000"));
+    expiredBonus.setExpiresAt(java.time.LocalDate.now(ZoneOffset.UTC).minusDays(1));
+    LeaveEntitlement aliveBase = auto(LeaveSource.BASE, new BigDecimal("12.0000"));
+    aliveBase.setExpiresAt(java.time.LocalDate.of(2026, 12, 31));
+    when(entitlementRepository.findDetail(eq("e-1"), eq(2026), eq(LeaveSource.BONUS), any()))
+        .thenReturn(List.of(aliveBase, expiredBonus));
+
+    LeaveQuotaResponse quota = service.getQuota("e-1", 2026, "hr", EmployeeScope.ALL);
+
+    // BONUS hết hạn bị loại khỏi Tổng/Còn lại (hết hạn từ 0h hôm sau ngày expires_at).
+    assertEquals(new BigDecimal("12.0000"), quota.totalDays());
+    assertEquals(2, quota.entitlements().size(), "chi tiết vẫn hiện dòng hết hạn để đối chiếu");
+    LeaveEntitlementResponse expiredRow = quota.entitlements().stream()
+        .filter(LeaveEntitlementResponse::expired).findFirst().orElseThrow();
+    assertEquals("BONUS", expiredRow.source());
+    assertEquals(java.time.LocalDate.now(ZoneOffset.UTC).minusDays(1), expiredRow.expiresAt());
+  }
+
+  @Test
+  void getQuota_spillBonusFromPrevYear_countedAndMarkedWithItsYear() {
+    stubAllPeriodsEligible();
+    when(employeeRepository.findById("e-1")).thenReturn(Optional.of(employee));
+    when(entitlementRepository.findByEmployeeIdAndYearAndSource(eq("e-1"), eq(2026), any()))
+        .thenReturn(Optional.empty());
+    when(roleQuotaRepository.findByPolicyIdOrderByRoleAsc(policy.getId()))
+        .thenReturn(List.of());
+    // BONUS cấp năm 2025 với hạn vượt năm TC (vd 31/3/2027) → còn hạn → spill sang 2026.
+    LeaveEntitlement spill = manual(LeaveSource.BONUS, new BigDecimal("2.0000"));
+    spill.setYear(2025);
+    spill.setExpiresAt(java.time.LocalDate.now(ZoneOffset.UTC).plusDays(60));
+    LeaveEntitlement aliveBase = auto(LeaveSource.BASE, new BigDecimal("12.0000"));
+    aliveBase.setExpiresAt(java.time.LocalDate.of(2026, 12, 31));
+    when(entitlementRepository.findDetail(eq("e-1"), eq(2026), eq(LeaveSource.BONUS), any()))
+        .thenReturn(List.of(aliveBase, spill));
+
+    LeaveQuotaResponse quota = service.getQuota("e-1", 2026, "hr", EmployeeScope.ALL);
+
+    assertEquals(new BigDecimal("14.0000"), quota.totalDays(),
+        "BONUS năm trước còn hạn tự cộng sang năm mới (không cần bấm Chuyển năm)");
+    LeaveEntitlementResponse spillRow = quota.entitlements().stream()
+        .filter(r -> r.year() == 2025).findFirst().orElseThrow();
+    assertEquals("BONUS", spillRow.source());
+    assertFalse(spillRow.expired());
+  }
+
+  @Test
+  void ensureAuto_rowsExpireAtFyEnd() {
+    stubAllPeriodsEligible();
+    when(entitlementRepository.findByEmployeeIdAndYearAndSource(eq("e-1"), eq(2026), any()))
+        .thenReturn(Optional.empty());
+    when(roleQuotaRepository.findByPolicyIdOrderByRoleAsc(policy.getId()))
+        .thenReturn(List.of(roleQuota("DEPT_LEAD", "2")));
+
+    service.ensureAuto(employee, 2026);
+
+    ArgumentCaptor<LeaveEntitlement> captor = ArgumentCaptor.forClass(LeaveEntitlement.class);
+    verify(entitlementRepository, org.mockito.Mockito.times(3)).save(captor.capture());
+    assertTrue(captor.getAllValues().stream().allMatch(
+        e -> java.time.LocalDate.of(2026, 12, 31).equals(e.getExpiresAt())),
+        "dòng auto mặc định hết hạn cuối năm tài chính (FY 1/1/2026 → 31/12/2026)");
   }
 
   private LeaveRoleQuota roleQuota(String role, String days) {
@@ -416,14 +540,7 @@ class LeaveQuotaServiceTest {
    * → computeBase trả BASE = baseDays × 12/12 = 12.0000.
    */
   private void stubAllPeriodsEligible() {
-    LeaveSettings settings = new LeaveSettings();
-    settings.setId(UUID.randomUUID());
-    settings.setFyStartMonth(1);
-    settings.setFyStartDay(1);
-    settings.setPeriodStartDay(1);
-    settings.setPeriodEndDay(31);
-    settings.setSaturdayPolicy(SaturdayPolicy.OFF);
-    settings.setMinWorkPercent(new BigDecimal("50"));
+    LeaveSettings settings = defaultSettings();
     when(settingsService.getOrCreateSettings()).thenReturn(settings);
     when(settingsService.ensureDefaultWorkDays(any(), anyInt(), any(), any(), any()))
         .thenAnswer(inv -> {
@@ -438,6 +555,19 @@ class LeaveQuotaServiceTest {
     when(policyService.versionHistory(2026)).thenReturn(List.of(policy));
     policy.setEffectiveFrom(java.time.LocalDate.of(2026, 1, 1));
     policy.setEffectiveTo(java.time.LocalDate.of(2026, 12, 31));
+  }
+
+  /** Settings FY 1/1 kỳ 1/31 T7 OFF — mặc định cho test grant (fyEnd 2026 = 31/12/2026). */
+  private LeaveSettings defaultSettings() {
+    LeaveSettings settings = new LeaveSettings();
+    settings.setId(UUID.randomUUID());
+    settings.setFyStartMonth(1);
+    settings.setFyStartDay(1);
+    settings.setPeriodStartDay(1);
+    settings.setPeriodEndDay(31);
+    settings.setSaturdayPolicy(SaturdayPolicy.OFF);
+    settings.setMinWorkPercent(new BigDecimal("50"));
+    return settings;
   }
 
   private LeaveEntitlement auto(LeaveSource source, BigDecimal days) {

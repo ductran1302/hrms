@@ -375,6 +375,8 @@ export interface LeavePolicyCreate {
 
 export interface LeaveEntitlement {
   id: string;
+  /** Năm sở hữu dòng (BONUS còn hạn có thể hiện ở quota năm sau — spill). */
+  year: number;
   source: LeaveSourceValue;
   days: number;
   isAuto: boolean;
@@ -384,6 +386,10 @@ export interface LeaveEntitlement {
   /** Phiên bản chính sách tạo ra dòng auto (null với BONUS/ADJUSTMENT). */
   policyId: string | null;
   calculatedAt: string | null;
+  /** Ngày hết hạn hiệu lực (null = dòng cũ không giới hạn). */
+  expiresAt: string | null;
+  /** Đã quá hạn → loại khỏi Tổng/Còn lại, chỉ hiện ở chi tiết. */
+  expired: boolean;
 }
 
 export interface LeaveQuota {
@@ -410,6 +416,8 @@ export interface LeaveGrant {
   source: 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT';
   days: number;
   reason?: string;
+  /** Chỉ BONUS: hạn tùy chỉnh (yyyy-mm-dd); bỏ trống = cuối năm tài chính. */
+  expiresAt?: string;
 }
 
 export type SaturdayPolicyValue = 'OFF' | 'HALF' | 'ALTERNATING' | 'ALL';

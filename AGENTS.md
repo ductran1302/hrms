@@ -493,9 +493,22 @@ Feature "thiết kế lại tính quỹ phép" — quỹ tính theo **kỳ công
   sync qua event `hrms.employee.v1` + `POST /api/v1/accounts/resync-role-events`),
   carryover auto = min(còn lại năm trước, carryoverMax) upsert CARRYOVER
   `is_auto=false`. Snapshot: mọi dòng auto ghi `policy_id` + `calculated_at`
-  (BONUS/ADJUSTMENT policyId=null); recalculate **explicit** — không tự tính
-  lại khi đổi policy. Entitlement nguồn AUTO (BASE/SENIORITY/CARRYOVER)
-  **DELETE → 422**.
+   (BONUS/ADJUSTMENT policyId=null); recalculate **explicit** — không tự tính
+   lại khi đổi policy. Entitlement nguồn AUTO (BASE/SENIORITY/CARRYOVER)
+   **DELETE → 422**.
+- **Thời hạn hiệu lực (`expires_at`, migration `V18` — 2026-10-29)**: mọi dòng
+  entitlement có `expires_at` (backfill = `fyEnd` năm của dòng theo settings hiện
+  tại). Hết hạn khi `today > expires_at` (dùng trọn ngày cuối, hết từ 0h hôm sau)
+  → **loại khỏi Tổng/Còn lại** (on-read, không job batch) nhưng vẫn hiện ở Chi
+  tiết với tag đỏ. Grant tay: **BONUS** được tùy chỉnh hạn (≥ hôm nay, kể cả vượt
+  fyEnd — còn hạn sau năm mới thì tự spill); nguồn khác / không truyền = `fyEnd(year)`;
+  non-BONUS + `expiresAt` → 422, `expiresAt` quá khứ → 422. **Spill**: quota năm Y
+  = dòng `year=Y` chưa hết hạn ∪ BONUS `year<Y ∧ expiresAt ≥ fyStart(Y) ∧ ≥ today`
+  — row giữ `year` gốc (không copy), FE hiện "(từ năm X)"; CARRYOVER/ADJUSTMENT
+  vẫn "Chuyển năm" thủ công. Response thêm `year/expiresAt/expired`; FE modal cấp
+  phép có DatePicker hạn (chỉ BONUS), cột "Hết hạn" ở Chi tiết. Smoke: §13b
+  `verify-identity.sh` (mặc định fyEnd, custom echo, 422×2, spill year-marker,
+  khôi phục settings gốc).
 - **Ngày lễ KHÔNG trừ**: workingDays = T2–T6 + T7 theo policy + CN nghỉ;
   ALTERNATING: Sat #0 = đi làm, reset mỗi năm TC (`PeriodEngine`).
 - **Đã fix 2 bug**: self-invocation readOnly không commit (xem §7.9);

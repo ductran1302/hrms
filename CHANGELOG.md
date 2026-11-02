@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## [Tính năng — Thời hạn quỹ phép (expires_at) + BONUS spill] 2026-10-29
+
+Quỹ phép có **thời hạn hiệu lực**: dòng hết hạn bị loại khỏi Tổng/Còn lại (on-read),
+BONUS cấp tay được tùy chỉnh hạn và tự chuyển sang năm mới khi còn hạn.
+
+### Nội dung thay đổi
+- Migration `V18__leave_entitlement_expires_at.sql`: thêm cột `expires_at date` +
+  backfill = `fyEnd` năm của mỗi dòng theo settings hiện tại (không có settings row
+  → FY 1/1 → 31/12).
+- Backend (`attendance-service/leave`): `LeaveEntitlement.expiresAt`;
+  `LeaveEntitlementResponse` thêm `year/expiresAt/expired` (`expired = today >
+  expiresAt`, dùng trọn ngày cuối); `LeaveGrantRequest.expiresAt` (bỏ overload 3-arg).
+  - `grant`: chỉ BONUS được truyền `expiresAt` (nguồn khác → 422), quá khứ → 422,
+    không truyền → `fyEnd(year)` cho mọi nguồn; audit detail kèm `expiresAt`.
+  - Query tổng/detail (`LeaveEntitlementRepository.sumDays`/`findDetail`): own-year
+    chưa hết hạn ∪ BONUS spill (`year<Y ∧ expiresAt ≥ fyStart(Y) ∧ ≥ today`); chi
+    tiết hiện cả own-year expired (tag đỏ) + BONUS spill kèm `year` gốc.
+  - `getQuota`/`listQuotas`/`recalculate`/`ensureAuto` tự resolve settings → fyStart/fyEnd.
+- Frontend: `LeaveGrant.expiresAt`; modal cấp phép có DatePicker hạn (chỉ BONUS,
+  gợi ý = fyEnd tính từ settings, chặn quá khứ); cột "Hết hạn" ở Chi tiết dòng cấp
+  phép (ngày + tag "Đã hết hạn" + "(từ năm X)" khi row từ năm trước); i18n vi/en.
+- Tests: `LeaveQuotaServiceTest` (hạn mặc định/custom/422×2, expired excluded-from-
+  totals, spill year-marker, ensureAuto ghi fyEnd), `LeavePolicyServiceTest` (fyEnd
+  1/1 → 31/12 cùng năm; 1/4 → 31/3 năm sau — case thật của hệ đang cấu hình FY 4/1).
+- Smoke `verify-identity.sh` §13b (12 check): backfill, hạn mặc định theo settings,
+  custom echo, 422×2, spill sang năm sau, dòng fyEnd KHÔNG spill, cleanup; kèm
+  khôi phục settings gốc sau khi test validation (trước đây script ghi đè FY thật)
+  + fix `endDate` HĐ gần hạn hardcode `2026-10-28` → `+20 days` (đã fail khi chạy
+  sau ngày đó).
+- Verify: `mvn verify -pl attendance-service -am` (141+ test), FE `tsc && vite build`,
+  smoke: identity 296/296, p1-scoping 52/52, roles 23/23, attendance DONE,
+  gateway-routes ALL OK; app stack attendance + frontend image đã rebuild.
+
 ## [Bảo mật — Testcontainers IT cho audit log] 2026-10-28
 
 Giai đoạn hardening (hướng 2) — hạng mục 6/6: **integration test (PostgreSQL thật)** cho

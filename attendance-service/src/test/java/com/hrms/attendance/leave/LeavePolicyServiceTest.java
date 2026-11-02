@@ -94,6 +94,24 @@ class LeavePolicyServiceTest {
   // ---- getInForce ----
 
   @Test
+  void fyEnd_jan1Start_endsDec31SameYear() {
+    settings.setFyStartMonth(1);
+    settings.setFyStartDay(1);
+    assertEquals(LocalDate.of(2026, 1, 1), LeavePolicyService.fyStart(2026, settings));
+    assertEquals(LocalDate.of(2026, 12, 31), LeavePolicyService.fyEnd(2026, settings),
+        "FY 1/1/2026 → hết 31/12/2026");
+  }
+
+  @Test
+  void fyEnd_apr1Start_endsMar31NextYear() {
+    settings.setFyStartMonth(4);
+    settings.setFyStartDay(1);
+    assertEquals(LocalDate.of(2026, 4, 1), LeavePolicyService.fyStart(2026, settings));
+    assertEquals(LocalDate.of(2027, 3, 31), LeavePolicyService.fyEnd(2026, settings),
+        "FY bắt đầu 1/4/2026 → hết 31/3/2027 (fyStart + 1 năm − 1 ngày)");
+  }
+
+  @Test
   void getInForce_fiscalYearEmpty_createsDefaultDraft() {
     when(policyRepository.findByYearAndStatusOrderByVersionNoDesc(2026, PolicyStatus.ACTIVE))
         .thenReturn(List.of());

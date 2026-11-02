@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -65,6 +66,14 @@ public class LeaveEntitlement {
   /** Thời điểm tính/lần lưu cuối của dòng (audit). */
   @Column(name = "calculated_at")
   private Instant calculatedAt;
+
+  /**
+   * Ngày hết hạn (dùng trọn ngày — hết hạn từ 0h hôm sau). Mặc định = cuối năm tài chính
+   * của {@code year}; BONUS được cấp tùy chỉnh (có thể vượt năm TC → spill sang năm sau).
+   * null = không hết hạn (dòng cũ trước khi backfill — hiếm).
+   */
+  @Column(name = "expires_at")
+  private LocalDate expiresAt;
 
   @CreatedDate
   @Column(name = "created_at", nullable = false)

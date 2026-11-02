@@ -90,6 +90,7 @@ public class LeaveQuotaService {
   public int recalculate(int year) {
     LeavePolicy inForce = policyService.getInForce(year);
     LeaveSettings settings = settingsService.getOrCreateSettings();
+    LocalDate expiresAt = LeavePolicyService.fyEnd(year, settings);
     List<Period> periods = PeriodEngine.fiscalPeriods(settings, year);
     if (periods.isEmpty()) {
       throw new BusinessRuleException("Không sinh được kỳ công cho năm " + year);
@@ -98,24 +99,24 @@ public class LeaveQuotaService {
     if (history.isEmpty()) {
       history = List.of(inForce);
     }
-    Map<String, BigDecimal> prevRemaining = remainingByEmployee(year - 1);
+    Map<String, BigDecimal> prevRemaining = remainingByEmployee(year - 1, settings);
 
     List<Employee> employees = employeeRepository.findByStatusOrderByFullNameAsc("ACTIVE");
     for (Employee employee : employees) {
       BigDecimal base = computeBase(employee, year, settings, periods, history, inForce);
-      upsertAuto(employee, year, LeaveSource.BASE, base, inForce);
+      upsertAuto(employee, year, LeaveSource.BASE, base, inForce, expiresAt);
       upsertAuto(employee, year, LeaveSource.SENIORITY,
-          seniorityBonus(employee, year, inForce), inForce);
+          seniorityBonus(employee, year, inForce), inForce, expiresAt);
       BigDecimal roleBonus = roleBonus(employee, inForce);
       if (roleBonus.signum() > 0) {
-        upsertAuto(employee, year, LeaveSource.POSITION, roleBonus, inForce);
+        upsertAuto(employee, year, LeaveSource.POSITION, roleBonus, inForce, expiresAt);
       } else {
         entitlementRepository
             .findByEmployeeIdAndYearAndSource(employee.getEmployeeId(), year, LeaveSource.POSITION)
             .ifPresent(entitlementRepository::delete);
       }
       carryoverAuto(employee, year, inForce, prevRemaining.getOrDefault(
-          employee.getEmployeeId(), ZERO));
+          employee.getEmployeeId(), ZERO), expiresAt);
     }
     log.info(
         "Tính lại quỹ phép năm {}: {} nhân viên, {} kỳ/năm, policy v{} ({}) — FY start {}/{}",
@@ -140,18 +141,19 @@ public class LeaveQuotaService {
   private void ensureAuto(
       Employee employee, int year, LeavePolicy inForce, List<LeavePolicy> history) {
     LeaveSettings settings = settingsService.getOrCreateSettings();
+    LocalDate expiresAt = LeavePolicyService.fyEnd(year, settings);
     List<Period> periods = PeriodEngine.fiscalPeriods(settings, year);
     if (periods.isEmpty()) {
       throw new BusinessRuleException("Không sinh được kỳ công cho năm " + year);
     }
     // BASE phải tính theo số kỳ đạt — KHÔNG dùng policy.baseDays thô (sẽ ghi đè BASE recalc).
     upsertAuto(employee, year, LeaveSource.BASE,
-        computeBase(employee, year, settings, periods, history, inForce), inForce);
+        computeBase(employee, year, settings, periods, history, inForce), inForce, expiresAt);
     upsertAuto(employee, year, LeaveSource.SENIORITY,
-        seniorityBonus(employee, year, inForce), inForce);
+        seniorityBonus(employee, year, inForce), inForce, expiresAt);
     BigDecimal roleBonus = roleBonus(employee, inForce);
     if (roleBonus.signum() > 0) {
-      upsertAuto(employee, year, LeaveSource.POSITION, roleBonus, inForce);
+      upsertAuto(employee, year, LeaveSource.POSITION, roleBonus, inForce, expiresAt);
     } else {
       entitlementRepository
           .findByEmployeeIdAndYearAndSource(employee.getEmployeeId(), year, LeaveSource.POSITION)
@@ -246,7 +248,8 @@ public class LeaveQuotaService {
 
   /** CARRYOVER auto — dòng tay (is_auto=false) giữ nguyên, recalc không đè. */
   private void carryoverAuto(
-      Employee employee, int year, LeavePolicy policy, BigDecimal prevRemaining) {
+      Employee employee, int year, LeavePolicy policy, BigDecimal prevRemaining,
+      LocalDate expiresAt) {
     var existing = entitlementRepository.findByEmployeeIdAndYearAndSource(
         employee.getEmployeeId(), year, LeaveSource.CARRYOVER);
     if (existing.isPresent() && !existing.get().isAuto()) {
@@ -268,21 +271,25 @@ public class LeaveQuotaService {
     });
     entitlement.setDays(autoDays);
     entitlement.setAuto(true);
+    entitlement.setExpiresAt(expiresAt);
     applySnapshot(entitlement, policy);
     entitlementRepository.save(entitlement);
   }
 
   /** Còn lại theo NV của năm (tổng ledger − đã nghỉ; GĐ1 chưa có đơn → dùng = 0). */
-  private Map<String, BigDecimal> remainingByEmployee(int year) {
+  private Map<String, BigDecimal> remainingByEmployee(int year, LeaveSettings settings) {
     Map<String, BigDecimal> result = new HashMap<>();
-    for (Object[] row : entitlementRepository.sumDaysByEmployeeAndSource(year)) {
+    for (Object[] row : entitlementRepository.sumDays(
+        year, LeaveSource.BONUS, LeavePolicyService.fyStart(year, settings),
+        LocalDate.now(ZoneOffset.UTC))) {
       result.merge((String) row[0], scale4((BigDecimal) row[2]), BigDecimal::add);
     }
     return result;
   }
 
   private void upsertAuto(
-      Employee employee, int year, LeaveSource source, BigDecimal days, LeavePolicy policy) {
+      Employee employee, int year, LeaveSource source, BigDecimal days, LeavePolicy policy,
+      LocalDate expiresAt) {
     BigDecimal scaled = scale4(days);
     if (scaled.signum() <= 0 && source != LeaveSource.BASE) {
       entitlementRepository
@@ -303,6 +310,7 @@ public class LeaveQuotaService {
         });
     entitlement.setDays(scaled);
     entitlement.setAuto(true);
+    entitlement.setExpiresAt(expiresAt);
     applySnapshot(entitlement, policy);
     entitlementRepository.save(entitlement);
   }
@@ -322,6 +330,7 @@ public class LeaveQuotaService {
     Employee employee = requireEmployee(employeeId);
     BigDecimal days = validateGrantDays(request.days());
     LeavePolicy inForce = policyService.getInForce(year);
+    LocalDate expiresAt = resolveExpiresAt(year, source, request.expiresAt());
 
     if (source == LeaveSource.CARRYOVER) {
       // Upsert 1 dòng CARRYOVER/NV/năm — ADMIN sửa tay, recalc không đè.
@@ -344,11 +353,13 @@ public class LeaveQuotaService {
       carryover.setAuto(false);
       carryover.setReason(request.reason());
       carryover.setGrantedBy(grantedBy);
+      carryover.setExpiresAt(expiresAt);
       applySnapshot(carryover, inForce);
       entitlementRepository.save(carryover);
       log.info("Cập nhật CARRYOVER tay {} ngày cho NV {} năm {}", days, employeeId, year);
       auditService.success("LEAVE_ENTITLEMENT_GRANT", "LeaveEntitlement", carryover.getId(),
-          "employeeId=" + employeeId + " year=" + year + " source=CARRYOVER days=" + days);
+          "employeeId=" + employeeId + " year=" + year + " source=CARRYOVER days=" + days
+              + " expiresAt=" + expiresAt);
       return LeaveEntitlementResponse.from(carryover);
     }
 
@@ -361,13 +372,36 @@ public class LeaveQuotaService {
     entitlement.setReason(request.reason());
     entitlement.setGrantedBy(grantedBy);
     entitlement.setAuto(false);
+    entitlement.setExpiresAt(expiresAt);
     // BONUS/ADJUSTMENT không phụ thuộc chính sách → chỉ ghi thời điểm cấp.
     applySnapshot(entitlement, null);
     entitlementRepository.save(entitlement);
-    log.info("Cấp {} {} ngày cho NV {} năm {}", source, days, employeeId, year);
+    log.info("Cấp {} {} ngày cho NV {} năm {} (hết hạn {})",
+        source, days, employeeId, year, expiresAt);
     auditService.success("LEAVE_ENTITLEMENT_GRANT", "LeaveEntitlement", entitlement.getId(),
-        "employeeId=" + employeeId + " year=" + year + " source=" + source + " days=" + days);
+        "employeeId=" + employeeId + " year=" + year + " source=" + source + " days=" + days
+            + " expiresAt=" + expiresAt);
     return LeaveEntitlementResponse.from(entitlement);
+  }
+
+  /**
+   * Thời hạn hiệu lực khi cấp tay: BONUS được truyền tùy ý (≥ hôm nay — được vượt cuối năm
+   * TC, còn hạn sau năm mới thì auto-spill); nguồn khác / không truyền = cuối năm tài chính.
+   */
+  private LocalDate resolveExpiresAt(int year, LeaveSource source, LocalDate requested) {
+    LeaveSettings settings = settingsService.getOrCreateSettings();
+    if (requested != null && source != LeaveSource.BONUS) {
+      throw new BusinessRuleException(
+          "Chỉ loại BONUS được tùy chỉnh thời hạn hết hạn — nguồn " + source
+              + " luôn hết hạn cuối năm tài chính");
+    }
+    if (requested != null) {
+      if (requested.isBefore(LocalDate.now(ZoneOffset.UTC))) {
+        throw new BusinessRuleException("Ngày hết hạn phải từ hôm nay trở đi");
+      }
+      return requested;
+    }
+    return LeavePolicyService.fyEnd(year, settings);
   }
 
   @Transactional
@@ -398,7 +432,9 @@ public class LeaveQuotaService {
       accessResolver.resolve(username, scope).assertCanAccess(employee);
     }
     ensureAuto(employee, year);
-    return buildQuota(employee, year, Map.of());
+    LocalDate fyStart =
+        LeavePolicyService.fyStart(year, settingsService.getOrCreateSettings());
+    return buildQuota(employee, year, Map.of(), fyStart);
   }
 
   /**
@@ -409,6 +445,8 @@ public class LeaveQuotaService {
   public List<LeaveQuotaResponse> listQuotas(int year, String q, String username,
       EmployeeScope scope) {
     policyService.getInForce(year); // self-heal FY chưa cấu hình trước khi list.
+    LeaveSettings settings = settingsService.getOrCreateSettings();
+    LocalDate fyStart = LeavePolicyService.fyStart(year, settings);
     EmployeeAccess access = scope == EmployeeScope.ALL
         ? EmployeeAccess.all() : accessResolver.resolve(username, scope);
     String keyword = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
@@ -426,16 +464,18 @@ public class LeaveQuotaService {
         continue;
       }
       ensureAuto(employee, year);
-      result.add(buildQuota(employee, year, sumsByYear(year)));
+      result.add(buildQuota(employee, year, sumsByYear(year, fyStart), fyStart));
     }
     return result;
   }
 
   private LeaveQuotaResponse buildQuota(
-      Employee employee, int year, Map<String, Map<LeaveSource, BigDecimal>> yearSums) {
+      Employee employee, int year,
+      Map<String, Map<LeaveSource, BigDecimal>> yearSums, LocalDate fyStart) {
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
     Map<LeaveSource, BigDecimal> sums = yearSums.containsKey(employee.getEmployeeId())
         ? yearSums.get(employee.getEmployeeId())
-        : sumsForEmployee(employee.getEmployeeId(), year);
+        : sumsForEmployee(employee.getEmployeeId(), year, fyStart, today);
     BigDecimal base = sums.getOrDefault(LeaveSource.BASE, ZERO);
     BigDecimal seniority = sums.getOrDefault(LeaveSource.SENIORITY, ZERO);
     BigDecimal roleDays = sums.getOrDefault(LeaveSource.POSITION, ZERO);
@@ -444,8 +484,9 @@ public class LeaveQuotaService {
     BigDecimal adjustment = sums.getOrDefault(LeaveSource.ADJUSTMENT, ZERO);
     BigDecimal total = base.add(seniority).add(roleDays).add(bonus).add(carryover).add(adjustment)
         .setScale(4, RoundingMode.HALF_UP);
+    // Chi tiết: mọi dòng của năm (kể cả hết hạn → FE tag đỏ) + BONUS spill từ năm trước.
     List<LeaveEntitlementResponse> entitlements = entitlementRepository
-        .findByEmployeeIdAndYearOrderBySourceAsc(employee.getEmployeeId(), year).stream()
+        .findDetail(employee.getEmployeeId(), year, LeaveSource.BONUS, fyStart).stream()
         .map(LeaveEntitlementResponse::from).toList();
     String note = noteRepository.findByEmployeeIdAndYear(employee.getEmployeeId(), year)
         .map(LeaveEmployeeNote::getNote)
@@ -458,19 +499,25 @@ public class LeaveQuotaService {
         base, seniority, roleDays, bonus, carryover, adjustment, total, total, note, entitlements);
   }
 
-  private Map<String, Map<LeaveSource, BigDecimal>> sumsByYear(int year) {
+  private Map<String, Map<LeaveSource, BigDecimal>> sumsByYear(int year, LocalDate fyStart) {
     Map<String, Map<LeaveSource, BigDecimal>> result = new HashMap<>();
-    for (Object[] row : entitlementRepository.sumDaysByEmployeeAndSource(year)) {
+    for (Object[] row : entitlementRepository.sumDays(
+        year, LeaveSource.BONUS, fyStart, LocalDate.now(ZoneOffset.UTC))) {
       result.computeIfAbsent((String) row[0], k -> new HashMap<>())
           .put((LeaveSource) row[1], scale4((BigDecimal) row[2]));
     }
     return result;
   }
 
-  private Map<LeaveSource, BigDecimal> sumsForEmployee(String employeeId, int year) {
+  /** Tổng cho 1 NV — cùng bộ dòng với findDetail (gồm spill) nhưng loại đã hết hạn. */
+  private Map<LeaveSource, BigDecimal> sumsForEmployee(
+      String employeeId, int year, LocalDate fyStart, LocalDate today) {
     Map<LeaveSource, BigDecimal> sums = new HashMap<>();
-    for (LeaveEntitlement e : entitlementRepository.findByEmployeeIdAndYearOrderBySourceAsc(employeeId, year)) {
-      sums.merge(e.getSource(), e.getDays(), BigDecimal::add);
+    for (LeaveEntitlement e : entitlementRepository.findDetail(
+        employeeId, year, LeaveSource.BONUS, fyStart)) {
+      if (e.getExpiresAt() == null || !e.getExpiresAt().isBefore(today)) {
+        sums.merge(e.getSource(), e.getDays(), BigDecimal::add);
+      }
     }
     sums.replaceAll((s, d) -> scale4(d));
     return sums;

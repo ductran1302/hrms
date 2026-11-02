@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import {
   Button,
+  DatePicker,
   Divider,
   Empty,
   Form,
@@ -25,12 +26,15 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
 import {
   deleteLeaveEntitlement,
   getLeaveNote,
+  getLeaveSettings,
   grantLeaveEntitlement,
   listLeaveQuotas,
   listLeaveWorkDays,
@@ -38,7 +42,7 @@ import {
   saveLeaveNote,
   upsertLeaveWorkDay,
 } from '../api/leaveQuotas';
-import type { LeaveQuota, LeaveSourceValue, LeaveWorkDay } from '../api/types';
+import type { LeaveQuota, LeaveSettings, LeaveSourceValue, LeaveWorkDay } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import ActionIcon from '../components/ActionIcon';
 
@@ -69,7 +73,28 @@ export default function LeaveQuotaPage() {
   const [loading, setLoading] = useState(false);
 
   const [grantTarget, setGrantTarget] = useState<{ quota: LeaveQuota; source: 'BONUS' | 'CARRYOVER' | 'ADJUSTMENT' } | null>(null);
-  const [grantForm] = Form.useForm<{ days: number; reason?: string }>();
+  const [grantForm] = Form.useForm<{ days: number; reason?: string; expiresAt?: Dayjs }>();
+  const [settings, setSettings] = useState<LeaveSettings | null>(null);
+
+  useEffect(() => {
+    getLeaveSettings()
+      .then(setSettings)
+      .catch(() => undefined);
+  }, []);
+
+  /** Cuối năm tài chính của `y` theo settings (yyyy-mm-dd) — gợi ý hạn mặc định BONUS. */
+  const fyEndISO = (y: number): string | undefined => {
+    if (!settings) return undefined;
+    const d = new Date(y + 1, settings.fyStartMonth - 1, settings.fyStartDay);
+    d.setDate(d.getDate() - 1);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  };
+  const defaultExpiry = fyEndISO(year);
+  const defaultExpiryLabel = defaultExpiry
+    ? defaultExpiry.split('-').reverse().join('/')
+    : '—';
 
   const [detailTarget, setDetailTarget] = useState<LeaveQuota | null>(null);
   const [noteValue, setNoteValue] = useState('');
@@ -161,6 +186,11 @@ export default function LeaveQuotaPage() {
         source: grantTarget.source,
         days: values.days,
         reason: values.reason || undefined,
+        // Chỉ BONUS được tùy chỉnh hạn — nguồn khác server tự ép cuối năm tài chính.
+        expiresAt:
+          grantTarget.source === 'BONUS' && values.expiresAt
+            ? values.expiresAt.format('YYYY-MM-DD')
+            : undefined,
       });
       message.success(t('saved'));
       setGrantTarget(null);
@@ -313,6 +343,23 @@ export default function LeaveQuotaPage() {
       ),
     },
     { title: t('leave.action.days'), dataIndex: 'days', align: 'right', render: fmt },
+    {
+      title: t('leave.action.expiresAt'),
+      dataIndex: 'expiresAt',
+      width: 170,
+      render: (v: string | null, record) => {
+        if (!v) return '—';
+        return (
+          <Space size={4} wrap>
+            <span>{fmtDate(v)}</span>
+            {record.expired && <Tag color="red">{t('leave.action.expiredTag')}</Tag>}
+            {record.year !== year && (
+              <Text type="secondary">{t('leave.action.fromYear', { year: record.year })}</Text>
+            )}
+          </Space>
+        );
+      },
+    },
     { title: t('leave.action.reason'), dataIndex: 'reason', ellipsis: true, render: (v: string | null) => v ?? '—' },
     { title: t('leave.action.grantedBy'), dataIndex: 'grantedBy', render: (v: string | null) => v ?? '—' },
     {
@@ -560,6 +607,20 @@ export default function LeaveQuotaPage() {
           <Form.Item name="reason" label={t('leave.action.reason')}>
             <Input.TextArea rows={2} maxLength={300} />
           </Form.Item>
+          {grantTarget?.source === 'BONUS' && (
+            <Form.Item
+              name="expiresAt"
+              label={t('leave.action.expiresAt')}
+              extra={t('leave.action.expiresAtHint', { date: defaultExpiryLabel })}
+            >
+              <DatePicker
+                style={{ width: '100%' }}
+                format="DD/MM/YYYY"
+                placeholder={defaultExpiryLabel}
+                disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+              />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
 
