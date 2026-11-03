@@ -432,9 +432,10 @@ public class LeaveQuotaService {
       accessResolver.resolve(username, scope).assertCanAccess(employee);
     }
     ensureAuto(employee, year);
-    LocalDate fyStart =
-        LeavePolicyService.fyStart(year, settingsService.getOrCreateSettings());
-    return buildQuota(employee, year, Map.of(), fyStart);
+    LeaveSettings settings = settingsService.getOrCreateSettings();
+    LocalDate fyStart = LeavePolicyService.fyStart(year, settings);
+    LocalDate fyEnd = LeavePolicyService.fyEnd(year, settings);
+    return buildQuota(employee, year, Map.of(), fyStart, fyEnd);
   }
 
   /**
@@ -447,6 +448,7 @@ public class LeaveQuotaService {
     policyService.getInForce(year); // self-heal FY chưa cấu hình trước khi list.
     LeaveSettings settings = settingsService.getOrCreateSettings();
     LocalDate fyStart = LeavePolicyService.fyStart(year, settings);
+    LocalDate fyEnd = LeavePolicyService.fyEnd(year, settings);
     EmployeeAccess access = scope == EmployeeScope.ALL
         ? EmployeeAccess.all() : accessResolver.resolve(username, scope);
     String keyword = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
@@ -464,14 +466,14 @@ public class LeaveQuotaService {
         continue;
       }
       ensureAuto(employee, year);
-      result.add(buildQuota(employee, year, sumsByYear(year, fyStart), fyStart));
+      result.add(buildQuota(employee, year, sumsByYear(year, fyStart), fyStart, fyEnd));
     }
     return result;
   }
 
   private LeaveQuotaResponse buildQuota(
       Employee employee, int year,
-      Map<String, Map<LeaveSource, BigDecimal>> yearSums, LocalDate fyStart) {
+      Map<String, Map<LeaveSource, BigDecimal>> yearSums, LocalDate fyStart, LocalDate fyEnd) {
     LocalDate today = LocalDate.now(ZoneOffset.UTC);
     Map<LeaveSource, BigDecimal> sums = yearSums.containsKey(employee.getEmployeeId())
         ? yearSums.get(employee.getEmployeeId())
@@ -496,7 +498,8 @@ public class LeaveQuotaService {
         employee.getEmployeeId(), employee.getEmployeeCode(), employee.getFullName(),
         employee.getDepartmentName(), employee.getPosition(), employee.getRoles(),
         employee.getStatus(),
-        base, seniority, roleDays, bonus, carryover, adjustment, total, total, note, entitlements);
+        base, seniority, roleDays, bonus, carryover, adjustment, total, total, note,
+        entitlements, fyStart, fyEnd);
   }
 
   private Map<String, Map<LeaveSource, BigDecimal>> sumsByYear(int year, LocalDate fyStart) {

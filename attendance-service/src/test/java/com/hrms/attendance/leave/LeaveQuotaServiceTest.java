@@ -441,6 +441,9 @@ class LeaveQuotaServiceTest {
     assertEquals(new BigDecimal("18.5000"), quota.remainingDays());
     assertEquals(5, quota.entitlements().size());
     assertEquals("DEPT_LEAD", quota.roles(), "response trả roles mirror");
+    assertEquals(java.time.LocalDate.of(2026, 1, 1), quota.fyStart(),
+        "response trả range năm TC (settings FY 1/1) — FE label bộ chọn năm TC");
+    assertEquals(java.time.LocalDate.of(2026, 12, 31), quota.fyEnd());
   }
 
   @Test

@@ -410,6 +410,9 @@ export interface LeaveQuota {
   remainingDays: number;
   note: string | null;
   entitlements: LeaveEntitlement[];
+  /** Range năm tài chính của year (yyyy-mm-dd) — FE label bộ chọn năm TC. */
+  fyStart: string;
+  fyEnd: string;
 }
 
 export interface LeaveGrant {

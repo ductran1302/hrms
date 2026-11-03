@@ -88,11 +88,53 @@
   },
   "empty": "No leave quota data yet",
   "my": {
-    "title": "My leave",
-    "subtitle": "Your annual leave quota summary",
-    "total": "Total quota",
+    "title": "My leave balance",
+    "subtitle": "Track your balance and leave types within the fiscal year.",
+    "fiscalYear": "Fiscal year {{year}} ({{from}} - {{to}})",
+    "dayUnit": "days",
+    "dayUnit_one": "day",
+    "dayUnit_other": "days",
+    "total": "Total leave",
+    "used": "Used",
+    "usedHint": "The leave request module has no data yet — \"Used\" updates automatically once your requests are approved.",
     "remaining": "Remaining",
+    "expiring": "Expiring soon",
+    "policyCaption": "Per company policy",
+    "expiringCaption": "Expires on {{date}}",
+    "expiringNone": "None within the next 30 days",
     "noEmployee": "This account is not linked to an employee profile",
-    "breakdown": "Breakdown by source"
+    "detailTitle": "Leave balance by type",
+    "col": {
+      "type": "Leave type",
+      "total": "Total leave",
+      "used": "Used",
+      "remaining": "Remaining",
+      "expiry": "Expires",
+      "action": "Actions"
+    },
+    "viewDetail": "View detail",
+    "expiryByFy": "(per fiscal year)",
+    "expiryCustom": "(custom expiry — {{date}})",
+    "sourceHint": {
+      "BASE": "Per company policy",
+      "SENIORITY": "Statutory seniority tiers",
+      "POSITION": "Per role / benefit group",
+      "BONUS": "Event bonus",
+      "CARRYOVER": "Carried from previous year",
+      "ADJUSTMENT": "HR adjustment"
+    },
+    "expiringTitle": "Expiring within 30 days",
+    "expiringEmptyTitle": "No leave expiring soon",
+    "expiringEmptyDesc": "You currently have no leave type expiring within the next 30 days.",
+    "updatedAt": "Data last updated on {{date}}.",
+    "historyTitle": "Leave transaction history",
+    "historyEmpty": "No transactions yet — the leave request module is under development.",
+    "historyCol": {
+      "date": "Date",
+      "type": "Transaction type",
+      "leaveType": "Leave type",
+      "days": "Days",
+      "note": "Note"
+    }
   }
 }

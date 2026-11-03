@@ -88,11 +88,52 @@
   },
   "empty": "Chưa có dữ liệu quỹ phép",
   "my": {
-    "title": "Phép của tôi",
-    "subtitle": "Tổng hợp quỹ phép năm của bạn",
-    "total": "Tổng quỹ phép",
+    "title": "Quỹ phép của tôi",
+    "subtitle": "Theo dõi số dư và các loại phép trong năm tài chính.",
+    "fiscalYear": "Năm tài chính {{year}} ({{from}} - {{to}})",
+    "dayUnit": "ngày",
+    "dayUnit_other": "ngày",
+    "total": "Tổng số phép",
+    "used": "Đã dùng",
+    "usedHint": "Module xin nghỉ phép chưa có dữ liệu — \"Đã dùng\" sẽ tự cập nhật khi bạn có đơn nghỉ được duyệt.",
     "remaining": "Còn lại",
+    "expiring": "Sắp hết hạn",
+    "policyCaption": "Theo chính sách công ty",
+    "expiringCaption": "Hết hạn vào {{date}}",
+    "expiringNone": "Không có trong 30 ngày tới",
     "noEmployee": "Tài khoản chưa gắn với hồ sơ nhân viên",
-    "breakdown": "Phân bổ theo nguồn"
+    "detailTitle": "Chi tiết quỹ phép theo loại",
+    "col": {
+      "type": "Loại phép",
+      "total": "Tổng số phép",
+      "used": "Đã dùng",
+      "remaining": "Còn lại",
+      "expiry": "Hết hạn",
+      "action": "Thao tác"
+    },
+    "viewDetail": "Xem chi tiết",
+    "expiryByFy": "(theo năm tài chính)",
+    "expiryCustom": "(hạn riêng — {{date}})",
+    "sourceHint": {
+      "BASE": "Theo chính sách công ty",
+      "SENIORITY": "Bậc thâm niên theo luật",
+      "POSITION": "Theo role / nhóm quyền lợi",
+      "BONUS": "Thưởng theo sự kiện",
+      "CARRYOVER": "Chuyển từ năm trước",
+      "ADJUSTMENT": "Điều chỉnh của HR"
+    },
+    "expiringTitle": "Sắp hết hạn trong 30 ngày tới",
+    "expiringEmptyTitle": "Không có phép sắp hết hạn",
+    "expiringEmptyDesc": "Hiện tại bạn không có loại phép nào sắp hết hạn trong 30 ngày tới.",
+    "updatedAt": "Dữ liệu được cập nhật đến ngày {{date}}.",
+    "historyTitle": "Lịch sử giao dịch phép",
+    "historyEmpty": "Chưa có giao dịch — module xin nghỉ phép đang được phát triển.",
+    "historyCol": {
+      "date": "Ngày",
+      "type": "Loại giao dịch",
+      "leaveType": "Loại phép",
+      "days": "Số ngày",
+      "note": "Ghi chú"
+    }
   }
 }
