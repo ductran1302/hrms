@@ -548,3 +548,126 @@ export interface KeycloakSyncTask {
   createdAt: string;
   updatedAt: string;
 }
+
+// ========== OT ==========
+export type OTRequestStatusValue =
+  | 'DRAFT'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'PENDING_CANCEL'
+  | 'CANCELLED_APPROVED';
+
+export interface OTConfig {
+  id: string;
+  dayStartTime: string;
+  nightStartTime: string;
+  postShiftBufferMinutes: number;
+  preShiftBufferMinutes: number;
+  breakDurationMinutes: number;
+  breakDeductionThresholdMinutes: number;
+  rateWeekday: number;
+  rateWeekdayNight: number;
+  rateWeekend: number;
+  rateWeekendNight: number;
+  rateHoliday: number;
+  rateHolidayNight: number;
+  status: string;
+  version?: number;
+}
+
+export interface OTConfigUpdate {
+  dayStartTime?: string;
+  nightStartTime?: string;
+  postShiftBufferMinutes?: number;
+  preShiftBufferMinutes?: number;
+  breakDurationMinutes?: number;
+  breakDeductionThresholdMinutes?: number;
+  rateWeekday?: number;
+  rateWeekdayNight?: number;
+  rateWeekend?: number;
+  rateWeekendNight?: number;
+  rateHoliday?: number;
+  rateHolidayNight?: number;
+}
+
+export interface OTConfigHistory {
+  id: string;
+  configId: string;
+  action: string;
+  changesJson: string;
+  performedBy: string;
+  performedAt: string;
+  dayStartTime: string | null;
+  nightStartTime: string | null;
+  postShiftBufferMinutes: number | null;
+  preShiftBufferMinutes: number | null;
+  breakDurationMinutes: number | null;
+  breakDeductionThresholdMinutes: number | null;
+  rateWeekday: string | null;
+  rateWeekdayNight: string | null;
+  rateWeekend: string | null;
+  rateWeekendNight: string | null;
+  rateHoliday: string | null;
+  rateHolidayNight: string | null;
+}
+
+export interface OTRequestItem {
+  id: string;
+  requestId: string;
+  otDate: string;
+  startTime: string;
+  endTime: string;
+  dayType: string;
+  dayHours: number;
+  nightHours: number;
+  actualStartTime: string | null;
+  actualEndTime: string | null;
+  approvedHours: number;
+  version: number;
+}
+
+export interface OTRequest {
+  id: string;
+  requestCode: string;
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  departmentId: string | null;
+  reason: string;
+  totalHours: number;
+  status: OTRequestStatusValue;
+  approverId: string | null;
+  approverName: string | null;
+  approverEmployeeCode: string | null;
+  approvedAt: string | null;
+  rejectionReason: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  items: OTRequestItem[];
+}
+
+export interface OTRequestItemCreate {
+  startTime: string;
+  endTime: string;
+}
+
+export interface OTRequestCreate {
+  reason: string;
+  items?: OTRequestItemCreate[];
+  startDate?: string;
+  endDate?: string;
+  defaultStartTime?: string;
+  defaultEndTime?: string;
+}
+
+/** Người duyệt trực tiếp (manager) của 1 nhân viên. */
+export interface OTApproverInfo {
+  fullName: string;
+  employeeCode: string;
+  position: string | null;
+}

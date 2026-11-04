@@ -13,6 +13,7 @@ import orgchartVi from './locales/vi/orgchart.json';
 import profileVi from './locales/vi/profile.json';
 import shiftVi from './locales/vi/shift.json';
 import settingsVi from './locales/vi/settings.json';
+import otVi from './locales/vi/ot.json';
 import attendanceEn from './locales/en/attendance.json';
 import authEn from './locales/en/auth.json';
 import commonEn from './locales/en/common.json';
@@ -26,6 +27,7 @@ import orgchartEn from './locales/en/orgchart.json';
 import profileEn from './locales/en/profile.json';
 import shiftEn from './locales/en/shift.json';
 import settingsEn from './locales/en/settings.json';
+import otEn from './locales/en/ot.json';
 
 /**
  * Bộ translation: common/layout/auth merge phẳng (key dùng chung: save, menu.*, status.*),
@@ -45,6 +47,7 @@ const vi = {
   orgchart: orgchartVi,
   shift: shiftVi,
   settings: settingsVi,
+  ot: otVi,
 };
 
 const en = {
@@ -61,6 +64,7 @@ const en = {
   orgchart: orgchartEn,
   shift: shiftEn,
   settings: settingsEn,
+  ot: otEn,
 };
 
 export const LANGUAGES: Record<string, string> = {

@@ -22,7 +22,6 @@ spring:
       group-id: attendance-service
       auto-offset-reset: earliest
     properties:
-      # Client URL in-network (SCHEMA_REGISTRY_ADVERTISED chỉ dành cho host)
       schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}
   security:
     oauth2:

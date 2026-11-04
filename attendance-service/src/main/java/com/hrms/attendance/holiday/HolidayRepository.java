@@ -19,6 +19,14 @@ public interface HolidayRepository extends JpaRepository<Holiday, String> {
   List<Holiday> findByCalendarCodeAndDate(@Param("calendarCode") String calendarCode,
       @Param("date") LocalDate date);
 
+  /** Tìm holiday theo ngày, bỏ qua calendarCode (dùng cho OT — mọi lịch đều tính ngày lễ). */
+  @Query("""
+      select h from Holiday h
+      where h.dateFrom <= :date and h.dateTo >= :date
+      order by h.dateFrom asc
+      """)
+  List<Holiday> findByDate(@Param("date") LocalDate date);
+
   @Query("""
       select h from Holiday h
       where (:calendarCode is null or h.calendarCode = :calendarCode)

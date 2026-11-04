@@ -69,6 +69,15 @@ public class HolidayService {
     return holidayRepository.findByCalendarCodeAndDate(calendarCode, date);
   }
 
+  /**
+   * Tìm holiday theo ngày, bỏ qua calendarCode — dùng cho OT (mọi lịch đều tính ngày lễ).
+   */
+  @Transactional(readOnly = true)
+  public boolean isHoliday(LocalDate date) {
+    return !holidayRepository.findByDate(date).isEmpty();
+  }
+
+
   private boolean isDuplicate(String eventId) {
     return processedEventRepository.existsById(eventId);
   }

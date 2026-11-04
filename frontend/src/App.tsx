@@ -14,8 +14,11 @@ import SettingsAccountsPage from './pages/SettingsAccountsPage';
 import SettingsPoliciesPage from './pages/SettingsPoliciesPage';
 import SettingsSecurityPage from './pages/SettingsSecurityPage';
 import WorkShiftPage from './pages/WorkShiftPage';
+import OTManagementPage from './pages/OTManagementPage';
 
 const STAFF_ROLES = ['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER'];
+// Nhân viên cũng vào được trang OT (tạo đơn của mình)
+const OT_ROLES = [...STAFF_ROLES, 'EMPLOYEE'];
 
 export default function App() {
   return (
@@ -99,6 +102,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <WorkShiftPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="ot"
+            element={
+              <ProtectedRoute roles={OT_ROLES}>
+                <OTManagementPage />
               </ProtectedRoute>
             }
           />

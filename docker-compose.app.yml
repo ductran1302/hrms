@@ -19,6 +19,11 @@ services:
       # Tắt Swagger ngoài dev (SecurityConfig vẫn permitAll nhưng springdoc trả 404)
       SPRINGDOC_API_DOCS: ${SPRINGDOC_API_DOCS:-false}
       SPRINGDOC_UI: ${SPRINGDOC_UI:-false}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:29092"
+      SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: "kafka:29092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://zipkin:9411/api/v2/spans"
     volumes:
       - hrms-documents:/app/data/documents
 
@@ -31,6 +36,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD chưa được set — copy .env.example thành .env}
       SPRINGDOC_API_DOCS: ${SPRINGDOC_API_DOCS:-false}
       SPRINGDOC_UI: ${SPRINGDOC_UI:-false}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:29092"
+      SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: "kafka:29092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://zipkin:9411/api/v2/spans"
 
   gateway:
     build:

@@ -96,6 +96,19 @@ public final class PeriodEngine {
     return periods;
   }
 
+  /** Kỳ công chứa ngày {@code date} (theo lưới kỳ hiện tại — không phụ thuộc năm TC). */
+  public static Period periodOf(LeaveSettings s, LocalDate date) {
+    if (s.getPeriodStartDay() == 1) {
+      return new Period(date.withDayOfMonth(1), endOfMonth(date));
+    }
+    int startDay = s.getPeriodStartDay();
+    LocalDate start =
+        date.getDayOfMonth() >= startDay
+            ? date.withDayOfMonth(startDay)
+            : date.withDayOfMonth(startDay).minusMonths(1);
+    return new Period(start, endOfWrap(start, s));
+  }
+
   /** Tổng ngày làm việc của kỳ (T2–T6 + T7 theo policy; CN nghỉ; lễ KHÔNG trừ). */
   public static BigDecimal workingDays(Period period, LeaveSettings s, LocalDate fyStart) {
     return countWorkingDays(period.start(), period.end(), s, fyStart);

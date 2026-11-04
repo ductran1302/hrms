@@ -69,6 +69,25 @@ public final class EmployeeAccess {
         && deptIds.contains(target.getDepartmentId());
   }
 
+  /**
+   * Helper an toàn cho OTRequestService dùng khi chỉ có Employee chưa được gán vào DB.
+   * Tương đương {@code canAccess} nhưng không ném exception khi target null.
+   */
+  public boolean canAccessSafe(Employee target) {
+    if (unrestricted) {
+      return true;
+    }
+    if (selfId == null || target == null) {
+      return false;
+    }
+    if (selfId.equals(target.getEmployeeId()) || selfId.equals(target.getManagerId())) {
+      return true;
+    }
+    return deptIds != null
+        && target.getDepartmentId() != null
+        && deptIds.contains(target.getDepartmentId());
+  }
+
   public void assertCanAccess(Employee target) {
     if (!canAccess(target)) {
       throw new AccessDeniedException("Bạn không có quyền xem dữ liệu nhân sự này");

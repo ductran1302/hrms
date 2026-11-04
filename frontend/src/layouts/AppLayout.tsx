@@ -124,6 +124,11 @@ export default function AppLayout() {
       icon: <ScheduleOutlined />,
       label: t('menu.workShifts'),
     },
+    auth.hasRole('EMPLOYEE', 'ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
+      key: '/ot',
+      icon: <ThunderboltOutlined />,
+      label: t('menu.ot'),
+    },
     {
       key: '/my-leave',
       icon: <CarryOutOutlined />,
