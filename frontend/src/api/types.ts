@@ -459,6 +459,7 @@ export interface WorkShift {
   endWorkTime: string;
   startBreakTime: string | null;
   endBreakTime: string | null;
+  crossesMidnight: boolean; // ca qua đêm: end < start (sang ngày hôm sau)
   workingTime: number; // phút
   breakingTime: number; // phút
   active: boolean;

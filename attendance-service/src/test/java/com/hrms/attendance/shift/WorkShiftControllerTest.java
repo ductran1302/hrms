@@ -70,7 +70,7 @@ class WorkShiftControllerTest {
         UUID.randomUUID(), "Ca 8:00-17:00", "FIXED",
         LocalTime.of(8, 0), LocalTime.of(17, 0),
         LocalTime.of(12, 0), LocalTime.of(13, 0),
-        480, 60, true, null, null);
+        false, 480, 60, true, null, null);
     when(workShiftService.create(any(WorkShiftRequest.class))).thenReturn(response);
 
     mockMvc.perform(post("/api/v1/attendance/work-shifts")

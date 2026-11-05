@@ -266,6 +266,7 @@ export default function WorkShiftPage() {
       render: (_, s) => (
         <Text code>
           {hm(s.startWorkTime)} - {hm(s.endWorkTime)}
+          {s.crossesMidnight ? ` ${t('shift.column.nextDay')}` : ''}
         </Text>
       ),
     },
@@ -497,6 +498,7 @@ export default function WorkShiftPage() {
                 <div>
                   <div>{t('shift.help.fixed')}</div>
                   <div style={{ marginTop: 8 }}>{t('shift.help.flexible')}</div>
+                  <div style={{ marginTop: 8 }}>{t('shift.help.overnight')}</div>
                 </div>
               }
             >
@@ -533,12 +535,17 @@ export default function WorkShiftPage() {
             label={t('shift.form.workTime')}
             rules={[{ required: true, message: t('required') }]}
           >
-            <TimePicker.RangePicker format="HH:mm" style={{ width: '100%' }} />
+            <TimePicker.RangePicker
+              format="HH:mm"
+              order={false}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
           {watchedShiftType !== 'FLEXIBLE' && (
             <Form.Item name="breakRange" label={t('shift.form.breakTime')}>
               <TimePicker.RangePicker
                 format="HH:mm"
+                order={false}
                 allowEmpty={[false, false]}
                 style={{ width: '100%' }}
               />
@@ -596,7 +603,9 @@ export default function WorkShiftPage() {
                 .filter((s) => s.active)
                 .map((s) => ({
                   value: s.id,
-                  label: `${s.name} (${hm(s.startWorkTime)}-${hm(s.endWorkTime)})`,
+                  label:
+                    `${s.name} (${hm(s.startWorkTime)}-${hm(s.endWorkTime)})` +
+                    (s.crossesMidnight ? ` ${t('shift.column.nextDay')}` : ''),
                 }))}
               placeholder={t('shift.assignForm.shiftPlaceholder')}
             />

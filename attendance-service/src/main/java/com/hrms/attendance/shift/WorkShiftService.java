@@ -130,14 +130,19 @@ public class WorkShiftService {
       shift.setStartBreakTime(null);
       shift.setEndBreakTime(null);
     }
+    // crosses_midnight là dữ liệu suy ra — luôn đồng bộ từ giờ ca (end < start).
+    shift.setCrossesMidnight(shift.getEndWorkTime().isBefore(shift.getStartWorkTime()));
   }
 
-  /** Validate trên entity (sau gộp PATCH). */
+  /**
+   * Validate trên entity (sau gộp PATCH). Hỗ trợ ca qua nửa đêm: end &lt; start nghĩa là ca
+   * kéo sang ngày hôm sau; khung nghỉ cũng có thể wrap qua 0h.
+   */
   static void validate(WorkShift shift) {
     LocalTime start = shift.getStartWorkTime();
     LocalTime end = shift.getEndWorkTime();
-    if (!start.isBefore(end)) {
-      throw new BusinessRuleException("startWorkTime phải trước endWorkTime (GĐ1 không hỗ trợ ca qua nửa đêm)");
+    if (start.equals(end)) {
+      throw new BusinessRuleException("startWorkTime và endWorkTime không được trùng nhau");
     }
     LocalTime startBreak = shift.getStartBreakTime();
     LocalTime endBreak = shift.getEndBreakTime();
@@ -145,29 +150,38 @@ public class WorkShiftService {
       throw new BusinessRuleException(
           "startBreakTime và endBreakTime phải đi kèm nhau (để trống cả hai nếu ca không có giờ nghỉ)");
     }
-    if (startBreak != null) {
-      if (!startBreak.isBefore(endBreak)) {
-        throw new BusinessRuleException("startBreakTime phải trước endBreakTime");
-      }
-      if (startBreak.isBefore(start)) {
-        throw new BusinessRuleException("startBreakTime không được trước startWorkTime");
-      }
-      if (endBreak.isAfter(end)) {
-        throw new BusinessRuleException("endBreakTime không được sau endWorkTime");
-      }
-    }
     if (shift.getWorkingTime() <= 0) {
       throw new BusinessRuleException("workingTime (phút) phải > 0");
     }
     if (shift.getBreakingTime() < 0) {
       throw new BusinessRuleException("breakingTime (phút) phải ≥ 0");
     }
-    long spanMinutes = Duration.between(start, end).toMinutes();
+    long spanMinutes = shift.isCrossesMidnight()
+        ? Duration.between(start, end).toMinutes() + 1440
+        : Duration.between(start, end).toMinutes();
+    if (startBreak != null) {
+      if (startBreak.equals(endBreak)) {
+        throw new BusinessRuleException("startBreakTime và endBreakTime không được trùng nhau");
+      }
+      long breakStartOffset = offsetInShift(start, startBreak);
+      long breakEndOffset = offsetInShift(start, endBreak);
+      if (breakStartOffset == 0 || breakEndOffset <= breakStartOffset
+          || breakEndOffset >= spanMinutes) {
+        throw new BusinessRuleException(
+            "Khung nghỉ phải nằm trong ca (kể cả ca qua nửa đêm) — "
+                + "startBreakTime/endBreakTime không hợp lệ");
+      }
+    }
     long required = (long) shift.getWorkingTime() + shift.getBreakingTime();
     if (required > spanMinutes) {
       throw new BusinessRuleException(
           "workingTime + breakingTime (" + required + " phút) vượt thời gian ca (" + spanMinutes + " phút)");
     }
+  }
+
+  /** Số phút từ lúc bắt đầu ca tới {@code time}, wrap qua 0h (0..1439). */
+  private static long offsetInShift(LocalTime shiftStart, LocalTime time) {
+    return (Duration.between(shiftStart, time).toMinutes() + 1440) % 1440;
   }
 
   static ShiftType parseType(String raw) {

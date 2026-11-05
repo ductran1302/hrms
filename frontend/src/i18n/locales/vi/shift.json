@@ -11,6 +11,7 @@
     "name": "Tên ca",
     "type": "Loại ca",
     "timeRange": "Giờ làm",
+    "nextDay": "(+1 ngày)",
     "breakRange": "Giờ nghỉ",
     "workingTime": "Đủ công",
     "breakingTime": "Nghỉ giữa ca",
@@ -56,7 +57,8 @@
   },
   "help": {
     "fixed": "Ca cố định: đủ nguyên đoạn trước giờ nghỉ = 0.5 công, đủ cả 2 đoạn trước/sau giờ nghỉ = 1 công (thiếu đoạn = không tính đoạn đó).",
-    "flexible": "Ca linh hoạt: không nhập khung giờ nghỉ — chỉ nhập tổng thời gian nghỉ giữa ca. Tính công theo thời gian có mặt trong khung start–kết thúc ca, so với thời gian làm để đủ công."
+    "flexible": "Ca linh hoạt: không nhập khung giờ nghỉ — chỉ nhập tổng thời gian nghỉ giữa ca. Tính công theo thời gian có mặt trong khung start–kết thúc ca, so với thời gian làm để đủ công.",
+    "overnight": "Ca qua đêm: nhập giờ kết thúc NHỎ hơn giờ bắt đầu (VD 22:00 - 06:00). Khung nghỉ cũng có thể nằm sau 0h (VD 02:00 - 03:00)."
   },
   "assignForm": {
     "employee": "Nhân viên",

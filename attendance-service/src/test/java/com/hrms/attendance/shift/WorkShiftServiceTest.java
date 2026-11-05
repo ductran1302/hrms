@@ -144,7 +144,7 @@ class WorkShiftServiceTest {
   }
 
   @Test
-  void create_overnightShift_throwsBusinessRule() {
+  void create_overnightShift_savesWithCrossesMidnight() {
     WorkShiftRequest request = new WorkShiftRequest(
         "Ca đêm", "FIXED",
         LocalTime.of(22, 0), LocalTime.of(6, 0),
@@ -152,7 +152,62 @@ class WorkShiftServiceTest {
         480, 0, null);
     when(workShiftRepository.existsByName(any())).thenReturn(false);
 
+    WorkShiftResponse response = service.create(request);
+
+    assertTrue(response.crossesMidnight());
+    ArgumentCaptor<WorkShift> captor = ArgumentCaptor.forClass(WorkShift.class);
+    verify(workShiftRepository).save(captor.capture());
+    assertTrue(captor.getValue().isCrossesMidnight());
+  }
+
+  @Test
+  void create_overnightWithWrappedBreak_savesOk() {
+    WorkShiftRequest request = new WorkShiftRequest(
+        "Ca đêm có nghỉ", "FIXED",
+        LocalTime.of(22, 0), LocalTime.of(6, 0),
+        LocalTime.of(2, 0), LocalTime.of(3, 0),
+        420, 60, null);
+    when(workShiftRepository.existsByName(any())).thenReturn(false);
+
+    WorkShiftResponse response = service.create(request);
+
+    assertTrue(response.crossesMidnight());
+    assertEquals(420, response.workingTime());
+  }
+
+  @Test
+  void create_overnightBreakOutsideShift_throwsBusinessRule() {
+    WorkShiftRequest request = new WorkShiftRequest(
+        "Ca đêm nghỉ sai", "FIXED",
+        LocalTime.of(22, 0), LocalTime.of(6, 0),
+        LocalTime.of(21, 0), LocalTime.of(22, 0),
+        480, 0, null);
+    when(workShiftRepository.existsByName(any())).thenReturn(false);
+
     assertThrows(BusinessRuleException.class, () -> service.create(request));
+  }
+
+  @Test
+  void create_sameStartAndEnd_throwsBusinessRule() {
+    WorkShiftRequest request = new WorkShiftRequest(
+        "Ca trùng giờ", "FIXED",
+        LocalTime.of(8, 0), LocalTime.of(8, 0),
+        null, null, 480, 0, null);
+    when(workShiftRepository.existsByName(any())).thenReturn(false);
+
+    assertThrows(BusinessRuleException.class, () -> service.create(request));
+  }
+
+  @Test
+  void update_toOvernight_setsCrossesMidnight() {
+    when(workShiftRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+    service.update(existing.getId(), new WorkShiftUpdateRequest(
+        null, null, LocalTime.of(22, 0), LocalTime.of(6, 0), null, null,
+        480, 0, null, true));
+
+    assertTrue(existing.isCrossesMidnight());
+    verify(workShiftRepository).save(existing);
   }
 
   @Test

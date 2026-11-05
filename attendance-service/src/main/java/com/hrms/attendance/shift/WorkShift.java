@@ -61,6 +61,10 @@ public class WorkShift {
   @Column(name = "breaking_time", nullable = false)
   private int breakingTime;
 
+  /** true = ca qua nửa đêm (endWorkTime < startWorkTime) — suy ra từ giờ ca. */
+  @Column(name = "crosses_midnight", nullable = false)
+  private boolean crossesMidnight;
+
   @Column(name = "active", nullable = false)
   private boolean active = true;
 
