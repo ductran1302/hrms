@@ -166,8 +166,10 @@ public class LeaveQuotaService {
    * (scale 4, HALF_UP).
    *
    * <p>Điều kiện 1 kỳ: ngày công thực tế × 100 ≥ ngày công trong kỳ × minWorkPercent;
-   * pre-fill DEFAULT từ ngày vào/về (MANUAL giữ nguyên). Chia một lần cuối — không round giữa
-   * kỳ → kết quả 1 version trùng khớp với công thức cũ {@code baseDays × kỳ_đạt / tổng_kỳ}.
+   * pre-fill DEFAULT từ ngày vào/về (MANUAL giữ nguyên). Cả tử số (work-days DEFAULT) và mẫu
+   * số (ngày công của kỳ) đều lấy theo roster nếu ngày có row, fallback PeriodEngine
+   * (Phase 2 — xem RosterWorkDaySource). Chia một lần cuối — không round giữa kỳ → kết quả 1
+   * version trùng khớp với công thức cũ {@code baseDays × kỳ_đạt / tổng_k kỳ}.
    */
   private BigDecimal computeBase(
       Employee employee, int year, LeaveSettings settings, List<Period> periods,
@@ -176,9 +178,11 @@ public class LeaveQuotaService {
         LocalDate.of(year, settings.getFyStartMonth(), settings.getFyStartDay());
     Map<LocalDate, BigDecimal> workDays = settingsService.ensureDefaultWorkDays(
         employee, year, periods, settings, fyStart);
+    Map<LocalDate, BigDecimal> fulls = settingsService.fullDaysByPeriod(
+        employee.getEmployeeId(), periods, settings, fyStart);
     BigDecimal sum = ZERO;
     for (Period period : periods) {
-      if (isEligible(period, workDays, settings, fyStart)) {
+      if (isEligible(period, workDays, fulls, settings)) {
         sum = sum.add(resolveAt(history, period.start(), fallback).getBaseDays());
       }
     }
@@ -199,10 +203,10 @@ public class LeaveQuotaService {
     return best != null ? best : fallback;
   }
 
-  private boolean isEligible(
-      Period period, Map<LocalDate, BigDecimal> workDays, LeaveSettings settings,
-      LocalDate fyStart) {
-    BigDecimal full = PeriodEngine.workingDays(period, settings, fyStart);
+  private static boolean isEligible(
+      Period period, Map<LocalDate, BigDecimal> workDays,
+      Map<LocalDate, BigDecimal> fulls, LeaveSettings settings) {
+    BigDecimal full = fulls.getOrDefault(period.start(), ZERO);
     BigDecimal actual = workDays.getOrDefault(period.start(), ZERO);
     // Kỳ 0 ngày công (NV chưa vào/về hết kỳ) không đủ điều kiện.
     return full.signum() > 0

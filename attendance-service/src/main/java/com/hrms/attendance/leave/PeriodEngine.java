@@ -125,6 +125,21 @@ public final class PeriodEngine {
 
   // ---- internals ----
 
+  /**
+   * Trọng số ngày làm việc của 1 ngày (T2–T6 = 1, CN = 0, T7 theo saturday_policy).
+   * Dùng làm fallback khi ngày đó chưa có roster (Phase 2 — xem {@code RosterWorkDaySource}).
+   */
+  public static BigDecimal dayWeight(LocalDate date, LeaveSettings s, LocalDate fyStart) {
+    DayOfWeek dow = date.getDayOfWeek();
+    if (dow == DayOfWeek.SUNDAY) {
+      return BigDecimal.ZERO;
+    }
+    if (dow == DayOfWeek.SATURDAY) {
+      return saturdayWeight(date, s, fyStart);
+    }
+    return BigDecimal.ONE;
+  }
+
   private static LocalDate endOfWrap(LocalDate start, LeaveSettings s) {
     // Kỳ [S/M, E/(M+1)] với S = E+1 — E luôn < 28 nên luôn thuộc tháng sau hợp lệ.
     return start.plusMonths(1).withDayOfMonth(s.getPeriodEndDay());
@@ -138,15 +153,7 @@ public final class PeriodEngine {
       LocalDate from, LocalDate to, LeaveSettings s, LocalDate fyStart) {
     BigDecimal days = BigDecimal.ZERO;
     for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-      DayOfWeek dow = d.getDayOfWeek();
-      if (dow == DayOfWeek.SUNDAY) {
-        continue;
-      }
-      if (dow == DayOfWeek.SATURDAY) {
-        days = days.add(saturdayWeight(d, s, fyStart));
-      } else {
-        days = days.add(BigDecimal.ONE);
-      }
+      days = days.add(dayWeight(d, s, fyStart));
     }
     return days.setScale(2, RoundingMode.HALF_UP);
   }

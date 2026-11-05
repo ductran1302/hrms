@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,6 +100,26 @@ class LeaveQuotaServiceTest {
     employee.setRoles("DEPT_LEAD");
     employee.setStatus("ACTIVE");
     employee.setHiredAt(Instant.parse("2020-06-01T00:00:00Z"));
+
+    // Phase 2: mẫu số (ngày công của kỳ) lấy từ roster — test không mock roster →
+    // fullDaysByPeriod trả kết quả PeriodEngine như cũ (lenient: test grant không gọi tới).
+    lenient()
+        .when(settingsService.fullDaysByPeriod(any(), any(), any(), any()))
+        .thenAnswer(
+            inv -> {
+              // Guard: when(mock.method(any())) gọi answer với args null lúc re-stub.
+              List<PeriodEngine.Period> periods = inv.getArgument(1);
+              if (periods == null) {
+                return java.util.Map.of();
+              }
+              LeaveSettings s = inv.getArgument(2);
+              java.time.LocalDate fyStart = inv.getArgument(3);
+              Map<java.time.LocalDate, BigDecimal> map = new java.util.HashMap<>();
+              for (PeriodEngine.Period p : periods) {
+                map.put(p.start(), PeriodEngine.workingDays(p, s, fyStart));
+              }
+              return map;
+            });
   }
 
   @Test
@@ -123,6 +144,48 @@ class LeaveQuotaServiceTest {
     assertTrue(captor.getAllValues().stream().allMatch(
         e -> policy.getId().equals(e.getPolicyId()) && e.getCalculatedAt() != null),
         "dòng auto phải snapshot policy_id + calculated_at");
+  }
+
+  /** Phase 2: mẫu số (full days) theo roster —1 kỳ không đạt minWorkPercent → BASE giảm. */
+  @Test
+  void ensureAuto_periodBelowMinWorkPercent_excludedFromBase() {
+    LeaveSettings settings = defaultSettings();
+    when(settingsService.getOrCreateSettings()).thenReturn(settings);
+    when(settingsService.ensureDefaultWorkDays(any(), anyInt(), any(), any(), any()))
+        .thenAnswer(inv -> {
+          List<PeriodEngine.Period> periods = inv.getArgument(2);
+          Map<java.time.LocalDate, BigDecimal> map = new java.util.HashMap<>();
+          for (int i = 0; i < periods.size(); i++) {
+            // Kỳ đầu NV chỉ có 10 ngày công (DEFAULT theo vào/về), 11 kỳ còn lại đủ 31.
+            map.put(periods.get(i).start(),
+                i == 0 ? new BigDecimal("10") : new BigDecimal("31"));
+          }
+          return map;
+        });
+    when(settingsService.fullDaysByPeriod(any(), any(), any(), any()))
+        .thenAnswer(inv -> {
+          List<PeriodEngine.Period> periods = inv.getArgument(1);
+          Map<java.time.LocalDate, BigDecimal> map = new java.util.HashMap<>();
+          for (PeriodEngine.Period p : periods) {
+            map.put(p.start(), new BigDecimal("31"));
+          }
+          return map;
+        });
+    when(policyService.getInForce(2026)).thenReturn(policy);
+    when(policyService.versionHistory(2026)).thenReturn(List.of(policy));
+    policy.setEffectiveFrom(java.time.LocalDate.of(2026, 1, 1));
+    policy.setEffectiveTo(java.time.LocalDate.of(2026, 12, 31));
+    when(roleQuotaRepository.findByPolicyIdOrderByRoleAsc(policy.getId()))
+        .thenReturn(List.of());
+
+    service.ensureAuto(employee, 2026);
+
+    ArgumentCaptor<LeaveEntitlement> captor = ArgumentCaptor.forClass(LeaveEntitlement.class);
+    verify(entitlementRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+    LeaveEntitlement base = captor.getAllValues().stream()
+        .filter(e -> e.getSource() == LeaveSource.BASE).findFirst().orElseThrow();
+    assertEquals(new BigDecimal("11.0000"), base.getDays(),
+        "kỳ 1: 10×100 < 31×50 → không đạt, BASE = 12 × 11/12 = 11.0000");
   }
 
   @Test

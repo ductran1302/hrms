@@ -34,6 +34,7 @@ docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-gateway-routes.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/verify-roles.sh"
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && API=http://gateway:8080 bash scripts/verify-shift-calendar.sh"
+docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && API=http://gateway:8080 bash scripts/verify-leave-roster.sh"
 
 # 5-role setup cho KC đã chạy (rename HR_ADMIN→ADMIN + tạo GLOBAL_LEAD/DEPT_LEAD + group HR; idempotent)
 docker exec hrms-dev bash -c "cd /workspaces/HRMS && set -a && . ./.env && set +a && bash scripts/kc-init-roles.sh"
@@ -673,6 +674,22 @@ Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `emp
 - **Smoke**: `scripts/verify-shift-calendar.sh` — 4 NV × 4 mode trên cửa sổ 63 ngày tương lai,
   kiểm tra T7/T2–T6/CN, idempotent, override không bị đè, rồi tự dọn (gỡ gán → regenerate về
   default → xoá policy/ca tạm). Chạy app stack: `API=http://gateway:8080`.
+- **Phase 2 (2026-11-05) — nối roster vào tính quỹ phép**: ngày công (tử/mẫu số điều kiện
+  x%) của 1 kỳ đọc từ `employee_shift_rosters` khi có row, **fallback `PeriodEngine`** khi
+  thiếu row (ngoài cửa sổ job) → data/test cũ không đổi. Trọng số ngày = ca
+  `workingTime / hrms.leave.standard-work-minutes` (default **480**), cap 1 (ca 480p=1.0,
+  240p=0.5 — giữ ngữ nghĩa saturday_policy=HALF); dayOff→0; scale 4 từng ngày, tổng scale 2
+  HALF_UP (như `PeriodEngine`). Component: `attendance/leave/RosterWorkDaySource`
+  (`weights`/`sum`); `LeaveSettingsService` thêm `periodFullDays`/`fullDaysByPeriod`
+  (`ensureDefaultWorkDays`/`listWorkDays`/`upsertWorkDay` cap dùng nó);
+  `LeaveQuotaService.isEligible(period, workDays, fulls, settings)` nhận thêm map mẫu số;
+  `PeriodEngine.dayWeight` public (dùng chung fallback). Lưu ý: override nghỉ làm **cả tử
+  số lẫn mẫu số cùng giảm** → tỷ lệ đủ kỳ không đổi (BASE chỉ đổi khi hire/term clip hoặc
+  MANUAL row) — unit test `LeaveQuotaServiceTest.ensureAuto_periodBelowMinWorkPercent_excludedFromBase`
+  + `RosterWorkDaySourceTest` (5 tests). `DELETE /rosters/{emp}/{date}` trả **200** (không 204).
+- **Smoke Phase 2**: `scripts/verify-leave-roster.sh` — sinh roster kỳ hiện tại, override toàn
+  bộ ngày làm còn lại → mẫu số/tử số giảm đúng Δ (tổng trọng số), gỡ override + recalculate →
+  về đúng ban đầu; **17/17 PASS**. Chạy app stack: `API=http://gateway:8080`.
 
 ---
 
@@ -1060,6 +1077,8 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Shift & Calendar Phase 1 (policy/assignment/roster) | `attendance-service/src/main/java/com/hrms/attendance/schedule/` |
 | Shift & Calendar migration | `attendance-service/src/main/resources/db/migration/V26__shift_calendar_phase1.sql` |
 | Shift parity test | `attendance-service/src/test/java/com/hrms/attendance/schedule/ShiftRotationParityTest.java` |
+| Roster → quỹ phép (Phase 2) | `attendance-service/src/main/java/com/hrms/attendance/leave/RosterWorkDaySource.java` |
+| Smoke Phase 2 leave↔roster | `scripts/verify-leave-roster.sh` |
 | FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |
 | FE work shift page | `frontend/src/pages/WorkShiftPage.tsx` |
 | FE Cài đặt→Tham số/Chính sách phép | `frontend/src/pages/SettingsPoliciesPage.tsx` |

@@ -35,6 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Nhận xét: ngày lễ KHÔNG trừ khỏi ngày công; ngày công chỉ tính T2–T6 + T7 theo
  * saturday_policy (CN luôn nghỉ). Ngày công DEFAULT auto-fill từ ngày vào/về khi Tính lại;
  * HR nhập tay → MANUAL, recalc không đè.
+ *
+ * <p><b>Phase 2 (2026-11-05):</b> ngày công (cả mẫu số "ngày công của kỳ" và tử số thực tế)
+ * lấy theo {@code employee_shift_rosters} khi ngày có row (lịch làm việc = nguồn sự thật),
+ * ngày thiếu row fallback {@link PeriodEngine} — xem {@link RosterWorkDaySource}.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +51,7 @@ public class LeaveSettingsService {
   private final EmployeeRepository employeeRepository;
   private final EmployeeAccessResolver accessResolver;
   private final AuditService auditService;
+  private final RosterWorkDaySource rosterWorkDaySource;
 
   // ---- Settings ----
 
@@ -168,9 +173,10 @@ public class LeaveSettingsService {
                 employeeId, periods.get(0).start(), periods.get(periods.size() - 1).end())
             .stream()
             .collect(Collectors.toMap(LeaveWorkDay::getPeriodStart, Function.identity()));
+    Map<LocalDate, BigDecimal> fulls = fullDaysByPeriod(employeeId, periods, settings, fyStart);
     List<LeaveWorkDayResponse> result = new ArrayList<>();
     for (Period period : periods) {
-      BigDecimal full = PeriodEngine.workingDays(period, settings, fyStart);
+      BigDecimal full = fulls.get(period.start());
       LeaveWorkDay row = stored.get(period.start());
       if (row != null) {
         result.add(LeaveWorkDayResponse.from(row, full));
@@ -214,7 +220,7 @@ public class LeaveSettingsService {
     }
     final Period matched = period;
     LocalDate rawFyStart = findRawFyStart(settings, matched);
-    BigDecimal full = PeriodEngine.workingDays(matched, settings, rawFyStart);
+    BigDecimal full = periodFullDays(employeeId, matched, settings, rawFyStart);
     if (request.workDays().compareTo(full) > 0) {
       throw new BusinessRuleException(
           "workDays (" + request.workDays() + ") vượt ngày làm việc của kỳ (" + full + ")");
@@ -248,9 +254,45 @@ public class LeaveSettingsService {
   }
 
   /**
+   * Ngày công chuẩn (mẫu số) của 1 kỳ cho 1 NV — theo roster nếu ngày có row, ngược lại
+   * PeriodEngine. Load roster 1 lần cho khoảng kỳ.
+   */
+  @Transactional
+  public BigDecimal periodFullDays(
+      String employeeId, Period period, LeaveSettings settings, LocalDate fyStart) {
+    Map<LocalDate, BigDecimal> weights =
+        rosterWorkDaySource.weights(employeeId, period.start(), period.end());
+    return rosterWorkDaySource.sum(weights, period.start(), period.end(), settings, fyStart);
+  }
+
+  /**
+   * Ngày công chuẩn (mẫu số) từng kỳ của năm TC cho 1 NV — load roster 1 lần cho toàn bộ
+   * khoảng các kỳ rồi cộng từng kỳ. Map key = {@code period.start()}.
+   */
+  @Transactional
+  public Map<LocalDate, BigDecimal> fullDaysByPeriod(
+      String employeeId, List<Period> periods, LeaveSettings settings, LocalDate fyStart) {
+    if (periods.isEmpty()) {
+      return Map.of();
+    }
+    Map<LocalDate, BigDecimal> weights =
+        rosterWorkDaySource.weights(
+            employeeId, periods.get(0).start(), periods.get(periods.size() - 1).end());
+    Map<LocalDate, BigDecimal> result = new java.util.HashMap<>();
+    for (Period period : periods) {
+      result.put(
+          period.start(),
+          rosterWorkDaySource.sum(weights, period.start(), period.end(), settings, fyStart));
+    }
+    return result;
+  }
+
+  /**
    * Tính lại DEFAULT work-days cho NV (idempotent): row thiếu → tạo DEFAULT; DEFAULT cũ →
    * cập nhật theo ngày vào/về hiện tại; MANUAL giữ nguyên. Trả về map periodStart → workDays
    * (DEFAULT hoặc MANUAL) để recalculate dùng cho điều kiện x%.
+   *
+   * <p>Số ngày lấy theo roster (ngày có row) — ngày ngoài cửa sổ roster fallback PeriodEngine.
    */
   @Transactional
   public Map<LocalDate, BigDecimal> ensureDefaultWorkDays(
@@ -258,10 +300,15 @@ public class LeaveSettingsService {
     LocalDate hire = employee.getHiredAt() == null ? null : toUtcDate(employee.getHiredAt());
     LocalDate term = employee.getTerminatedAt() == null ? null : toUtcDate(employee.getTerminatedAt());
     Map<LocalDate, BigDecimal> result = new java.util.HashMap<>();
+    Map<LocalDate, BigDecimal> weights =
+        periods.isEmpty()
+            ? Map.of()
+            : rosterWorkDaySource.weights(
+                employee.getEmployeeId(), periods.get(0).start(), periods.get(periods.size() - 1).end());
     for (Period period : periods) {
       LocalDate from = hire != null && hire.isAfter(period.start()) ? hire : period.start();
       LocalDate to = term != null && term.isBefore(period.end()) ? term : period.end();
-      BigDecimal defaultDays = PeriodEngine.workingDaysIn(from, to, settings, fyStart);
+      BigDecimal defaultDays = rosterWorkDaySource.sum(weights, from, to, settings, fyStart);
       LeaveWorkDay row = workDayRepository
           .findByEmployeeIdAndPeriodStart(employee.getEmployeeId(), period.start())
           .orElseGet(() -> {
