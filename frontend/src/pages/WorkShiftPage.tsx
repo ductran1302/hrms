@@ -1,6 +1,5 @@
 import {
   CheckOutlined,
-  ClockCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
@@ -9,7 +8,6 @@ import {
 } from '@ant-design/icons';
 import {
   Button,
-  DatePicker,
   Empty,
   Form,
   Input,
@@ -17,11 +15,9 @@ import {
   Modal,
   Popconfirm,
   Segmented,
-  Select,
   Space,
   Switch,
   Table,
-  Tabs,
   Tag,
   TimePicker,
   Tooltip,
@@ -33,15 +29,11 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { errorMessage } from '../api/client';
-import { searchEmployees } from '../api/employees';
-import type { ShiftAssignment, ShiftTypeValue, WorkShift } from '../api/types';
+import type { ShiftTypeValue, WorkShift } from '../api/types';
 import {
-  assignShift,
   createWorkShift,
   deleteWorkShift,
-  listShiftAssignments,
   listWorkShifts,
-  removeShiftAssignment,
   updateWorkShift,
 } from '../api/workShifts';
 import { useAuth } from '../auth/AuthContext';
@@ -59,12 +51,6 @@ interface ShiftFormValues {
   active: boolean;
 }
 
-interface AssignFormValues {
-  employeeId: string;
-  workShiftId: string;
-  effectiveFrom: Dayjs;
-}
-
 /** 480 phút → '8:00', 450 → '7:30' (cột hiển thị giờ:phút). */
 const fmtDuration = (minutes: number) => {
   const h = Math.floor(minutes / 60);
@@ -79,22 +65,15 @@ export default function WorkShiftPage() {
   const auth = useAuth();
   const canWrite = auth.hasRole('ADMIN');
 
-  const [tab, setTab] = useState('shifts');
   const [q, setQ] = useState('');
-  const [assignQ, setAssignQ] = useState('');
 
   const [shifts, setShifts] = useState<WorkShift[]>([]);
   const [shiftLoading, setShiftLoading] = useState(false);
-  const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
-  const [assignLoading, setAssignLoading] = useState(false);
 
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [editing, setEditing] = useState<WorkShift | null>(null);
   const [shiftForm] = Form.useForm<ShiftFormValues>();
 
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignForm] = Form.useForm<AssignFormValues>();
-  const [empOptions, setEmpOptions] = useState<{ value: string; label: string }[]>([]);
   const watchedShiftType = Form.useWatch('shiftType', shiftForm);
 
   // Ca FLEXIBLE không dùng khung giờ nghỉ — bỏ giá trị đang giữ trong form
@@ -115,33 +94,9 @@ export default function WorkShiftPage() {
     }
   }, [q]);
 
-  const loadAssignments = useCallback(async () => {
-    setAssignLoading(true);
-    try {
-      setAssignments(await listShiftAssignments({ q: assignQ || undefined }));
-    } catch (e) {
-      message.error(errorMessage(e));
-    } finally {
-      setAssignLoading(false);
-    }
-  }, [assignQ]);
-
   useEffect(() => {
     void loadShifts();
   }, [loadShifts]);
-
-  useEffect(() => {
-    void loadAssignments();
-  }, [loadAssignments]);
-
-  const searchEmps = async (keyword: string) => {
-    try {
-      const page = await searchEmployees({ q: keyword || undefined, size: 20 });
-      setEmpOptions(page.items.map((e) => ({ value: e.id, label: `${e.employeeCode} — ${e.fullName}` })));
-    } catch (e) {
-      message.error(errorMessage(e));
-    }
-  };
 
   const openCreate = () => {
     setEditing(null);
@@ -198,7 +153,6 @@ export default function WorkShiftPage() {
       message.success(t('saved'));
       setShiftModalOpen(false);
       await loadShifts();
-      await loadAssignments();
     } catch (e) {
       message.error(errorMessage(e));
     }
@@ -219,32 +173,6 @@ export default function WorkShiftPage() {
       await deleteWorkShift(id);
       message.success(t('deleted'));
       await loadShifts();
-    } catch (e) {
-      message.error(errorMessage(e));
-    }
-  };
-
-  const submitAssign = async () => {
-    const values = await assignForm.validateFields();
-    try {
-      await assignShift({
-        employeeId: values.employeeId,
-        workShiftId: values.workShiftId,
-        effectiveFrom: values.effectiveFrom.format('YYYY-MM-DD'),
-      });
-      message.success(t('saved'));
-      setAssignOpen(false);
-      await loadAssignments();
-    } catch (e) {
-      message.error(errorMessage(e));
-    }
-  };
-
-  const removeAssign = async (id: string) => {
-    try {
-      await removeShiftAssignment(id);
-      message.success(t('deleted'));
-      await loadAssignments();
     } catch (e) {
       message.error(errorMessage(e));
     }
@@ -339,56 +267,6 @@ export default function WorkShiftPage() {
     },
   ];
 
-  const assignmentColumns: ColumnsType<ShiftAssignment> = [
-    { title: t('shift.column.employeeCode'), dataIndex: 'employeeCode', width: 100 },
-    { title: t('shift.column.fullName'), dataIndex: 'fullName', width: 170, ellipsis: true },
-    {
-      title: t('shift.column.department'),
-      dataIndex: 'departmentName',
-      width: 140,
-      ellipsis: true,
-      render: (v: string | null) => v ?? '—',
-    },
-    { title: t('shift.column.shift'), dataIndex: 'shiftName', width: 170, ellipsis: true },
-    {
-      title: t('shift.column.type'),
-      dataIndex: 'shiftType',
-      width: 95,
-      render: (v: ShiftTypeValue) => (
-        <Tag color={v === 'FIXED' ? 'blue' : 'orange'}>{t(`shift.type.${v}`)}</Tag>
-      ),
-    },
-    {
-      title: t('shift.column.effectiveFrom'),
-      dataIndex: 'effectiveFrom',
-      width: 110,
-      render: (v: string) => dayjs(v).format('DD/MM/YYYY'),
-    },
-    {
-      title: t('shift.column.assignedBy'),
-      dataIndex: 'assignedBy',
-      width: 100,
-      render: (v: string | null) => v ?? '—',
-    },
-    {
-      title: t('shift.column.current'),
-      dataIndex: 'latest',
-      width: 90,
-      render: (v: boolean) => (v ? <Tag color="blue">{t('shift.column.current')}</Tag> : null),
-    },
-    {
-      title: t('actions'),
-      width: 70,
-      render: (_, a) =>
-        canWrite && a.latest ? (
-          <Popconfirm title={t('shift.action.confirmUnassign')} onConfirm={() => void removeAssign(a.id)}>
-            <ActionIcon title={t('shift.action.unassign')} color="#ff4d4f">
-              <DeleteOutlined />
-            </ActionIcon>
-          </Popconfirm>
-        ) : null,
-    },
-  ];
 
   return (
     <div>
@@ -400,93 +278,35 @@ export default function WorkShiftPage() {
           <Text type="secondary">{t('shift.subtitle')}</Text>
         </div>
 
-        <Tabs
-          activeKey={tab}
-          onChange={setTab}
-          items={[
-            {
-              key: 'shifts',
-              label: t('shift.tab.shifts'),
-              children: (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <Space wrap>
-                    <Input.Search
-                      allowClear
-                      placeholder={t('shift.searchPlaceholder')}
-                      style={{ width: 260 }}
-                      onSearch={setQ}
-                    />
-                    {canWrite && (
-                      <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                        {t('shift.action.create')}
-                      </Button>
-                    )}
-                  </Space>
-                  <Table<WorkShift>
-                    rowKey="id"
-                    size="small"
-                    loading={shiftLoading}
-                    columns={shiftColumns}
-                    dataSource={shifts}
-                    scroll={{ x: 1100 }}
-                    pagination={{ pageSize: 20, hideOnSinglePage: true }}
-                    locale={{
-                      emptyText: (
-                        <Empty description={t('shift.emptyShifts')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                      ),
-                    }}
-                  />
-                </Space>
-              ),
-            },
-            {
-              key: 'assignments',
-              label: t('shift.tab.assignments'),
-              children: (
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <Space wrap>
-                    <Input.Search
-                      allowClear
-                      placeholder={t('shift.searchAssignPlaceholder')}
-                      style={{ width: 260 }}
-                      onSearch={setAssignQ}
-                    />
-                    {canWrite && (
-                      <Button
-                        type="primary"
-                        icon={<ClockCircleOutlined />}
-                        onClick={() => {
-                          assignForm.resetFields();
-                          void searchEmps('');
-                          setAssignOpen(true);
-                        }}
-                      >
-                        {t('shift.action.assign')}
-                      </Button>
-                    )}
-                  </Space>
-                  <Table<ShiftAssignment>
-                    rowKey="id"
-                    size="small"
-                    loading={assignLoading}
-                    columns={assignmentColumns}
-                    dataSource={assignments}
-                    scroll={{ x: 1150 }}
-                    pagination={{ pageSize: 20, hideOnSinglePage: true }}
-                    locale={{
-                      emptyText: (
-                        <Empty
-                          description={t('shift.emptyAssignments')}
-                          image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        />
-                      ),
-                    }}
-                  />
-                </Space>
-              ),
-            },
-          ]}
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space wrap>
+          <Input.Search
+            allowClear
+            placeholder={t('shift.searchPlaceholder')}
+            style={{ width: 260 }}
+            onSearch={setQ}
+          />
+          {canWrite && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              {t('shift.action.create')}
+            </Button>
+          )}
+        </Space>
+        <Table<WorkShift>
+          rowKey="id"
+          size="small"
+          loading={shiftLoading}
+          columns={shiftColumns}
+          dataSource={shifts}
+          scroll={{ x: 1100 }}
+          pagination={{ pageSize: 20, hideOnSinglePage: true }}
+          locale={{
+            emptyText: (
+              <Empty description={t('shift.emptyShifts')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ),
+          }}
         />
+      </Space>
       </Space>
 
       <Modal
@@ -569,56 +389,6 @@ export default function WorkShiftPage() {
         </Form>
       </Modal>
 
-      <Modal
-        title={t('shift.action.assignTitle')}
-        open={assignOpen}
-        onOk={() => void submitAssign()}
-        onCancel={() => setAssignOpen(false)}
-        okText={t('save')}
-        cancelText={t('cancel')}
-        destroyOnClose
-      >
-        <Form form={assignForm} layout="vertical">
-          <Form.Item
-            name="employeeId"
-            label={t('shift.assignForm.employee')}
-            rules={[{ required: true, message: t('required') }]}
-          >
-            <Select
-              showSearch
-              filterOption={false}
-              options={empOptions}
-              onSearch={(kw) => void searchEmps(kw)}
-              placeholder={t('shift.assignForm.employeePlaceholder')}
-              notFoundContent={t('shift.assignForm.searchHint')}
-            />
-          </Form.Item>
-          <Form.Item
-            name="workShiftId"
-            label={t('shift.assignForm.shift')}
-            rules={[{ required: true, message: t('required') }]}
-          >
-            <Select
-              options={shifts
-                .filter((s) => s.active)
-                .map((s) => ({
-                  value: s.id,
-                  label:
-                    `${s.name} (${hm(s.startWorkTime)}-${hm(s.endWorkTime)})` +
-                    (s.crossesMidnight ? ` ${t('shift.column.nextDay')}` : ''),
-                }))}
-              placeholder={t('shift.assignForm.shiftPlaceholder')}
-            />
-          </Form.Item>
-          <Form.Item
-            name="effectiveFrom"
-            label={t('shift.assignForm.effectiveFrom')}
-            rules={[{ required: true, message: t('required') }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 }
