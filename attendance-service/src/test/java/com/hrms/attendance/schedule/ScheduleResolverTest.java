@@ -226,4 +226,59 @@ class ScheduleResolverTest {
     shift.setActive(true);
     return shift;
   }
+  @Test
+  void effectiveDatedPolicy_selectsVersionByDate() {
+    UUID groupId = UUID.randomUUID();
+    WorkSchedulePolicy v1 = new WorkSchedulePolicy();
+    v1.setId(UUID.randomUUID());
+    v1.setPolicyGroupId(groupId);
+    v1.setName("P");
+    v1.setMonShiftId(fullShift.getId());
+    v1.setTueShiftId(fullShift.getId());
+    v1.setWedShiftId(fullShift.getId());
+    v1.setThuShiftId(fullShift.getId());
+    v1.setFriShiftId(fullShift.getId());
+    v1.setSatShiftId(null);
+    v1.setSunShiftId(null);
+    v1.setEffectiveFrom(LocalDate.of(2020, 1, 1));
+    v1.setActive(true);
+    v1.setDefaultPolicy(false);
+
+    WorkSchedulePolicy v2 = new WorkSchedulePolicy();
+    v2.setId(UUID.randomUUID());
+    v2.setPolicyGroupId(groupId);
+    v2.setName("P");
+    v2.setMonShiftId(fullShift.getId());
+    v2.setTueShiftId(fullShift.getId());
+    v2.setWedShiftId(fullShift.getId());
+    v2.setThuShiftId(fullShift.getId());
+    v2.setFriShiftId(fullShift.getId());
+    v2.setSatShiftId(fullShift.getId());
+    v2.setSunShiftId(null);
+    v2.setEffectiveFrom(LocalDate.of(2026, 11, 15));
+    v2.setActive(true);
+    v2.setDefaultPolicy(false);
+
+    EmployeeScheduleAssignment asg = new EmployeeScheduleAssignment();
+    asg.setId(UUID.randomUUID());
+    asg.setEmployeeId("e-1");
+    asg.setPolicyId(groupId);
+    asg.setEffectiveFrom(LocalDate.of(2020, 1, 1));
+    lenient().when(assignmentRepository
+            .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
+        .thenReturn(List.of(asg));
+    lenient().when(legacyAssignmentRepository
+            .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
+        .thenReturn(List.of());
+    lenient().when(policyRepository.findAll()).thenReturn(List.of(v1, v2));
+    lenient().when(workShiftRepository.findAll()).thenReturn(List.of(fullShift, otherShift));
+
+    ScheduleResolver.Context context = resolver.loadContext(List.of("e-1"));
+    // before v2 effective date -> v1 (Saturday off)
+    DayPlan before = resolver.resolve("e-1", LocalDate.of(2026, 11, 14), context);
+    assertNull(before.shiftId());
+    // on/after v2 effective date -> v2 (Saturday full shift)
+    DayPlan after = resolver.resolve("e-1", LocalDate.of(2026, 11, 21), context);
+    assertEquals(fullShift.getId(), after.shiftId());
+  }
 }

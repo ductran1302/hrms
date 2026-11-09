@@ -716,6 +716,7 @@ policy tuần — bảng `employee_shift_rosters` **chỉ còn dòng `MANUAL_OVE
   Smoke `verify-shift-calendar.sh` (50 checks) có thêm range 90 ngày → 422, batch
   `employeeIds` đủ 4 NV và chỉ chứa NV yêu cầu; `RANGE_DAYS` mặc định **61** (62 ngày gồm 2 đầu).
 
+- **Phase 6 (2026-11-09) — effective-dated policy**: work_schedule_policies thêm policy_group_id, effective_from, effective_to, ersion_no (V29). Sửa policy tạo version mới thay vì mutate (effectiveFrom phải sau version hiện tại; version cũ tự cap effective_to = newFrom-1); assignment lưu policy_group_id (FE dùng policyGroupId), resolver chọn version theo ngày. Seeder set group=id và effectiveFrom=1900-01-01. FE policy form thêm DatePicker hiệu lực; bảng Chính sách thêm cột hiệu lực từ. Smoke 50/0.
 ---
 
 ## 5. Frontend Conventions (React/TypeScript)

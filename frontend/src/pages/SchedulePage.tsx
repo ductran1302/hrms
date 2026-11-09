@@ -642,6 +642,12 @@ export default function SchedulePage() {
       render: (v: string | null) => (v ? dayjs(v).format('DD/MM/YYYY') : '-'),
     },
     {
+      title: t('schedule.policy.column.effectiveTo', { defaultValue: 'Hiệu lực đến' }),
+      dataIndex: 'effectiveTo',
+      width: 110,
+      render: (v: string | null) => (v ? dayjs(v).format('DD/MM/YYYY') : '-'),
+    },
+    {
       title: t('schedule.policy.column.updated'),
       dataIndex: 'updatedAt',
       width: 110,
