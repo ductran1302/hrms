@@ -1,5 +1,6 @@
 ﻿{
   "title": "Audit log",
+  "subtitle": "Audit trail of system actions",
   "service": "Service",
   "actor": "Actor",
   "action": "Action",

@@ -1,5 +1,6 @@
 ﻿{
   "title": "Audit log",
+  "subtitle": "Tra cứu nhật ký thao tác hệ thống",
   "service": "Dịch vụ",
   "actor": "Người thực hiện",
   "action": "Hành động",

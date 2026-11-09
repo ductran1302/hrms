@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Table, Input, Select, Space, Tag, Button } from 'antd';
+import { Table, Input, Select, Space, Tag, Button, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { errorMessage } from '../api/client';
 
 export default function AuditLogPage() {
   const { t } = useTranslation();
+  const { Text } = Typography;
   const [service, setService] = useState<'identity' | 'attendance'>('identity');
   const [actor, setActor] = useState<string | undefined>();
   const [action, setAction] = useState('');
@@ -141,6 +142,13 @@ export default function AuditLogPage() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={12}>
+    <div>
+      <Typography.Title level={4} style={{ margin: 0 }}>
+        {t('audit.title')}
+      </Typography.Title>
+      <Text type="secondary">{t('audit.subtitle')}</Text>
+    </div>
+
       <Space wrap>
         <Select value={service} onChange={(v) => { setService(v); setPage(0); }} options={[
           { value: 'identity', label: 'Identity' },
