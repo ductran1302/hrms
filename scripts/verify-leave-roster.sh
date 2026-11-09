@@ -91,15 +91,15 @@ POLICY_BASE=$(jget "/api/v1/attendance/leave/policies/$YEAR" | jq -r '.baseDays 
 check "đọc được BASE + baseDays policy" "yes" \
   "$([ "$BASE0" != "null" ] && [ -n "$POLICY_BASE" ] && echo yes || echo no)"
 
-# ---- 5. Sinh roster cho cả kỳ (backfill quá khứ, sinh tương lai) ----
-GEN=$(jpost "/api/v1/attendance/rosters/generate?from=$PSTART&to=$PEND&employeeId=$EID" "")
-check "generate roster kỳ hiện tại" "yes" \
-  "$(echo "$GEN" | jq -r '((.created + .updated + .unchanged) > 0) | if . then "yes" else "no" end')"
+# ---- 5. Lịch suy ra on-read (Phase 4) — không còn "sinh lịch" ----
+ROW_TODAY=$(jget "/api/v1/attendance/rosters/$EID/$TODAY")
+check "lịch hôm nay suy ra được" "yes" \
+  "$(echo "$ROW_TODAY" | jq -r 'if .workDate then "yes" else "no" end')"
 
 read -r PSTART PEND FULL_A ACTUAL_A SRC_A <<EOF
 $(workdays)
 EOF
-check "mẫu số sau generate > 0" "yes" "$(awk -v v="$FULL_A" 'BEGIN{print (v+0>0)?"yes":"no"}')"
+check "mẫu số theo lịch > 0" "yes" "$(awk -v v="$FULL_A" 'BEGIN{print (v+0>0)?"yes":"no"}')"
 
 # ---- 6. Δ kỳ vọng = tổng trọng số các ngày làm còn lại ----
 SHIFT_MAP=$(jget "/api/v1/attendance/work-shifts" \

@@ -618,11 +618,11 @@ rollback / giữ connection khi KC chậm):
     `failBuildOnCVSS=9`, bỏ test/provided scope). Cần tải NVD → không chạy trong CI mặc định;
     đặt `NVD_API_KEY` để tăng hạn mức tải.
 
-### 4.21 Shift & Calendar Engine — Phase 1 (2026-11-05)
+### 4.21 Shift & Calendar Engine (Phase 1–4)
 
 Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `employee_schedule_assignments`
-→ `employee_shift_rosters` (migration attendance `V26`). **Phase 2** mới nối vào tính quỹ phép
-(hiện `PeriodEngine` vẫn là nguồn của leave quota).
+→ `employee_shift_rosters` (migration attendance `V26`). **Phase 4**: lịch **suy ra on-read** từ
+policy tuần — bảng `employee_shift_rosters` **chỉ còn dòng `MANUAL_OVERRIDE`** (V27 purge).
 
 - **Ca qua đêm (Phase 1)**: `work_shifts.crosses_midnight` = `end < start` (backend tự suy ra,
   KHÔNG nhận từ client). Constraint `ck_work_shifts_cross` + `ck_work_shifts_span`
@@ -634,7 +634,7 @@ Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `emp
   luân phiên; bật luân phiên khi anchor != null, không phải khi alternate != null),
   `is_default` (partial unique), `active`. Validate: mọi shift tồn tại + active; alternate mà
   thiếu anchor → 422; anchor != null mà thiếu `sat_shift_id` → 422. Xoá default / còn
-  assignment hoặc roster tham chiếu → 422.
+  assignment tham chiếu → 422.
 - **Luân phiên**: `weekIndex = floorDiv(DAYS.between(anchor, date), 7)`; chẵn → `sat_shift_id`,
   lẻ → `sat_alternate_shift_id` (null = nghỉ). Anchor seed = `firstSaturdayOnOrAfter(fyStart)`.
   Parity với `PeriodEngine.saturdayIndex` đúng trong FY seed và FY kế tiếp (offset 364 ngày =
@@ -647,13 +647,11 @@ Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `emp
   2. **legacy fallback** `shift_assignments` mới nhất ≤ d → ca đó cho T2–T6, T7 theo default
      policy, CN nghỉ, `source=LEGACY_ASSIGNMENT` (giữ khớp `/shift-assignments/my`);
   3. policy `is_default` active;
-  4. không có → skip (`noPolicy`, không tạo row).
-- **Generate roster** (`POST /api/v1/attendance/rosters/generate?from=&to=&employeeId?`):
-  NV `status != TERMINATED`, lọc theo `hired_at/terminated_at` (UTC); row có
-  `work_date < today` → **freeze (không sửa) nhưng vẫn backfill nếu thiếu**;
-  `MANUAL_OVERRIDE` **không bao giờ bị đè**; idempotent (created/updated/unchanged).
-  Cửa sổ default `pastDays=45`, `futureDays=90`, cron `0 30 2 * * *`, `batchSize=500`,
-  `MAX_RANGE_DAYS=3660` (`hrms.roster.*`, `RosterProperties`). Override/clear override chỉ cho
+  4. không có → `null` (chưa có lịch, API trả 404 / list bỏ ngày).
+- **Resolve on-read (Phase 4)**: `ScheduleResolver` (thuần tính, KHÔNG ghi DB) +
+  `loadContext`/`plans` — list/get suy ra từng ngày (lọc `hired_at/terminated_at`), merge dòng
+  `MANUAL_OVERRIDE` trong range. Không còn job sinh lịch, cửa sổ 45/90 ngày hay "freeze" quá
+  khứ; resolve được mọi ngày (kể cả quá khứ xa). Override/clear override chỉ cho
   `date >= today` (quá khứ → 422).
 - **Source**: `POLICY_AUTO | ROTATION_GEN | MANUAL_OVERRIDE | LEGACY_ASSIGNMENT`.
 - **Seed** `DefaultPolicySeeder` (ApplicationRunner, chỉ khi chưa có policy nào): tạo ca
@@ -663,20 +661,20 @@ Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `emp
 - **API** (prefix `/api/v1/attendance`): `schedule-policies` (GET/list, GET `/default`,
   GET `/{id}`, POST, PUT `/{id}`, DELETE), `schedule-assignments` (GET `?employeeId=`, POST,
   DELETE `/{id}`), `rosters` (GET `?employeeId&from&to` — ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER
-  theo `EmployeeScope`; GET `/{employeeId}/{date}` lazy resolve; POST `/generate`;
-  PUT/DELETE `/{employeeId}/{date}` override). **Ghi = ADMIN** (audit
-  `ROSTER_GENERATE|ROSTER_OVERRIDE|ROSTER_OVERRIDE_CLEAR`, `SCHEDULE_POLICY_*`,
-  `SCHEDULE_ASSIGN|UNASSIGN`).
+  theo `EmployeeScope`, suy ra on-read; GET `/{employeeId}/{date}`; PUT/DELETE
+  `/{employeeId}/{date}` override). **Ghi = ADMIN** (audit
+  `ROSTER_OVERRIDE|ROSTER_OVERRIDE_CLEAR`, `SCHEDULE_POLICY_*`, `SCHEDULE_ASSIGN|UNASSIGN`).
 - `SchedulingConfig` bật `@EnableScheduling` (attendance trước đây chưa có).
 - **FE**: `WorkShiftPage` thêm `order={false}` cho 2 `TimePicker.RangePicker` +
   hậu tố `(+1 ngày)` khi `crossesMidnight`; i18n `shift.json` key `column.nextDay`,
   `help.overnight`.
 - **Smoke**: `scripts/verify-shift-calendar.sh` — 4 NV × 4 mode trên cửa sổ 63 ngày tương lai,
-  kiểm tra T7/T2–T6/CN, idempotent, override không bị đè, rồi tự dọn (gỡ gán → regenerate về
-  default → xoá policy/ca tạm). Chạy app stack: `API=http://gateway:8080`.
-- **Phase 2 (2026-11-05) — nối roster vào tính quỹ phép**: ngày công (tử/mẫu số điều kiện
-  x%) của 1 kỳ đọc từ `employee_shift_rosters` khi có row, **fallback `PeriodEngine`** khi
-  thiếu row (ngoài cửa sổ job) → data/test cũ không đổi. Trọng số ngày = ca
+  kiểm tra T7/T2–T6/CN, resolve ngày xa (ngoài cửa sổ 45/90 cũ), override giữ nguyên / bỏ
+  override về policy, rồi tự dọn (gỡ gán → xoá policy/ca tạm). Chạy app stack:
+  `API=http://gateway:8080`.
+- **Phase 2 — nối lịch vào tính quỹ phép**: ngày công (tử/mẫu số điều kiện
+  x%) của 1 kỳ suy ra từ `ScheduleResolver`, **fallback `PeriodEngine`** khi NV chưa có
+  policy lịch → data/test cũ không đổi. Trọng số ngày = ca
   `workingTime / hrms.leave.standard-work-minutes` (default **480**), cap 1 (ca 480p=1.0,
   240p=0.5 — giữ ngữ nghĩa saturday_policy=HALF); dayOff→0; scale 4 từng ngày, tổng scale 2
   HALF_UP (như `PeriodEngine`). Component: `attendance/leave/RosterWorkDaySource`
@@ -687,9 +685,26 @@ Lịch làm việc 4 tầng: `work_shifts` → `work_schedule_policies` → `emp
   số lẫn mẫu số cùng giảm** → tỷ lệ đủ kỳ không đổi (BASE chỉ đổi khi hire/term clip hoặc
   MANUAL row) — unit test `LeaveQuotaServiceTest.ensureAuto_periodBelowMinWorkPercent_excludedFromBase`
   + `RosterWorkDaySourceTest` (5 tests). `DELETE /rosters/{emp}/{date}` trả **200** (không 204).
-- **Smoke Phase 2**: `scripts/verify-leave-roster.sh` — sinh roster kỳ hiện tại, override toàn
-  bộ ngày làm còn lại → mẫu số/tử số giảm đúng Δ (tổng trọng số), gỡ override + recalculate →
-  về đúng ban đầu; **17/17 PASS**. Chạy app stack: `API=http://gateway:8080`.
+- **Smoke Phase 2**: `scripts/verify-leave-roster.sh` — lịch suy ra on-read cho cả kỳ, override
+  toàn bộ ngày làm còn lại → mẫu số/tử số giảm đúng Δ (tổng trọng số), gỡ override + recalculate
+  → về đúng ban đầu. Chạy app stack: `API=http://gateway:8080`.
+- **Phase 3 — FE Lịch làm việc** (FE-only, không đổi backend):
+  trang `SchedulePage` route `/schedule` (menu `menu.schedule`, roles = `STAFF_ROLES`) —
+  3 tab: **Lịch** grid NV × ngày (RangePicker ≤400 cột, lọc NV scope; click ô → Modal
+  xem/sửa ca + note; `MANUAL_OVERRIDE` hiện ✎ nền cam + nút "Bỏ sửa tay"), **Chính sách
+  lịch** (CRUD 7 ngày + T7 luân phiên: alternate bắt buộc + anchor phải là T7; Switch default
+  có confirm), **Phân công** (gán/bỏ gán policy theo scope). Files:
+  `frontend/src/pages/SchedulePage.tsx`, `frontend/src/api/schedules.ts`, types
+  (`RosterEntry`/`WorkSchedulePolicy`/`ScheduleAssignment`), i18n `schedule.json` vi/en
+  (**register tay** trong `i18n/index.ts` — không auto-load) + `menu.schedule` trong
+  `layout.json`. Verify: `npm run build` PASS + deploy `docker compose -f
+  docker-compose.app.yml build frontend && up -d frontend` + 4 API page qua gateway → 200.
+- **Phase 4 (2026-11-06) — bỏ vật lý hóa roster**: `ScheduleResolver` (thuần tính) thay
+  `RosterGenerationService`; xóa `RosterGenerationJob`/`RosterProperties`/`POST /rosters/generate`
+  + nút "Sinh lịch" FE; `RosterQueryService.list/get` suy ra on-read + merge `MANUAL_OVERRIDE`;
+  `RosterWorkDaySource` đọc resolver; migration `V27__purge_derived_rosters.sql` xoá row
+  `source <> 'MANUAL_OVERRIDE'`. Đánh đổi đã chấp nhận: sửa policy retroactive làm đổi lịch
+  quá khứ (audit `SCHEDULE_POLICY_*` ghi nhận; effective-dated policy để sau nếu cần).
 
 ---
 
@@ -1075,10 +1090,14 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Attendance IDOR scope helper | `attendance-service/src/main/java/com/hrms/attendance/employee/EmployeeAccess.java` (`EmployeeAccessResolver.java`) |
 | Leave quota (settings/policy/period) | `attendance-service/src/main/java/com/hrms/attendance/leave/` |
 | Shift & Calendar Phase 1 (policy/assignment/roster) | `attendance-service/src/main/java/com/hrms/attendance/schedule/` |
+| Schedule resolver (Phase 4 — on-read) | `attendance-service/src/main/java/com/hrms/attendance/schedule/ScheduleResolver.java` |
+| Phase 4 purge migration | `attendance-service/src/main/resources/db/migration/V27__purge_derived_rosters.sql` |
 | Shift & Calendar migration | `attendance-service/src/main/resources/db/migration/V26__shift_calendar_phase1.sql` |
 | Shift parity test | `attendance-service/src/test/java/com/hrms/attendance/schedule/ShiftRotationParityTest.java` |
 | Roster → quỹ phép (Phase 2) | `attendance-service/src/main/java/com/hrms/attendance/leave/RosterWorkDaySource.java` |
 | Smoke Phase 2 leave↔roster | `scripts/verify-leave-roster.sh` |
+| FE lịch làm việc (Phase 3) | `frontend/src/pages/SchedulePage.tsx` |
+| FE schedule API client | `frontend/src/api/schedules.ts` |
 | FE leave quota page | `frontend/src/pages/LeaveQuotaPage.tsx` |
 | FE work shift page | `frontend/src/pages/WorkShiftPage.tsx` |
 | FE Cài đặt→Tham số/Chính sách phép | `frontend/src/pages/SettingsPoliciesPage.tsx` |

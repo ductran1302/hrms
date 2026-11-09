@@ -1,6 +1,7 @@
 import {
   ApartmentOutlined,
   BellOutlined,
+  CalendarOutlined,
   CarryOutOutlined,
   ClockCircleOutlined,
   ClusterOutlined,
@@ -123,6 +124,11 @@ export default function AppLayout() {
       key: '/work-shifts',
       icon: <ScheduleOutlined />,
       label: t('menu.workShifts'),
+    },
+    auth.hasRole('ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
+      key: '/schedule',
+      icon: <CalendarOutlined />,
+      label: t('menu.schedule'),
     },
     auth.hasRole('EMPLOYEE', 'ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER') && {
       key: '/ot',

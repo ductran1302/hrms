@@ -4,6 +4,7 @@ import com.hrms.attendance.employee.Employee;
 import com.hrms.attendance.employee.EmployeeAccess;
 import com.hrms.attendance.employee.EmployeeAccessResolver;
 import com.hrms.attendance.employee.EmployeeRepository;
+import com.hrms.attendance.schedule.ScheduleResolver.DayPlan;
 import com.hrms.attendance.schedule.dto.RosterEntryResponse;
 import com.hrms.attendance.shift.WorkShift;
 import com.hrms.attendance.shift.WorkShiftRepository;
@@ -12,6 +13,8 @@ import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +26,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Đọc roster theo scope + sửa tay (MANUAL_OVERRIDE) cho tương lai. */
+/**
+ * Đọc lịch làm việc theo scope — <b>suy ra on-read</b> từ policy tuần (không ghi row theo ngày).
+ *
+ * <p>Chỉ dòng {@link RosterSource#MANUAL_OVERRIDE} được lưu DB (bảng {@code
+ * employee_shift_rosters}); mọi ngày khác resolve từ {@link ScheduleResolver} tại thời điểm đọc.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -33,7 +41,7 @@ public class RosterQueryService {
   private final EmployeeRepository employeeRepository;
   private final WorkShiftRepository workShiftRepository;
   private final EmployeeAccessResolver accessResolver;
-  private final RosterGenerationService generationService;
+  private final ScheduleResolver resolver;
   private final AuditService auditService;
 
   @Transactional(readOnly = true)
@@ -63,25 +71,52 @@ public class RosterQueryService {
       return List.of();
     }
     Set<String> ids = new HashSet<>();
-    Map<String, Employee> byId = new HashMap<>();
     for (Employee employee : employees) {
       ids.add(employee.getEmployeeId());
-      byId.put(employee.getEmployeeId(), employee);
     }
-    Map<UUID, WorkShift> shifts = new HashMap<>();
-    for (WorkShift shift : workShiftRepository.findAll()) {
-      shifts.put(shift.getId(), shift);
+    ScheduleResolver.Context context = resolver.loadContext(ids);
+    Map<String, Map<LocalDate, EmployeeShiftRoster>> overrides = new HashMap<>();
+    for (EmployeeShiftRoster row : rosterRepository.findByEmployeeIdInAndWorkDateBetweenAndSource(
+        ids, start, end, RosterSource.MANUAL_OVERRIDE)) {
+      overrides.computeIfAbsent(row.getEmployeeId(), k -> new HashMap<>())
+          .put(row.getWorkDate(), row);
     }
-    return rosterRepository.findByEmployeeIdInAndWorkDateBetween(ids, start, end).stream()
-        .map(row -> RosterEntryResponse.from(
-            row,
-            byId.get(row.getEmployeeId()),
-            row.getShiftId() == null ? null : shifts.get(row.getShiftId())))
-        .toList();
+
+    List<RosterEntryResponse> out = new ArrayList<>();
+    for (Employee employee : employees) {
+      String id = employee.getEmployeeId();
+      LocalDate hiredAt = toLocalDate(employee.getHiredAt());
+      LocalDate terminatedAt = toLocalDate(employee.getTerminatedAt());
+      Map<LocalDate, EmployeeShiftRoster> empOverrides = overrides.get(id);
+      for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+        if ((hiredAt != null && date.isBefore(hiredAt))
+            || (terminatedAt != null && date.isAfter(terminatedAt))) {
+          continue;
+        }
+        EmployeeShiftRoster override = empOverrides == null ? null : empOverrides.get(date);
+        if (override != null) {
+          out.add(RosterEntryResponse.from(
+              override, employee, shift(override.getShiftId(), context)));
+          continue;
+        }
+        DayPlan plan = resolver.resolve(id, date, context);
+        if (plan == null) {
+          continue;
+        }
+        out.add(RosterEntryResponse.derived(
+            id,
+            employee.getEmployeeCode(),
+            employee.getFullName(),
+            date,
+            plan,
+            shift(plan.shiftId(), context)));
+      }
+    }
+    return out;
   }
 
-  /** 1 ngày của NV — lazy resolve nếu chưa có (scope-checked). */
-  @Transactional
+  /** 1 ngày của NV — override nếu có, ngược lại suy ra từ policy (scope-checked). */
+  @Transactional(readOnly = true)
   public RosterEntryResponse get(
       String employeeId, LocalDate date, String username, EmployeeScope scope) {
     EmployeeAccess access = scope == EmployeeScope.ALL
@@ -89,7 +124,32 @@ public class RosterQueryService {
     Employee employee = employeeRepository.findById(employeeId)
         .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", employeeId));
     access.assertCanAccess(employee);
-    return generationService.resolve(employeeId, date);
+    LocalDate hiredAt = toLocalDate(employee.getHiredAt());
+    LocalDate terminatedAt = toLocalDate(employee.getTerminatedAt());
+    if ((hiredAt != null && date.isBefore(hiredAt))
+        || (terminatedAt != null && date.isAfter(terminatedAt))) {
+      throw new ResourceNotFoundException("Lịch làm việc (ngoài thời gian làm việc của NV)");
+    }
+    ScheduleResolver.Context context = resolver.loadContext(List.of(employeeId));
+    EmployeeShiftRoster override = rosterRepository.findByEmployeeIdAndWorkDate(employeeId, date)
+        .filter(row -> row.getSource() == RosterSource.MANUAL_OVERRIDE)
+        .orElse(null);
+    if (override != null) {
+      return RosterEntryResponse.from(
+          override, employee, shift(override.getShiftId(), context));
+    }
+    DayPlan plan = resolver.resolve(employeeId, date, context);
+    if (plan == null) {
+      throw new ResourceNotFoundException(
+          "Lịch làm việc (NV chưa có policy, chưa gán ca và chưa có policy mặc định)");
+    }
+    return RosterEntryResponse.derived(
+        employeeId,
+        employee.getEmployeeCode(),
+        employee.getFullName(),
+        date,
+        plan,
+        shift(plan.shiftId(), context));
   }
 
   @Transactional
@@ -144,6 +204,26 @@ public class RosterQueryService {
     auditService.success("ROSTER_OVERRIDE_CLEAR", "EmployeeShiftRoster", row.getId(),
         "employeeId=" + employeeId + " date=" + date + " by=" + actor);
     log.info("Bỏ sửa tay lịch NV {} ngày {}", employeeId, date);
-    return generationService.resolve(employeeId, date);
+    ScheduleResolver.Context context = resolver.loadContext(List.of(employeeId));
+    DayPlan plan = resolver.resolve(employeeId, date, context);
+    if (plan == null) {
+      throw new ResourceNotFoundException(
+          "Lịch làm việc (NV chưa có policy, chưa gán ca và chưa có policy mặc định)");
+    }
+    return RosterEntryResponse.derived(
+        employeeId,
+        employee.getEmployeeCode(),
+        employee.getFullName(),
+        date,
+        plan,
+        shift(plan.shiftId(), context));
+  }
+
+  private static WorkShift shift(UUID shiftId, ScheduleResolver.Context context) {
+    return shiftId == null ? null : context.shifts().get(shiftId);
+  }
+
+  private static LocalDate toLocalDate(java.time.Instant instant) {
+    return instant == null ? null : instant.atZone(ZoneOffset.UTC).toLocalDate();
   }
 }

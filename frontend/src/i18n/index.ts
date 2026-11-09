@@ -12,6 +12,7 @@ import leaveVi from './locales/vi/leave.json';
 import orgchartVi from './locales/vi/orgchart.json';
 import profileVi from './locales/vi/profile.json';
 import shiftVi from './locales/vi/shift.json';
+import scheduleVi from './locales/vi/schedule.json';
 import settingsVi from './locales/vi/settings.json';
 import otVi from './locales/vi/ot.json';
 import attendanceEn from './locales/en/attendance.json';
@@ -26,6 +27,7 @@ import leaveEn from './locales/en/leave.json';
 import orgchartEn from './locales/en/orgchart.json';
 import profileEn from './locales/en/profile.json';
 import shiftEn from './locales/en/shift.json';
+import scheduleEn from './locales/en/schedule.json';
 import settingsEn from './locales/en/settings.json';
 import otEn from './locales/en/ot.json';
 
@@ -46,6 +48,7 @@ const vi = {
   attendance: attendanceVi,
   orgchart: orgchartVi,
   shift: shiftVi,
+  schedule: scheduleVi,
   settings: settingsVi,
   ot: otVi,
 };
@@ -63,6 +66,7 @@ const en = {
   attendance: attendanceEn,
   orgchart: orgchartEn,
   shift: shiftEn,
+  schedule: scheduleEn,
   settings: settingsEn,
   ot: otEn,
 };

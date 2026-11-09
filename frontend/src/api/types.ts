@@ -501,6 +501,95 @@ export interface ShiftAssignmentCreate {
   effectiveFrom: string;
 }
 
+// ===== Shift & Calendar (roster / schedule policy / assignment) =====
+
+export type RosterSourceValue =
+  | 'POLICY_AUTO'
+  | 'ROTATION_GEN'
+  | 'MANUAL_OVERRIDE'
+  | 'LEGACY_ASSIGNMENT';
+
+/** 1 ngày lịch làm việc của nhân sự. */
+export interface RosterEntry {
+  id: string;
+  employeeId: string;
+  employeeCode: string | null;
+  fullName: string | null;
+  workDate: string; // 'YYYY-MM-DD'
+  shiftId: string | null;
+  shiftName: string | null;
+  shiftType: ShiftTypeValue | null;
+  crossesMidnight: boolean;
+  dayOff: boolean;
+  source: RosterSourceValue;
+  policyId: string | null;
+  note: string | null;
+}
+
+export interface RosterOverride {
+  shiftId?: string | null; // undefined = giữ nguyên; null = nghỉ
+  note?: string | null;
+}
+
+/** Policy lịch tuần — shiftNames map UUID → tên ca (FE hiển thị không cần join). */
+export interface WorkSchedulePolicy {
+  id: string;
+  name: string;
+  description: string | null;
+  monShiftId: string | null;
+  tueShiftId: string | null;
+  wedShiftId: string | null;
+  thuShiftId: string | null;
+  friShiftId: string | null;
+  satShiftId: string | null;
+  satAlternateShiftId: string | null;
+  sunShiftId: string | null;
+  rotationAnchorDate: string | null; // 'YYYY-MM-DD', phải là Thứ 7 khi luân phiên
+  defaultPolicy: boolean;
+  active: boolean;
+  shiftNames: Record<string, string>;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
+
+/** PUT = thay thế toàn bộ (field null = nghỉ/không dùng). */
+export interface WorkSchedulePolicyUpsert {
+  name: string;
+  description?: string | null;
+  monShiftId?: string | null;
+  tueShiftId?: string | null;
+  wedShiftId?: string | null;
+  thuShiftId?: string | null;
+  friShiftId?: string | null;
+  satShiftId?: string | null;
+  satAlternateShiftId?: string | null;
+  sunShiftId?: string | null;
+  rotationAnchorDate?: string | null;
+  defaultPolicy?: boolean;
+  active?: boolean;
+}
+
+/** Bản gán policy cho nhân sự — latest = đang áp dụng. */
+export interface ScheduleAssignment {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  fullName: string;
+  policyId: string;
+  policyName: string;
+  effectiveFrom: string; // 'YYYY-MM-DD'
+  assignedBy: string | null;
+  latest: boolean;
+  createdAt: string;
+}
+
+export interface ScheduleAssignmentCreate {
+  employeeId: string;
+  policyId: string;
+  effectiveFrom: string;
+}
+
 export interface ApiError {
   timestamp?: string;
   status?: number;

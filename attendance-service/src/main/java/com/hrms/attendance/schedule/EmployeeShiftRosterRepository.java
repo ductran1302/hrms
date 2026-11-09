@@ -16,6 +16,9 @@ public interface EmployeeShiftRosterRepository
   List<EmployeeShiftRoster> findByEmployeeIdInAndWorkDateBetween(
       Collection<String> employeeIds, LocalDate from, LocalDate to);
 
+  List<EmployeeShiftRoster> findByEmployeeIdInAndWorkDateBetweenAndSource(
+      Collection<String> employeeIds, LocalDate from, LocalDate to, RosterSource source);
+
   Optional<EmployeeShiftRoster> findByEmployeeIdAndWorkDate(String employeeId, LocalDate workDate);
 
   boolean existsByPolicyId(UUID policyId);

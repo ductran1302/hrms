@@ -1,0 +1,116 @@
+{
+  "title": "Lịch làm việc",
+  "subtitle": "Xem lịch ca theo nhân sự, quản lý chính sách lịch tuần và phân công",
+  "tab": {
+    "calendar": "Lịch",
+    "policies": "Chính sách lịch",
+    "assignments": "Phân công"
+  },
+  "calendar": {
+    "range": "Khoảng ngày",
+    "employee": "Nhân viên",
+    "allEmployees": "Tất cả (trong phạm vi)",
+    "noData": "—",
+    "noDataHint": "Ngày này chưa có lịch (chưa có chính sách) — bấm để thử tải",
+    "dayOff": "Nghỉ",
+    "legendManual": "Sửa tay",
+    "employeeColumn": "Nhân sự",
+    "empty": "Chưa có nhân sự trong phạm vi",
+    "manualBadge": "Sửa tay"
+  },
+  "cell": {
+    "title": "Lịch ngày {date}",
+    "source": "Nguồn",
+    "policy": "Chính sách",
+    "note": "Ghi chú",
+    "shift": "Ca làm việc",
+    "dayOffOption": "Nghỉ",
+    "save": "Lưu",
+    "clearOverride": "Bỏ sửa tay",
+    "clearConfirm": "Bỏ sửa tay ngày {date}? Lịch sẽ quay về theo chính sách.",
+    "viewOnly": "Chỉ xem",
+    "pastHint": "Chỉ sửa được từ hôm nay trở đi",
+    "overrideSuccess": "Đã cập nhật lịch ngày {date}",
+    "clearSuccess": "Đã bỏ sửa tay ngày {date}",
+    "loading": "Đang tải..."
+  },
+  "policy": {
+    "create": "Tạo chính sách",
+    "edit": "Sửa chính sách",
+    "confirmDelete": "Xoá chính sách lịch này?",
+    "empty": "Chưa có chính sách lịch",
+    "searchPlaceholder": "Tìm theo tên...",
+    "form": {
+      "name": "Tên chính sách",
+      "namePlaceholder": "VD: Lịch hành chính T2–T6",
+      "description": "Mô tả",
+      "week": "Lịch tuần",
+      "rotation": "Thứ 7 luân phiên",
+      "rotationHint": "Bật để xen kẽ 2 ca giữa các tuần (mốc phải là Thứ 7)",
+      "alternate": "Ca tuần lẻ",
+      "anchor": "Mốc luân phiên",
+      "anchorMustSaturday": "Mốc phải là Thứ 7",
+      "alternateRequireAnchor": "Chọn mốc luân phiên khi bật ca tuần lẻ",
+      "default": "Đặt làm chính sách mặc định",
+      "defaultConfirm": "Đặt làm mặc định sẽ thay chính sách mặc định hiện tại. Tiếp tục?",
+      "active": "Kích hoạt"
+    },
+    "column": {
+      "name": "Tên",
+      "description": "Mô tả",
+      "week": "Lịch tuần",
+      "default": "Mặc định",
+      "active": "Trạng thái",
+      "updated": "Cập nhật"
+    },
+    "day": {
+      "mon": "T2",
+      "tue": "T3",
+      "wed": "T4",
+      "thu": "T5",
+      "fri": "T6",
+      "sat": "T7",
+      "sun": "CN"
+    }
+  },
+  "assignment": {
+    "create": "Gán chính sách",
+    "confirmDelete": "Gỡ bản gán này?",
+    "empty": "Chưa có phân công nào",
+    "searchEmployee": "Tìm nhân viên (mã/tên)...",
+    "form": {
+      "employee": "Nhân viên",
+      "employeePlaceholder": "Nhập mã hoặc tên để tìm",
+      "searchHint": "Gõ để tìm nhân viên",
+      "policy": "Chính sách lịch",
+      "policyPlaceholder": "Chọn chính sách",
+      "effectiveFrom": "Áp dụng từ"
+    },
+    "column": {
+      "code": "Mã NV",
+      "name": "Họ tên",
+      "policy": "Chính sách",
+      "effectiveFrom": "Áp dụng từ",
+      "assignedBy": "Người gán",
+      "current": "Đang áp dụng"
+    }
+  },
+  "weekday": {
+    "0": "CN",
+    "1": "T2",
+    "2": "T3",
+    "3": "T4",
+    "4": "T5",
+    "5": "T6",
+    "6": "T7"
+  },
+  "source": {
+    "POLICY_AUTO": "Theo chính sách",
+    "ROTATION_GEN": "Sinh theo luân phiên",
+    "MANUAL_OVERRIDE": "Sửa tay",
+    "LEGACY_ASSIGNMENT": "Phân ca cũ"
+  },
+  "shiftOption": {
+    "off": "Nghỉ"
+  }
+}

@@ -13,6 +13,7 @@ import OrgChartPage from './pages/OrgChartPage';
 import SettingsAccountsPage from './pages/SettingsAccountsPage';
 import SettingsPoliciesPage from './pages/SettingsPoliciesPage';
 import SettingsSecurityPage from './pages/SettingsSecurityPage';
+import SchedulePage from './pages/SchedulePage';
 import WorkShiftPage from './pages/WorkShiftPage';
 import OTManagementPage from './pages/OTManagementPage';
 
@@ -102,6 +103,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={STAFF_ROLES}>
                 <WorkShiftPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="schedule"
+            element={
+              <ProtectedRoute roles={STAFF_ROLES}>
+                <SchedulePage />
               </ProtectedRoute>
             }
           />

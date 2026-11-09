@@ -1,0 +1,116 @@
+{
+  "title": "Work schedule",
+  "subtitle": "View shifts per employee, manage weekly schedule policies and assignments",
+  "tab": {
+    "calendar": "Calendar",
+    "policies": "Schedule policies",
+    "assignments": "Assignments"
+  },
+  "calendar": {
+    "range": "Date range",
+    "employee": "Employee",
+    "allEmployees": "All (in scope)",
+    "noData": "—",
+    "noDataHint": "No schedule for this day (no policy) — click to retry",
+    "dayOff": "Day off",
+    "legendManual": "Manual",
+    "employeeColumn": "Employees",
+    "empty": "No employees in range",
+    "manualBadge": "Manual override"
+  },
+  "cell": {
+    "title": "Schedule for {date}",
+    "source": "Source",
+    "policy": "Policy",
+    "note": "Note",
+    "shift": "Shift",
+    "dayOffOption": "Day off",
+    "save": "Save",
+    "clearOverride": "Clear override",
+    "clearConfirm": "Clear override for {date}? The day returns to the policy schedule.",
+    "viewOnly": "View only",
+    "pastHint": "Only today or later can be edited",
+    "overrideSuccess": "Schedule for {date} updated",
+    "clearSuccess": "Override cleared for {date}",
+    "loading": "Loading..."
+  },
+  "policy": {
+    "create": "New policy",
+    "edit": "Edit policy",
+    "confirmDelete": "Delete this schedule policy?",
+    "empty": "No schedule policies yet",
+    "searchPlaceholder": "Search by name...",
+    "form": {
+      "name": "Policy name",
+      "namePlaceholder": "e.g. Office hours Mon–Fri",
+      "description": "Description",
+      "week": "Weekly schedule",
+      "rotation": "Alternating Saturdays",
+      "rotationHint": "Alternate two shifts across weeks (anchor must be a Saturday)",
+      "alternate": "Alternate-week shift",
+      "anchor": "Rotation anchor",
+      "anchorMustSaturday": "Anchor must be a Saturday",
+      "alternateRequireAnchor": "Pick an anchor when alternate shift is set",
+      "default": "Set as default policy",
+      "defaultConfirm": "Setting as default will replace the current default policy. Continue?",
+      "active": "Active"
+    },
+    "column": {
+      "name": "Name",
+      "description": "Description",
+      "week": "Weekly schedule",
+      "default": "Default",
+      "active": "Status",
+      "updated": "Updated"
+    },
+    "day": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "assignment": {
+    "create": "Assign policy",
+    "confirmDelete": "Remove this assignment?",
+    "empty": "No assignments yet",
+    "searchEmployee": "Search employee (code/name)...",
+    "form": {
+      "employee": "Employee",
+      "employeePlaceholder": "Type code or name to search",
+      "searchHint": "Type to search employees",
+      "policy": "Schedule policy",
+      "policyPlaceholder": "Select a policy",
+      "effectiveFrom": "Effective from"
+    },
+    "column": {
+      "code": "Emp. code",
+      "name": "Full name",
+      "policy": "Policy",
+      "effectiveFrom": "Effective from",
+      "assignedBy": "Assigned by",
+      "current": "Current"
+    }
+  },
+  "weekday": {
+    "0": "Sun",
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat"
+  },
+  "source": {
+    "POLICY_AUTO": "From policy",
+    "ROTATION_GEN": "Rotation generated",
+    "MANUAL_OVERRIDE": "Manual override",
+    "LEGACY_ASSIGNMENT": "Legacy assignment"
+  },
+  "shiftOption": {
+    "off": "Day off"
+  }
+}

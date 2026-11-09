@@ -66,11 +66,11 @@ class ShiftRotationParityTest {
 
   @Test
   void weekIndex_anchorAndFollowingSaturdays_correctParity() {
-    assertEquals(0, RosterGenerationService.weekIndex(ANCHOR, ANCHOR));
-    assertEquals(1, RosterGenerationService.weekIndex(ANCHOR, ANCHOR.plusWeeks(1)));
-    assertEquals(2, RosterGenerationService.weekIndex(ANCHOR, ANCHOR.plusWeeks(2)));
-    assertTrue(RosterGenerationService.isEvenWeek(ANCHOR, ANCHOR));
-    assertFalse(RosterGenerationService.isEvenWeek(ANCHOR, ANCHOR.plusWeeks(1)));
+    assertEquals(0, ScheduleResolver.weekIndex(ANCHOR, ANCHOR));
+    assertEquals(1, ScheduleResolver.weekIndex(ANCHOR, ANCHOR.plusWeeks(1)));
+    assertEquals(2, ScheduleResolver.weekIndex(ANCHOR, ANCHOR.plusWeeks(2)));
+    assertTrue(ScheduleResolver.isEvenWeek(ANCHOR, ANCHOR));
+    assertFalse(ScheduleResolver.isEvenWeek(ANCHOR, ANCHOR.plusWeeks(1)));
   }
 
   @Test
@@ -94,7 +94,7 @@ class ShiftRotationParityTest {
         continue;
       }
       BigDecimal expected = PeriodEngine.workingDays(new Period(date, date), settings, fyStart);
-      RosterGenerationService.DayPlan plan = RosterGenerationService.planFromPolicy(policy, date);
+      ScheduleResolver.DayPlan plan = ScheduleResolver.planFromPolicy(policy, date);
       String label = mode + " " + date;
       if (expected.signum() == 0) {
         assertTrue(plan.dayOff(), label + ": phải nghỉ");

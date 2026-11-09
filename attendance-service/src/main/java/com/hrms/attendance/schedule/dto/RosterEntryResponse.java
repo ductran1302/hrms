@@ -3,6 +3,7 @@ package com.hrms.attendance.schedule.dto;
 import com.hrms.attendance.employee.Employee;
 import com.hrms.attendance.schedule.EmployeeShiftRoster;
 import com.hrms.attendance.schedule.RosterSource;
+import com.hrms.attendance.schedule.ScheduleResolver;
 import com.hrms.attendance.shift.WorkShift;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -39,5 +40,29 @@ public record RosterEntryResponse(
         roster.getSource(),
         roster.getPolicyId(),
         roster.getNote());
+  }
+
+  /** Entry suy ra từ policy tuần (không có row DB — {@code id} null). */
+  public static RosterEntryResponse derived(
+      String employeeId,
+      String employeeCode,
+      String fullName,
+      LocalDate workDate,
+      ScheduleResolver.DayPlan plan,
+      WorkShift shift) {
+    return new RosterEntryResponse(
+        null,
+        employeeId,
+        employeeCode,
+        fullName,
+        workDate,
+        plan.shiftId(),
+        shift == null ? null : shift.getName(),
+        shift == null ? null : shift.getShiftType().name(),
+        shift != null && shift.isCrossesMidnight(),
+        plan.dayOff(),
+        plan.source(),
+        plan.policyId(),
+        null);
   }
 }

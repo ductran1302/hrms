@@ -4,16 +4,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.hrms.attendance.schedule.EmployeeShiftRoster;
 import com.hrms.attendance.schedule.EmployeeShiftRosterRepository;
 import com.hrms.attendance.schedule.RosterSource;
-import com.hrms.attendance.shift.WorkShift;
-import com.hrms.attendance.shift.WorkShiftRepository;
+import com.hrms.attendance.schedule.ScheduleResolver;
+import com.hrms.attendance.schedule.ScheduleResolver.DayPlan;
 import com.hrms.attendance.shift.ShiftType;
+import com.hrms.attendance.shift.WorkShift;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,8 +31,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class RosterWorkDaySourceTest {
 
+  @Mock private ScheduleResolver resolver;
   @Mock private EmployeeShiftRosterRepository rosterRepository;
-  @Mock private WorkShiftRepository workShiftRepository;
 
   @InjectMocks private RosterWorkDaySource source;
 
@@ -49,17 +52,46 @@ class RosterWorkDaySourceTest {
     settings.setPeriodEndDay(31);
     settings.setSaturdayPolicy(SaturdayPolicy.OFF);
     settings.setMinWorkPercent(new BigDecimal("50"));
+    lenient().when(rosterRepository.findByEmployeeIdAndWorkDateBetweenOrderByWorkDateAsc(
+            any(), any(), any()))
+        .thenReturn(List.of());
   }
 
   @Test
-  void weights_noRows_returnsEmptyMap_callerFallsBack() {
+  void weights_noPolicy_returnsEmptyMap_callerFallsBack() {
+    when(resolver.loadContext(any())).thenReturn(context(Map.of()));
+    when(resolver.plans(eq("e-1"), eq(MON), eq(MON.plusDays(6)), any()))
+        .thenReturn(Map.of());
     when(rosterRepository.findByEmployeeIdAndWorkDateBetweenOrderByWorkDateAsc(
             eq("e-1"), any(), any()))
         .thenReturn(List.of());
 
     Map<LocalDate, BigDecimal> weights = source.weights("e-1", MON, MON.plusDays(6));
 
-    assertTrue(weights.isEmpty(), "không có row → caller fallback PeriodEngine");
+    assertTrue(weights.isEmpty(), "không có policy → caller fallback PeriodEngine");
+  }
+
+  @Test
+  void weights_manualOverride_beatsPlan() {
+    WorkShift full = shift(480);
+    WorkShift half = shift(240);
+    Map<UUID, WorkShift> shifts = Map.of(full.getId(), full, half.getId(), half);
+
+    when(resolver.loadContext(any())).thenReturn(context(shifts));
+    when(resolver.plans(eq("e-1"), eq(MON), eq(MON.plusDays(1)), any()))
+        .thenReturn(Map.of(
+            MON, plan(full.getId(), false),
+            MON.plusDays(1), plan(full.getId(), false)));
+    when(rosterRepository.findByEmployeeIdAndWorkDateBetweenOrderByWorkDateAsc(
+            eq("e-1"), any(), any()))
+        .thenReturn(List.of(
+            override(MON, null, true),
+            override(MON.plusDays(1), half.getId(), false)));
+
+    Map<LocalDate, BigDecimal> w = source.weights("e-1", MON, MON.plusDays(1));
+
+    assertWeight(BigDecimal.ZERO, w.get(MON), "override nghỉ thắng plan đi làm");
+    assertWeight(new BigDecimal("0.5"), w.get(MON.plusDays(1)), "override ca nửa ngày");
   }
 
   @Test
@@ -67,15 +99,18 @@ class RosterWorkDaySourceTest {
     WorkShift full = shift(480);
     WorkShift half = shift(240);
     WorkShift longShift = shift(720);
-    when(rosterRepository.findByEmployeeIdAndWorkDateBetweenOrderByWorkDateAsc(
-            eq("e-1"), any(), any()))
-        .thenReturn(List.of(
-            row(MON, full.getId(), false),
-            row(MON.plusDays(1), null, true),                 // ngày nghỉ (override)
-            row(MON.plusDays(2), half.getId(), false),        // ca nửa ngày
-            row(MON.plusDays(3), longShift.getId(), false),   // ca 12h → cap 1
-            row(MON.plusDays(4), UUID.randomUUID(), false))); // ca đã bị xóa
-    when(workShiftRepository.findAllById(any())).thenReturn(List.of(full, half, longShift));
+    UUID missingShiftId = UUID.randomUUID();
+    Map<UUID, WorkShift> shifts = Map.of(
+        full.getId(), full, half.getId(), half, longShift.getId(), longShift);
+
+    when(resolver.loadContext(any())).thenReturn(context(shifts));
+    when(resolver.plans(eq("e-1"), eq(MON), eq(MON.plusDays(4)), any()))
+        .thenReturn(Map.of(
+            MON, plan(full.getId(), false),
+            MON.plusDays(1), plan(null, true),
+            MON.plusDays(2), plan(half.getId(), false),
+            MON.plusDays(3), plan(longShift.getId(), false),
+            MON.plusDays(4), plan(missingShiftId, false)));
 
     Map<LocalDate, BigDecimal> w = source.weights("e-1", MON, MON.plusDays(4));
 
@@ -87,27 +122,27 @@ class RosterWorkDaySourceTest {
   }
 
   @Test
-  void sum_rosterWins_fallbackPeriodEngineForMissingDays() {
-    // [T2..CN]: T2 có row ca nửa ngày (0.5); T3–T6 thiếu row → generic 1; T7 OFF → 0; CN → 0.
+  void sum_scheduleWins_fallbackPeriodEngineForMissingDays() {
+    // [T2..CN]: T2 có lịch ca nửa ngày (0.5); T3–T6 thiếu → generic 1; T7 OFF → 0; CN → 0.
     Map<LocalDate, BigDecimal> weights = Map.of(MON, new BigDecimal("0.5"));
 
     BigDecimal sum = source.sum(weights, MON, MON.plusDays(6), settings, FY_START);
 
-    assertWeight(new BigDecimal("4.5"), sum, "0.5 (roster) + 4 (fallback T3–T6)");
+    assertWeight(new BigDecimal("4.5"), sum, "0.5 (lịch) + 4 (fallback T3–T6)");
   }
 
   @Test
-  void sum_saturdayOverrideDayOff_beatsGenericPolicy() {
-    // Generic: Thứ 7 theo OFF → 0; nhưng đây đang là OFF nên đảo lại: settings ALL + row dayOff.
+  void sum_saturdayDayOff_beatsGenericPolicy() {
+    // Generic: Thứ 7 theo ALL → 1; nhưng lịch báo nghỉ (override / policy) → 0.
     settings.setSaturdayPolicy(SaturdayPolicy.ALL);
     LocalDate sat = LocalDate.of(2026, 1, 10);
-    Map<LocalDate, BigDecimal> weights = Map.of(sat, BigDecimal.ZERO); // row: nghỉ (override)
+    Map<LocalDate, BigDecimal> weights = Map.of(sat, BigDecimal.ZERO);
 
-    BigDecimal withRoster = source.sum(weights, sat, sat, settings, FY_START);
-    BigDecimal withoutRoster = source.sum(Map.of(), sat, sat, settings, FY_START);
+    BigDecimal withSchedule = source.sum(weights, sat, sat, settings, FY_START);
+    BigDecimal withoutSchedule = source.sum(Map.of(), sat, sat, settings, FY_START);
 
-    assertWeight(BigDecimal.ZERO, withRoster, "roster override → nghỉ");
-    assertWeight(BigDecimal.ONE, withoutRoster, "không row → theo saturday_policy ALL");
+    assertWeight(BigDecimal.ZERO, withSchedule, "lịch override → nghỉ");
+    assertWeight(BigDecimal.ONE, withoutSchedule, "không có lịch → theo saturday_policy ALL");
   }
 
   @Test
@@ -120,19 +155,28 @@ class RosterWorkDaySourceTest {
     assertWeight(new BigDecimal("0.88"), sum, "0.875 → HALF_UP 2dp");
   }
 
-  private static void assertWeight(BigDecimal expected, BigDecimal actual, String message) {
-    assertEquals(0, expected.compareTo(actual),
-        message + " (expected=" + expected + " actual=" + actual + ")");
+  private static ScheduleResolver.Context context(Map<UUID, WorkShift> shifts) {
+    return new ScheduleResolver.Context(
+        new HashMap<>(), new HashMap<>(), new HashMap<>(), null, shifts);
   }
 
-  private static EmployeeShiftRoster row(LocalDate date, UUID shiftId, boolean dayOff) {
+  private static DayPlan plan(UUID shiftId, boolean dayOff) {
+    return new DayPlan(shiftId, dayOff, RosterSource.POLICY_AUTO, null);
+  }
+
+  private static EmployeeShiftRoster override(LocalDate date, UUID shiftId, boolean dayOff) {
     EmployeeShiftRoster row = new EmployeeShiftRoster();
     row.setEmployeeId("e-1");
     row.setWorkDate(date);
     row.setShiftId(shiftId);
     row.setDayOff(dayOff);
-    row.setSource(dayOff ? RosterSource.MANUAL_OVERRIDE : RosterSource.POLICY_AUTO);
+    row.setSource(RosterSource.MANUAL_OVERRIDE);
     return row;
+  }
+
+  private static void assertWeight(BigDecimal expected, BigDecimal actual, String message) {
+    assertEquals(0, expected.compareTo(actual),
+        message + " (expected=" + expected + " actual=" + actual + ")");
   }
 
   private static WorkShift shift(int workingMinutes) {

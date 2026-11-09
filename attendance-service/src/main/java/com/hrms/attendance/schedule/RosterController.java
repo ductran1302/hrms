@@ -1,6 +1,5 @@
 package com.hrms.attendance.schedule;
 
-import com.hrms.attendance.schedule.dto.GenerateRosterResponse;
 import com.hrms.attendance.schedule.dto.RosterEntryResponse;
 import com.hrms.attendance.schedule.dto.RosterOverrideRequest;
 import com.hrms.common.security.EmployeeScope;
@@ -17,14 +16,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Roster sinh sẵn: xem theo scope, sinh tay (ADMIN), sửa tay (ADMIN). */
+/** Lịch làm việc suy ra từ policy tuần: xem theo scope, sửa tay từng ngày (ADMIN). */
 @Tag(name = "Attendance — Shift roster")
 @RestController
 @RequestMapping("/api/v1/attendance/rosters")
@@ -32,7 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class RosterController {
 
   private final RosterQueryService queryService;
-  private final RosterGenerationService generationService;
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
@@ -50,7 +47,7 @@ public class RosterController {
 
   @GetMapping("/{employeeId}/{date}")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Lịch 1 ngày của NV (lazy resolve nếu chưa có)")
+  @Operation(summary = "Lịch 1 ngày của NV (suy ra từ policy tuần, ưu tiên sửa tay)")
   public RosterEntryResponse get(
       @PathVariable String employeeId,
       @PathVariable LocalDate date,
@@ -59,17 +56,6 @@ public class RosterController {
     String username = jwt == null ? null : jwt.getClaimAsString("preferred_username");
     return queryService.get(employeeId, date, username,
         EmployeeScope.fromAuthorities(authentication.getAuthorities()));
-  }
-
-  @PostMapping("/generate")
-  @PreAuthorize("hasRole('ADMIN')")
-  @Operation(summary = "Sinh roster (idempotent; không đè quá khứ/manual override)")
-  public GenerateRosterResponse generate(
-      @RequestParam(required = false) LocalDate from,
-      @RequestParam(required = false) LocalDate to,
-      @RequestParam(required = false) String employeeId,
-      @AuthenticationPrincipal Jwt jwt) {
-    return generationService.generate(from, to, employeeId, actor(jwt));
   }
 
   @PutMapping("/{employeeId}/{date}")

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Smoke Phase 1 Shift & Calendar Engine (dùng API — không cần psql).
+# Smoke lịch làm việc (Phase 4 — derived): lịch SUY RA on-read từ policy tuần, không sinh row.
 #
 # Chạy trong dev container:
 #   docker exec hrms-dev bash -lc "cd /workspaces/HRMS && set -a && . ./.env && set +a \
 #     && API=http://gateway:8080 bash scripts/verify-shift-calendar.sh"
 #
-# Script tự chọn 4 nhân sự, tạo 4 policy (Off/All/Half/Alternating), sinh roster cho
-# [hôm nay .. hôm nay+62], kiểm tra cấu trúc + idempotent + manual override, rồi DỌN SẠCH
-# (gỡ gán, sinh lại theo policy mặc định, xoá policy/ca tạm).
+# Script chọn 4 nhân sự, tạo 4 policy (Off/All/Half/Alternating), kiểm tra lịch suy ra đúng
+# T2–T6/T7/CN, resolve được cả ngày xa (không còn cửa sổ sinh), manual override giữ nguyên,
+# bỏ override quay về policy; rồi DỌN SẠCH (gỡ gán, xoá policy/ca tạm).
 set -u
 
 API=${API:-http://localhost:8183}
@@ -21,6 +21,7 @@ FAIL=0
 SUF=$(date +%s)
 TODAY=$(date +%F)
 END=$(date -d "$TODAY + $RANGE_DAYS days" +%F)
+FAR=$(date -d "$TODAY + 200 days" +%F)
 EXPECT_DAYS=$((RANGE_DAYS + 1))
 U=$(date +%u)
 MONDAY=$(date -d "$TODAY + $(( (8 - U) % 7 )) days" +%F)
@@ -49,7 +50,7 @@ jpost() { curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d "$2"
 jput() { curl -s -X PUT -H "$AUTH" -H "Content-Type: application/json" -d "$2" "$API$1"; }
 jdel() { curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "$AUTH" "$API$1"; }
 
-echo "=== Shift & Calendar smoke: $TODAY → $END (anchor T7=$ANCHOR) ==="
+echo "=== Lịch làm việc (derived) smoke: $TODAY → $END (anchor T7=$ANCHOR) ==="
 
 # ---- 0. Policy mặc định ----
 DEFAULT_ID=$(jget "/api/v1/attendance/schedule-policies/default" | jq -r '.id // empty')
@@ -120,19 +121,13 @@ for i in 0 1 2 3; do
   AID=$(echo "$ASG" | jq -r '.id // empty')
   check "[$MODE] gán policy cho NV" "yes" "$([ -n "$AID" ] && echo yes || echo no)"
 
-  GEN=$(jpost "/api/v1/attendance/rosters/generate?from=$TODAY&to=$END&employeeId=$EID" "")
-  check "[$MODE] generate phủ đủ ngày" "$EXPECT_DAYS" \
-    "$(echo "$GEN" | jq '.created + .updated + .unchanged')"
-  check "[$MODE] không ngày thiếu policy" "0" "$(echo "$GEN" | jq '.noPolicy')"
-
   ROWS=$(jget "/api/v1/attendance/rosters?employeeId=$EID&from=$TODAY&to=$END")
-  check "[$MODE] số dòng roster" "$EXPECT_DAYS" "$(json_count "$ROWS")"
+  check "[$MODE] lịch suy ra đủ ngày" "$EXPECT_DAYS" "$(json_count "$ROWS")"
 
   check "[$MODE] CN đều nghỉ" "true" \
     "$(echo "$ROWS" | jq "$JQ_DOW [.[]|select(dow==7)|.dayOff]|all")"
   check "[$MODE] T2-T6 đúng ca full" "0" \
     "$(echo "$ROWS" | jq --arg f "$FULL_ID" "$JQ_DOW [.[]|select(dow>=1 and dow<=5)|select(.dayOff or .shiftId != \$f)]|length")"
-  SAT_TOTAL=$(echo "$ROWS" | jq "$JQ_DOW [.[]|select(dow==6)]|length")
 
   case "$MODE" in
     OFF)
@@ -155,23 +150,23 @@ for i in 0 1 2 3; do
       ;;
   esac
 
-  GEN2=$(jpost "/api/v1/attendance/rosters/generate?from=$TODAY&to=$END&employeeId=$EID" "")
-  check "[$MODE] idempotent (created=0)" "0" "$(echo "$GEN2" | jq '.created')"
-  check "[$MODE] idempotent (updated=0)" "0" "$(echo "$GEN2" | jq '.updated')"
+  # Ngày xa ngoài cửa sổ 45/90 cũ — derived phải resolve được (không cần "sinh lịch").
+  ROW_FAR=$(jget "/api/v1/attendance/rosters/$EID/$FAR")
+  check "[$MODE] resolve ngày xa ($FAR)" "$EID" "$(echo "$ROW_FAR" | jq -r '.employeeId // empty')"
+  check "[$MODE] ngày xa không phải MANUAL_OVERRIDE" "no" \
+    "$(echo "$ROW_FAR" | jq -r 'if .source == "MANUAL_OVERRIDE" then "yes" else "no" end')"
 
-  # Manual override (chỉ future) — regenerate không đè; bỏ override → về policy.
+  # Manual override (chỉ future) — GET lại vẫn giữ; bỏ override → về policy.
   OV=$(jput "/api/v1/attendance/rosters/$EID/$MONDAY" '{"shiftId":null,"note":"smoke"}')
   check "[$MODE] override → nghỉ" "true" "$(echo "$OV" | jq '.dayOff')"
-  jpost "/api/v1/attendance/rosters/generate?from=$TODAY&to=$END&employeeId=$EID" "" >/dev/null
   ROW=$(jget "/api/v1/attendance/rosters/$EID/$MONDAY")
-  check "[$MODE] regenerate giữ MANUAL_OVERRIDE" "MANUAL_OVERRIDE" "$(echo "$ROW" | jq -r '.source')"
+  check "[$MODE] đọc lại giữ MANUAL_OVERRIDE" "MANUAL_OVERRIDE" "$(echo "$ROW" | jq -r '.source')"
   jdel "/api/v1/attendance/rosters/$EID/$MONDAY" >/dev/null
   ROW=$(jget "/api/v1/attendance/rosters/$EID/$MONDAY")
-  check "[$MODE] bỏ override → đi làm lại" "false" "$(echo "$ROW" | jq '.dayOff')"
+  check "[$MODE] bỏ override → về policy" "false" "$(echo "$ROW" | jq '.dayOff')"
 
-  # ---- cleanup: gỡ gán, sinh lại theo mặc định rồi xoá policy ----
+  # ---- cleanup: gỡ gán rồi xoá policy (xoá được vì không còn tham chiếu) ----
   [ -n "$AID" ] && jdel "/api/v1/attendance/schedule-assignments/$AID" >/dev/null
-  jpost "/api/v1/attendance/rosters/generate?from=$TODAY&to=$END&employeeId=$EID" "" >/dev/null
   DEL_CODE=$(jdel "/api/v1/attendance/schedule-policies/$PID")
   if [ "$DEL_CODE" != "204" ]; then
     jput "/api/v1/attendance/schedule-policies/$PID" \

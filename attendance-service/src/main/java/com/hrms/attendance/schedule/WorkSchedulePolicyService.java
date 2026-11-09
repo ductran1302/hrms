@@ -27,7 +27,6 @@ public class WorkSchedulePolicyService {
 
   private final WorkSchedulePolicyRepository policyRepository;
   private final EmployeeScheduleAssignmentRepository assignmentRepository;
-  private final EmployeeShiftRosterRepository rosterRepository;
   private final WorkShiftRepository workShiftRepository;
   private final AuditService auditService;
 
@@ -97,9 +96,9 @@ public class WorkSchedulePolicyService {
       throw new BusinessRuleException(
           "Không thể xoá policy mặc định — đặt policy khác làm mặc định trước");
     }
-    if (assignmentRepository.existsByPolicyId(id) || rosterRepository.existsByPolicyId(id)) {
+    if (assignmentRepository.existsByPolicyId(id)) {
       throw new BusinessRuleException(
-          "Policy '" + policy.getName() + "' còn bản gán/roster tham chiếu — đặt active=false thay vì xoá");
+          "Policy '" + policy.getName() + "' còn bản gán nhân viên — đặt active=false thay vì xoá");
     }
     policyRepository.delete(policy);
     auditService.success("SCHEDULE_POLICY_DELETE", "WorkSchedulePolicy", id,
