@@ -765,3 +765,15 @@ export interface OTApproverInfo {
   employeeCode: string;
   position: string | null;
 }
+export interface AuditLog {
+  id: string;
+  occurredAt: string;
+  actor: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  outcome: string;
+  detail: string | null;
+  correlationId: string | null;
+  clientIp: string | null;
+}

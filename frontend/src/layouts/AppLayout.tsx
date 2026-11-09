@@ -148,6 +148,7 @@ export default function AppLayout() {
       children: [
         auth.hasRole('ADMIN') && { key: '/settings/accounts', label: t('menu.settingsAccounts') },
         auth.hasRole('ADMIN') && { key: '/settings/policies', label: t('menu.settingsPolicies') },
+        auth.hasRole('ADMIN') && { key: '/audit-logs', label: 'Audit log' },
         { key: '/settings/security', label: t('menu.settingsSecurity') },
       ].filter(Boolean) as NavChild[],
     },

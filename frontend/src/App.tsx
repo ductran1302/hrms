@@ -18,6 +18,7 @@ const SettingsSecurityPage = lazy(() => import('./pages/SettingsSecurityPage'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const WorkShiftPage = lazy(() => import('./pages/WorkShiftPage'));
 const OTManagementPage = lazy(() => import('./pages/OTManagementPage'));
+const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 
 const STAFF_ROLES = ['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER'];
 const OT_ROLES = [...STAFF_ROLES, 'EMPLOYEE'];
@@ -156,6 +157,14 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+          <Route
+            path="audit-logs"
+            element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <AuditLogPage />
+              </ProtectedRoute>
+            }
+          />
             <Route path="settings" element={<Navigate to="/settings/security" replace />} />
             <Route path="nhan-su" element={<Navigate to="/employees" replace />} />
             <Route path="nhan-su/:id" element={<Navigate to="/employees" replace />} />
