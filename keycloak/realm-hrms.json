@@ -205,5 +205,6 @@
       "realmRoles": ["MANAGER"]
     }
   ],
-  "defaultRoles": ["offline_access", "uma_authorization", "roles", "account"]
+  "defaultRoles": ["offline_access", "uma_authorization", "roles", "account"],
+  "loginTheme": "hrms"
 }

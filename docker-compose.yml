@@ -90,6 +90,7 @@ services:
       KC_LOG_LEVEL: info
     volumes:
       - ./keycloak/realm-hrms.json:/opt/keycloak/data/import/realm-hrms.json:ro
+      - ./keycloak/themes/hrms:/opt/keycloak/themes/hrms:ro
       - hrms_keycloak_data:/opt/keycloak/data
     healthcheck:
       test:
