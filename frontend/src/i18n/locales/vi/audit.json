@@ -1,0 +1,16 @@
+﻿{
+  "title": "Audit log",
+  "service": "Dịch vụ",
+  "actor": "Người thực hiện",
+  "action": "Hành động",
+  "target": "Đối tượng",
+  "outcome": "Kết quả",
+  "detail": "Chi tiết",
+  "ip": "IP",
+  "time": "Thời gian",
+  "search": "Tìm",
+  "actorPlaceholder": "Chọn người thực hiện",
+  "actionPlaceholder": "Hành động",
+  "success": "Thành công",
+  "failure": "Thất bại"
+}

@@ -1,0 +1,16 @@
+﻿{
+  "title": "Audit log",
+  "service": "Service",
+  "actor": "Actor",
+  "action": "Action",
+  "target": "Target",
+  "outcome": "Outcome",
+  "detail": "Detail",
+  "ip": "IP",
+  "time": "Time",
+  "search": "Search",
+  "actorPlaceholder": "Select actor",
+  "actionPlaceholder": "Action",
+  "success": "Success",
+  "failure": "Failure"
+}

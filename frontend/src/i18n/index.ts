@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import attendanceVi from './locales/vi/attendance.json';
+import auditVi from './locales/vi/audit.json';
 import authVi from './locales/vi/auth.json';
 import commonVi from './locales/vi/common.json';
 import contractVi from './locales/vi/contract.json';
@@ -16,6 +17,7 @@ import scheduleVi from './locales/vi/schedule.json';
 import settingsVi from './locales/vi/settings.json';
 import otVi from './locales/vi/ot.json';
 import attendanceEn from './locales/en/attendance.json';
+import auditEn from './locales/en/audit.json';
 import authEn from './locales/en/auth.json';
 import commonEn from './locales/en/common.json';
 import contractEn from './locales/en/contract.json';
@@ -46,6 +48,7 @@ const vi = {
   contract: contractVi,
   department: departmentVi,
   attendance: attendanceVi,
+  audit: auditVi,
   orgchart: orgchartVi,
   shift: shiftVi,
   schedule: scheduleVi,
@@ -64,6 +67,7 @@ const en = {
   contract: contractEn,
   department: departmentEn,
   attendance: attendanceEn,
+  audit: auditEn,
   orgchart: orgchartEn,
   shift: shiftEn,
   schedule: scheduleEn,
