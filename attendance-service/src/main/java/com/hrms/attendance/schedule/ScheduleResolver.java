@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -18,22 +19,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * Resolve lịch làm việc của 1 nhân viên tại 1 ngày từ <b>policy tuần</b> — thuần tính, KHÔNG ghi DB.
- *
- * <p>Thứ tự ưu tiên (fail-closed):
- *
- * <ol>
- *   <li>assignment mới nhất ≤ ngày + policy active;
- *   <li>legacy {@code shift_assignments} mới nhất ≤ ngày (T2–T6 dùng ca, T7 theo default policy,
- *       CN nghỉ) — giữ khớp dữ liệu cũ;
- *   <li>policy {@code is_default} active;
- *   <li>không có → {@code null} (caller coi như chưa có lịch).
- * </ol>
- *
- * <p>Sửa tay ({@code MANUAL_OVERRIDE}) nằm ở bảng {@code employee_shift_rosters} — caller đọc và
- * ưu tiên trước khi gọi resolver.
- */
 @Component
 @RequiredArgsConstructor
 public class ScheduleResolver {
@@ -43,18 +28,15 @@ public class ScheduleResolver {
   private final WorkSchedulePolicyRepository policyRepository;
   private final WorkShiftRepository workShiftRepository;
 
-  /** Một ngày đã resolve ({@code shiftId} null = nghỉ). */
   public record DayPlan(UUID shiftId, boolean dayOff, RosterSource source, UUID policyId) {}
 
-  /** Dữ liệu nạp 1 lần cho nhiều lần resolve (tránh N+1). */
   public record Context(
       Map<String, List<EmployeeScheduleAssignment>> assignments,
       Map<String, List<ShiftAssignment>> legacy,
-      Map<UUID, WorkSchedulePolicy> policies,
-      WorkSchedulePolicy defaultPolicy,
+      Map<UUID, List<WorkSchedulePolicy>> policiesByGroup,
+      List<WorkSchedulePolicy> defaultPolicies,
       Map<UUID, WorkShift> shifts) {}
 
-  /** Nạp context cho tập nhân viên (mọi policy/ca). */
   public Context loadContext(Collection<String> employeeIds) {
     Set<String> ids = new HashSet<>(employeeIds);
     Map<String, List<EmployeeScheduleAssignment>> assignments = new HashMap<>();
@@ -67,39 +49,53 @@ public class ScheduleResolver {
         : legacyAssignmentRepository.findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(ids)) {
       legacy.computeIfAbsent(row.getEmployeeId(), k -> new ArrayList<>()).add(row);
     }
-    Map<UUID, WorkSchedulePolicy> policies = new HashMap<>();
+    Map<UUID, List<WorkSchedulePolicy>> policiesByGroup = new HashMap<>();
     for (WorkSchedulePolicy policy : policyRepository.findAll()) {
-      policies.put(policy.getId(), policy);
+      UUID group = policy.getPolicyGroupId() == null ? policy.getId() : policy.getPolicyGroupId();
+      policiesByGroup.computeIfAbsent(group, k -> new ArrayList<>()).add(policy);
     }
+    for (List<WorkSchedulePolicy> versions : policiesByGroup.values()) {
+      versions.sort(Comparator.comparing(
+          (WorkSchedulePolicy p) -> p.getEffectiveFrom() == null ? LocalDate.MIN : p.getEffectiveFrom())
+          .reversed());
+    }
+    List<WorkSchedulePolicy> defaultPolicies = new ArrayList<>();
+    for (WorkSchedulePolicy policy : policyRepository.findAll()) {
+      if (policy.isDefaultPolicy() && policy.isActive()) {
+        defaultPolicies.add(policy);
+      }
+    }
+    defaultPolicies.sort(Comparator.comparing(
+        (WorkSchedulePolicy p) -> p.getEffectiveFrom() == null ? LocalDate.MIN : p.getEffectiveFrom())
+        .reversed());
     Map<UUID, WorkShift> shifts = new HashMap<>();
     for (WorkShift shift : workShiftRepository.findAll()) {
       shifts.put(shift.getId(), shift);
     }
-    WorkSchedulePolicy defaultPolicy =
-        policyRepository.findFirstByDefaultPolicyTrueAndActiveTrue().orElse(null);
-    return new Context(assignments, legacy, policies, defaultPolicy, shifts);
+    return new Context(assignments, legacy, policiesByGroup, defaultPolicies, shifts);
   }
 
-  /** Lịch 1 ngày — {@code null} khi NV chưa có policy/assignment/ca cũ. */
   public DayPlan resolve(String employeeId, LocalDate date, Context context) {
     EmployeeScheduleAssignment assignment = latestAt(context.assignments().get(employeeId), date);
     if (assignment != null) {
-      WorkSchedulePolicy policy = context.policies().get(assignment.getPolicyId());
+      List<WorkSchedulePolicy> versions =
+          context.policiesByGroup().get(assignment.getPolicyId());
+      WorkSchedulePolicy policy = latestVersion(versions, date);
       if (policy != null && policy.isActive()) {
         return planFromPolicy(policy, date);
       }
     }
     ShiftAssignment legacy = latestAt(context.legacy().get(employeeId), date);
     if (legacy != null) {
-      return planFromLegacy(legacy, date, context.defaultPolicy());
+      return planFromLegacy(legacy, date, latestDefault(context.defaultPolicies(), date));
     }
-    if (context.defaultPolicy() != null) {
-      return planFromPolicy(context.defaultPolicy(), date);
+    WorkSchedulePolicy defaultPolicy = latestDefault(context.defaultPolicies(), date);
+    if (defaultPolicy != null) {
+      return planFromPolicy(defaultPolicy, date);
     }
     return null;
   }
 
-  /** Map ngày → plan trong {@code [from..to]} — bỏ ngày không resolve được. */
   public Map<LocalDate, DayPlan> plans(
       String employeeId, LocalDate from, LocalDate to, Context context) {
     Map<LocalDate, DayPlan> out = new HashMap<>();
@@ -150,13 +146,35 @@ public class ScheduleResolver {
     return new DayPlan(legacy.getWorkShiftId(), false, RosterSource.LEGACY_ASSIGNMENT, defaultId);
   }
 
-  /** Số tuần kể từ anchor (floor, đúng cả trước anchor) — parity chẵn/lẻ. */
   static int weekIndex(LocalDate anchor, LocalDate date) {
     return (int) Math.floorDiv(ChronoUnit.DAYS.between(anchor, date), 7);
   }
 
   static boolean isEvenWeek(LocalDate anchor, LocalDate date) {
     return Math.floorMod(weekIndex(anchor, date), 2) == 0;
+  }
+
+  private static WorkSchedulePolicy latestVersion(List<WorkSchedulePolicy> versions, LocalDate date) {
+    if (versions == null) {
+      return null;
+    }
+    for (WorkSchedulePolicy policy : versions) {
+      LocalDate from = policy.getEffectiveFrom();
+      if (from == null || !from.isAfter(date)) {
+        return policy;
+      }
+    }
+    return null;
+  }
+
+  private static WorkSchedulePolicy latestDefault(List<WorkSchedulePolicy> defaults, LocalDate date) {
+    for (WorkSchedulePolicy policy : defaults) {
+      LocalDate from = policy.getEffectiveFrom();
+      if (from == null || !from.isAfter(date)) {
+        return policy;
+      }
+    }
+    return null;
   }
 
   private static <T> T latestAt(List<T> rows, LocalDate date) {

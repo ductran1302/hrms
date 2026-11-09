@@ -123,12 +123,13 @@ for i in 0 1 2 3; do
 
   POL=$(jpost "/api/v1/attendance/schedule-policies" "$(policy_body "$MODE" "Smoke $MODE $SUF")")
   PID=$(echo "$POL" | jq -r '.id // empty')
+  GID=$(echo "$POL" | jq -r .policyGroupId)
   check "[$MODE] tạo policy" "yes" "$([ -n "$PID" ] && echo yes || echo no)"
   [ -n "$PID" ] || continue
 
   clear_today_assignments "$EID"
   ASG=$(jpost "/api/v1/attendance/schedule-assignments" \
-    "{\"employeeId\":\"$EID\",\"policyId\":\"$PID\",\"effectiveFrom\":\"$TODAY\"}")
+    "{\"employeeId\":\"$EID\",\"policyId\":\"$GID\",\"effectiveFrom\":\"$TODAY\"}")
   AID=$(echo "$ASG" | jq -r '.id // empty')
   check "[$MODE] gán policy cho NV" "yes" "$([ -n "$AID" ] && echo yes || echo no)"
 

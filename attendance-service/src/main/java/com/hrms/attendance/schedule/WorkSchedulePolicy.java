@@ -60,6 +60,18 @@ public class WorkSchedulePolicy extends BaseEntity {
   @Column(name = "is_default", nullable = false)
   private boolean defaultPolicy;
 
+  @Column(name = "policy_group_id", nullable = false)
+  private java.util.UUID policyGroupId;
+
+  @Column(name = "effective_from")
+  private LocalDate effectiveFrom;
+
+  @Column(name = "effective_to")
+  private LocalDate effectiveTo;
+
+  @Column(name = "version_no", nullable = false)
+  private int versionNo = 1;
+
   @Column(name = "active", nullable = false)
   private boolean active = true;
 }

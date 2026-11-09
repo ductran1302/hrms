@@ -534,6 +534,7 @@ export interface RosterOverride {
 /** Policy lịch tuần — shiftNames map UUID → tên ca (FE hiển thị không cần join). */
 export interface WorkSchedulePolicy {
   id: string;
+  policyGroupId: string;
   name: string;
   description: string | null;
   monShiftId: string | null;
@@ -547,6 +548,8 @@ export interface WorkSchedulePolicy {
   rotationAnchorDate: string | null; // 'YYYY-MM-DD', phải là Thứ 7 khi luân phiên
   defaultPolicy: boolean;
   active: boolean;
+  effectiveFrom: string | null;
+  effectiveTo: string | null;
   shiftNames: Record<string, string>;
   createdAt: string;
   updatedAt: string;
@@ -568,6 +571,7 @@ export interface WorkSchedulePolicyUpsert {
   rotationAnchorDate?: string | null;
   defaultPolicy?: boolean;
   active?: boolean;
+  effectiveFrom?: string | null;
 }
 
 /** Bản gán policy cho nhân sự — latest = đang áp dụng. */

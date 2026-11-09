@@ -40,9 +40,9 @@ class WorkSchedulePolicyControllerTest {
 
   private static WorkSchedulePolicyResponse response() {
     return new WorkSchedulePolicyResponse(
-        UUID.randomUUID(), "Chuẩn (nghỉ Thứ 7)", null,
+        UUID.randomUUID(), UUID.randomUUID(), "Chuẩn (nghỉ Thứ 7)", null,
         null, null, null, null, null, null, null, null, null,
-        true, true, Map.of(), null, null, 0L);
+        true, true, null, null, Map.of(), null, null, 0L);
   }
 
   @Test

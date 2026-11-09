@@ -19,7 +19,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Quản lý policy lịch tuần (chỉ ADMIN ghi). */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -41,9 +40,10 @@ public class WorkSchedulePolicyService {
 
   @Transactional(readOnly = true)
   public WorkSchedulePolicyResponse getDefault() {
-    return policyRepository.findFirstByDefaultPolicyTrue()
-        .map(p -> WorkSchedulePolicyResponse.from(p, shiftNames()))
-        .orElseThrow(() -> new ResourceNotFoundException("Policy lịch mặc định"));
+    LocalDate today = LocalDate.now();
+    WorkSchedulePolicy policy = policyRepository.findDefaultVersions(today).stream().findFirst()
+        .orElseThrow(() -> new ResourceNotFoundException("Policy lich mac dinh"));
+    return WorkSchedulePolicyResponse.from(policy, shiftNames());
   }
 
   @Transactional(readOnly = true)
@@ -55,37 +55,70 @@ public class WorkSchedulePolicyService {
   public WorkSchedulePolicyResponse create(WorkSchedulePolicyRequest request, String actor) {
     String name = request.name().trim();
     if (policyRepository.existsByName(name)) {
-      throw new ConflictException("Tên policy lịch đã tồn tại: " + name);
+      throw new ConflictException("Ten policy lich da ton tai: " + name);
     }
     WorkSchedulePolicy policy = new WorkSchedulePolicy();
     apply(policy, request, name);
+    policy.setPolicyGroupId(UUID.randomUUID());
+    if (policy.getEffectiveFrom() == null) {
+      policy.setEffectiveFrom(LocalDate.now());
+    }
+    policy.setVersionNo(1);
     validate(policy);
     if (policy.isDefaultPolicy()) {
       clearOtherDefaults(null);
     }
     policyRepository.saveAndFlush(policy);
+    policy.setPolicyGroupId(policy.getId());
+    policyRepository.saveAndFlush(policy);
     auditService.success("SCHEDULE_POLICY_CREATE", "WorkSchedulePolicy", policy.getId(),
         "name=" + name + " default=" + policy.isDefaultPolicy() + " by=" + actor);
-    log.info("Tạo policy lịch '{}' (default={})", name, policy.isDefaultPolicy());
+    log.info("Tao policy lich '{}' (default={})", name, policy.isDefaultPolicy());
     return WorkSchedulePolicyResponse.from(policy, shiftNames());
   }
 
   @Transactional
   public WorkSchedulePolicyResponse update(UUID id, WorkSchedulePolicyRequest request, String actor) {
-    WorkSchedulePolicy policy = find(id);
+    WorkSchedulePolicy old = find(id);
     String name = request.name().trim();
-    if (!name.equals(policy.getName()) && policyRepository.existsByNameAndIdNot(name, id)) {
-      throw new ConflictException("Tên policy lịch đã tồn tại: " + name);
+    if (!name.equals(old.getName()) && policyRepository.existsByNameAndIdNot(name, id)) {
+      throw new ConflictException("Ten policy lich da ton tai: " + name);
     }
+    LocalDate newFrom = request.effectiveFrom() == null ? LocalDate.now() : request.effectiveFrom();
+    if (old.getEffectiveFrom() != null && !newFrom.isAfter(old.getEffectiveFrom())) {
+      throw new BusinessRuleException("effectiveFrom phai sau ngay hieu luc cua version hien tai");
+    }
+    // overlap check among siblings
+    for (WorkSchedulePolicy sibling : policyRepository.findByPolicyGroupIdOrderByEffectiveFromDesc(
+        old.getPolicyGroupId())) {
+      if (sibling.getId().equals(old.getId())) {
+        continue;
+      }
+      if (overlap(sibling, newFrom, null)) {
+        throw new BusinessRuleException("Khoang hieu luc trung voi version khac");
+      }
+    }
+    WorkSchedulePolicy policy = new WorkSchedulePolicy();
     apply(policy, request, name);
+    policy.setPolicyGroupId(old.getPolicyGroupId());
+    policy.setEffectiveFrom(newFrom);
+    policy.setEffectiveTo(null);
+    policy.setVersionNo(old.getVersionNo() + 1);
     validate(policy);
     if (policy.isDefaultPolicy()) {
-      clearOtherDefaults(id);
+      old.setDefaultPolicy(false);
+      clearOtherDefaults(null);
     }
+    // cap old version
+    LocalDate cap = newFrom.minusDays(1);
+    if (old.getEffectiveTo() == null || old.getEffectiveTo().isAfter(cap)) {
+      old.setEffectiveTo(cap);
+    }
+    policyRepository.saveAndFlush(old);
     policyRepository.saveAndFlush(policy);
-    auditService.success("SCHEDULE_POLICY_UPDATE", "WorkSchedulePolicy", id,
+    auditService.success("SCHEDULE_POLICY_UPDATE", "WorkSchedulePolicy", policy.getId(),
         "name=" + name + " default=" + policy.isDefaultPolicy() + " by=" + actor);
-    log.info("Cập nhật policy lịch '{}' (default={})", name, policy.isDefaultPolicy());
+    log.info("Cap nhat policy lich '{}' (default={})", name, policy.isDefaultPolicy());
     return WorkSchedulePolicyResponse.from(policy, shiftNames());
   }
 
@@ -94,16 +127,23 @@ public class WorkSchedulePolicyService {
     WorkSchedulePolicy policy = find(id);
     if (policy.isDefaultPolicy()) {
       throw new BusinessRuleException(
-          "Không thể xoá policy mặc định — đặt policy khác làm mặc định trước");
+          "Khong the xoa policy mac dinh - dat policy khac lam mac dinh truoc");
     }
-    if (assignmentRepository.existsByPolicyId(id)) {
+    if (assignmentRepository.existsByPolicyId(policy.getPolicyGroupId())) {
       throw new BusinessRuleException(
-          "Policy '" + policy.getName() + "' còn bản gán nhân viên — đặt active=false thay vì xoá");
+          "Policy '" + policy.getName() + "' dang duoc gan nhan vien - dat active=false thay vi xoa");
     }
     policyRepository.delete(policy);
     auditService.success("SCHEDULE_POLICY_DELETE", "WorkSchedulePolicy", id,
         "name=" + policy.getName() + " by=" + actor);
-    log.info("Xoá policy lịch '{}'", policy.getName());
+    log.info("Xoa policy lich '{}'", policy.getName());
+  }
+
+  private boolean overlap(WorkSchedulePolicy sibling, LocalDate from, LocalDate to) {
+    LocalDate sibFrom = sibling.getEffectiveFrom() == null ? LocalDate.MIN : sibling.getEffectiveFrom();
+    LocalDate sibTo = sibling.getEffectiveTo() == null ? LocalDate.MAX : sibling.getEffectiveTo();
+    LocalDate newTo = to == null ? LocalDate.MAX : to;
+    return !from.isAfter(sibTo) && !newTo.isBefore(sibFrom);
   }
 
   private void apply(WorkSchedulePolicy policy, WorkSchedulePolicyRequest request, String name) {
@@ -120,18 +160,20 @@ public class WorkSchedulePolicyService {
     policy.setRotationAnchorDate(request.rotationAnchorDate());
     policy.setDefaultPolicy(Boolean.TRUE.equals(request.defaultPolicy()));
     policy.setActive(request.active() == null || request.active());
+    policy.setEffectiveFrom(request.effectiveFrom());
   }
 
   private void clearOtherDefaults(UUID keepId) {
-    policyRepository.findFirstByDefaultPolicyTrue().ifPresent(current -> {
-      if (keepId == null || !current.getId().equals(keepId)) {
-        current.setDefaultPolicy(false);
-        policyRepository.save(current);
+    for (WorkSchedulePolicy p : policyRepository.findAllOrdered()) {
+      if (p.isDefaultPolicy() && (keepId == null || !p.getId().equals(keepId))) {
+        p.setDefaultPolicy(false);
+        policyRepository.save(p);
       }
-    });
+    }
   }
 
   private void validate(WorkSchedulePolicy policy) {
+    // same as before
     Map<DayOfWeek, UUID> week = new HashMap<>();
     week.put(DayOfWeek.MONDAY, policy.getMonShiftId());
     week.put(DayOfWeek.TUESDAY, policy.getTueShiftId());
@@ -148,14 +190,13 @@ public class WorkSchedulePolicyService {
     LocalDate anchor = policy.getRotationAnchorDate();
     if (policy.getSatAlternateShiftId() != null && anchor == null) {
       throw new BusinessRuleException(
-          "Thứ 7 luân phiên cần rotationAnchorDate (mốc Thứ 7 bắt đầu chu kỳ chẵn)");
+          "Thu 7 lu an phien can rotationAnchorDate");
     }
     if (anchor != null && anchor.getDayOfWeek() != DayOfWeek.SATURDAY) {
-      throw new BusinessRuleException("rotationAnchorDate phải là Thứ 7");
+      throw new BusinessRuleException("rotationAnchorDate phai la Thu 7");
     }
-    // anchor != null = bật luân phiên; tuần lẻ có thể nghỉ (satAlternateShiftId = null).
     if (anchor != null && policy.getSatShiftId() == null) {
-      throw new BusinessRuleException("Thứ 7 luân phiên cần ca cho tuần chẵn (satShiftId)");
+      throw new BusinessRuleException("Thu 7 lu an phien can ca cho tuan chan (satShiftId)");
     }
   }
 
@@ -164,10 +205,10 @@ public class WorkSchedulePolicyService {
       return;
     }
     WorkShift shift = workShiftRepository.findById(shiftId)
-        .orElseThrow(() -> new ResourceNotFoundException("Ca làm việc", shiftId));
+        .orElseThrow(() -> new ResourceNotFoundException("Ca lam viec", shiftId));
     if (!shift.isActive()) {
       throw new BusinessRuleException(
-          "Ca '" + shift.getName() + "' đã ngưng dùng — không thể đưa vào policy (" + day + ")");
+          "Ca '" + shift.getName() + "' da ngung dung - khong the dua vao policy (" + day + ")");
     }
   }
 
@@ -181,6 +222,6 @@ public class WorkSchedulePolicyService {
 
   private WorkSchedulePolicy find(UUID id) {
     return policyRepository.findById(id)
-        .orElseThrow(() -> new ResourceNotFoundException("Policy lịch", id));
+        .orElseThrow(() -> new ResourceNotFoundException("Policy lich", id));
   }
 }

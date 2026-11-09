@@ -80,6 +80,8 @@ public class DefaultPolicySeeder implements ApplicationRunner {
       }
     }
     policyRepository.saveAndFlush(policy);
+    policy.setPolicyGroupId(policy.getId());
+    policyRepository.saveAndFlush(policy);
     log.info("Seed policy lịch mặc định '{}' (saturday_policy={})", policy.getName(), saturdayPolicy);
   }
 

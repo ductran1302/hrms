@@ -6,9 +6,9 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
-/** Policy lịch tuần — kèm map tên ca để FE hiển thị mà không cần gọi thêm. */
 public record WorkSchedulePolicyResponse(
     UUID id,
+    UUID policyGroupId,
     String name,
     String description,
     UUID monShiftId,
@@ -22,6 +22,8 @@ public record WorkSchedulePolicyResponse(
     LocalDate rotationAnchorDate,
     boolean defaultPolicy,
     boolean active,
+    LocalDate effectiveFrom,
+    LocalDate effectiveTo,
     Map<String, String> shiftNames,
     Instant createdAt,
     Instant updatedAt,
@@ -29,8 +31,10 @@ public record WorkSchedulePolicyResponse(
 
   public static WorkSchedulePolicyResponse from(
       WorkSchedulePolicy policy, Map<UUID, String> shiftNames) {
+    UUID group = policy.getPolicyGroupId() == null ? policy.getId() : policy.getPolicyGroupId();
     return new WorkSchedulePolicyResponse(
         policy.getId(),
+        group,
         policy.getName(),
         policy.getDescription(),
         policy.getMonShiftId(),
@@ -44,6 +48,8 @@ public record WorkSchedulePolicyResponse(
         policy.getRotationAnchorDate(),
         policy.isDefaultPolicy(),
         policy.isActive(),
+        policy.getEffectiveFrom(),
+        policy.getEffectiveTo(),
         shiftNames.entrySet().stream()
             .collect(java.util.stream.Collectors.toMap(
                 e -> e.getKey().toString(), Map.Entry::getValue)),

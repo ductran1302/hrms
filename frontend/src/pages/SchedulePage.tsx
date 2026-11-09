@@ -636,6 +636,12 @@ export default function SchedulePage() {
         ),
     },
     {
+      title: t('schedule.assignment.form.effectiveFrom'),
+      dataIndex: 'effectiveFrom',
+      width: 110,
+      render: (v: string | null) => (v ? dayjs(v).format('DD/MM/YYYY') : '-'),
+    },
+    {
       title: t('schedule.policy.column.updated'),
       dataIndex: 'updatedAt',
       width: 110,
@@ -1073,6 +1079,13 @@ export default function SchedulePage() {
               <Switch />
             </Form.Item>
           </Space>
+          <Form.Item
+            name="effectiveFrom"
+            label={t('schedule.assignment.form.effectiveFrom')}
+            rules={[{ required: true, message: t('required') }]}
+          >
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
         </Form>
       </Modal>
 
