@@ -16,7 +16,8 @@
     "legendManual": "Sửa tay",
     "employeeColumn": "Nhân sự",
     "empty": "Chưa có nhân sự trong phạm vi",
-    "manualBadge": "Sửa tay"
+    "manualBadge": "Sửa tay",
+    "rangeLimit": "Chỉ xem tối đa {{days}} ngày mỗi lần - đã tự điều chỉnh"
   },
   "cell": {
     "title": "Lịch ngày {date}",

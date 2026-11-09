@@ -33,15 +33,16 @@ public class RosterController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Lịch làm việc theo scope (mặc định 7 ngày trước → 30 ngày sau)")
+  @Operation(summary = "Lịch làm việc theo scope (mặc định 7 ngày trước → 30 ngày sau, tối đa 62 ngày)")
   public List<RosterEntryResponse> list(
       @RequestParam(required = false) String employeeId,
+      @RequestParam(required = false) List<String> employeeIds,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to,
       @AuthenticationPrincipal Jwt jwt,
       Authentication authentication) {
     String username = jwt == null ? null : jwt.getClaimAsString("preferred_username");
-    return queryService.list(employeeId, from, to, username,
+    return queryService.list(employeeId, employeeIds, from, to, username,
         EmployeeScope.fromAuthorities(authentication.getAuthorities()));
   }
 

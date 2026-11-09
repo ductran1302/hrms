@@ -14,7 +14,7 @@ API=${API:-http://localhost:8183}
 KC=${KC:-http://keycloak:8080/realms/hrms}
 USER_NAME=${USER_NAME:-hr}
 USER_PASS=${USER_PASS:-hr@123}
-RANGE_DAYS=${RANGE_DAYS:-62}
+RANGE_DAYS=${RANGE_DAYS:-61}
 
 PASS=0
 FAIL=0
@@ -49,6 +49,7 @@ jget() { curl -s -H "$AUTH" "$API$1"; }
 jpost() { curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" -d "$2" "$API$1"; }
 jput() { curl -s -X PUT -H "$AUTH" -H "Content-Type: application/json" -d "$2" "$API$1"; }
 jdel() { curl -s -o /dev/null -w '%{http_code}' -X DELETE -H "$AUTH" "$API$1"; }
+jstatus() { curl -s -o /dev/null -w '%{http_code}' -H "$AUTH" "$API$1"; }
 
 echo "=== Lịch làm việc (derived) smoke: $TODAY → $END (anchor T7=$ANCHOR) ==="
 
@@ -62,6 +63,16 @@ EMPS=$(jget "/api/v1/attendance/employees")
 mapfile -t EIDS < <(echo "$EMPS" | jq -r --arg today "$TODAY" --arg lastDay "$END" '[.[] | select(.status != "TERMINATED") | select((.hiredAt == null) or (.hiredAt[0:10] <= $today)) | select((.terminatedAt == null) or (.terminatedAt[0:10] >= $lastDay))] | .[0:4][].employeeId')
 check "đủ 4 nhân sự để test" "4" "${#EIDS[@]}"
 [ "${#EIDS[@]}" -eq 4 ] || exit 1
+
+# ---- 1b. Giới hạn range + lọc theo employeeIds (Phase 5 hiệu năng) ----
+CAP_TO=$(date -d "$TODAY + 90 days" +%F)
+check "range > 62 ngày → 422" "422" \
+  "$(jstatus "/api/v1/attendance/rosters?from=$TODAY&to=$CAP_TO")"
+EIDS_CSV=$(printf '%s,' "${EIDS[@]}"); EIDS_CSV=${EIDS_CSV%,}
+BATCH=$(jget "/api/v1/attendance/rosters?employeeIds=$EIDS_CSV&from=$TODAY&to=$END")
+check "employeeIds batch trả lịch đủ 4 NV" "$((EXPECT_DAYS * 4))" "$(json_count "$BATCH")"
+check "employeeIds batch chỉ chứa NV yêu cầu" "0" \
+  "$(echo "$BATCH" | jq --arg ids "$EIDS_CSV" '[.[] | select((.employeeId as $e | ($ids | split(",")) | index($e)) == null)] | length')"
 
 # ---- 2. Ca (full/half) ----
 SHIFTS=$(jget "/api/v1/attendance/work-shifts")

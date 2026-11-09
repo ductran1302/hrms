@@ -13,6 +13,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
 
   List<Employee> findByStatusOrderByFullNameAsc(String status);
 
+  List<Employee> findByStatusNotOrderByFullNameAsc(String status);
+
   /** Trực thuộc (reports) của 1 manager — scope đọc OT/quota. */
   @Query("select e.employeeId from Employee e where e.managerId = :managerId")
   List<String> findEmployeeIdsByManagerId(@Param("managerId") String managerId);

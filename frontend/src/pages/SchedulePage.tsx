@@ -29,6 +29,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listAttendanceEmployees } from '../api/attendance';
+import { getLeaveSettings } from '../api/leaveQuotas';
 import { errorMessage } from '../api/client';
 import { searchEmployees } from '../api/employees';
 import {
@@ -46,6 +47,7 @@ import {
 } from '../api/schedules';
 import type {
   AttendanceEmployee,
+  LeaveSettings,
   RosterEntry,
   RosterSourceValue,
   ScheduleAssignment,
@@ -101,6 +103,24 @@ interface AsgFormValues {
 const cellKey = (employeeId: string, date: string) => `${employeeId}|${date}`;
 const hm = (time: string | null | undefined) => (time ? time.slice(0, 5) : null);
 
+/** Backend chỉ cho xem tối đa 62 ngày/lần (giới hạn tải lịch suy ra). */
+const MAX_RANGE_DAYS = 62;
+
+/** Kỳ công hiện tại theo leave settings (periodStartDay/periodEndDay). */
+function currentWorkPeriod(settings: LeaveSettings | null): [Dayjs, Dayjs] {
+  const today = dayjs();
+  const startDay = settings?.periodStartDay ?? 1;
+  const endDay = settings?.periodEndDay ?? 31;
+  if (startDay === 1) {
+    return [today.startOf('month'), today.endOf('month').date(Math.min(endDay, today.daysInMonth()))];
+  }
+  if (today.date() >= startDay) {
+    const next = today.add(1, 'month');
+    return [today.startOf('month').date(startDay), next.startOf('month').date(Math.min(endDay, next.daysInMonth()))];
+  }
+  const prev = today.subtract(1, 'month');
+  return [prev.startOf('month').date(startDay), today.startOf('month').date(Math.min(endDay, today.daysInMonth()))];
+}
 export default function SchedulePage() {
   const { t } = useTranslation();
   const auth = useAuth();
@@ -110,15 +130,22 @@ export default function SchedulePage() {
   const [tab, setTab] = useState('calendar');
 
   // ===== Lịch =====
-  const [range, setRange] = useState<[Dayjs, Dayjs]>([
-    dayjs().startOf('month'),
-    dayjs().endOf('month'),
-  ]);
+  const [range, setRange] = useState<[Dayjs, Dayjs]>(currentWorkPeriod(null));
   const [empFilter, setEmpFilter] = useState<string | undefined>();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [employees, setEmployees] = useState<AttendanceEmployee[]>([]);
   const [shifts, setShifts] = useState<WorkShift[]>([]);
   const [rosters, setRosters] = useState<Map<string, RosterEntry>>(new Map());
   const [calLoading, setCalLoading] = useState(false);
+
+  useEffect(() => {
+    getLeaveSettings()
+      .then((s) => {
+        setRange(currentWorkPeriod(s));
+      })
+      .catch(() => {});
+  }, []);
 
   const [cell, setCell] = useState<{
     emp: AttendanceEmployee;
@@ -158,10 +185,20 @@ export default function SchedulePage() {
   const loadRosters = useCallback(async () => {
     setCalLoading(true);
     try {
+      const active = employees.filter(
+        (e) => e.status !== 'TERMINATED' && (!empFilter || e.employeeId === empFilter)
+      );
+      const ids = active
+        .slice((page - 1) * pageSize, page * pageSize)
+        .map((e) => e.employeeId);
+      if (ids.length === 0) {
+        setRosters(new Map());
+        return;
+      }
       const list = await listRosters({
         from: range[0].format('YYYY-MM-DD'),
         to: range[1].format('YYYY-MM-DD'),
-        employeeId: empFilter,
+        employeeIds: ids,
       });
       const m = new Map<string, RosterEntry>();
       list.forEach((e) => m.set(cellKey(e.employeeId, e.workDate), e));
@@ -171,7 +208,7 @@ export default function SchedulePage() {
     } finally {
       setCalLoading(false);
     }
-  }, [range, empFilter, message]);
+  }, [range, empFilter, page, pageSize, employees, message]);
 
   const loadPolicies = useCallback(async () => {
     setPolLoading(true);
@@ -205,6 +242,10 @@ export default function SchedulePage() {
     void loadPolicies();
     void loadAssignments();
   }, [loadPolicies, loadAssignments]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [empFilter, range]);
 
   const days = useMemo(() => {
     const out: Dayjs[] = [];
@@ -381,7 +422,7 @@ export default function SchedulePage() {
     }
   };
 
-  /** Options ca cho ô select — giá trị hiện tại không còn active vẫn giữ label. */
+  /** Options ca cho ô select � giá trị hiện tại không còn active vẫn giữ label. */
   const shiftSelectOptions = (current?: string | null) => {
     const opts = shifts
       .filter((s) => s.active)
@@ -485,7 +526,6 @@ export default function SchedulePage() {
           textAlign: 'center',
           cursor: 'pointer',
           minHeight: 26,
-          background: manual ? '#fff7e6' : undefined,
         }}
         onClick={() => void openCell(emp, d)}
       >
@@ -694,7 +734,16 @@ export default function SchedulePage() {
                       value={range}
                       allowClear={false}
                       onChange={(v) => {
-                        if (v && v[0] && v[1]) setRange([v[0], v[1]]);
+                        if (!v || !v[0] || !v[1]) return;
+                        const start = v[0];
+                        let end = v[1];
+                        if (end.diff(start, 'day') + 1 > MAX_RANGE_DAYS) {
+                          end = start.add(MAX_RANGE_DAYS - 1, 'day');
+                          message.warning(
+                            t('schedule.calendar.rangeLimit', { days: MAX_RANGE_DAYS })
+                          );
+                        }
+                        setRange([start, end]);
                       }}
                     />
                     <Select
@@ -724,7 +773,17 @@ export default function SchedulePage() {
                     columns={calColumns}
                     dataSource={visibleEmployees}
                     scroll={{ x: 170 + days.length * 78, y: '60vh' }}
-                    pagination={{ pageSize: 50, hideOnSinglePage: true }}
+                    pagination={{
+                      current: page,
+                      pageSize,
+                      total: visibleEmployees.length,
+                      hideOnSinglePage: true,
+                      showSizeChanger: false,
+                      onChange: (p, ps) => {
+                        setPage(p);
+                        setPageSize(ps);
+                      },
+                    }}
                     locale={{
                       emptyText: (
                         <Empty

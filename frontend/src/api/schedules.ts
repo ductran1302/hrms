@@ -12,10 +12,19 @@ import type {
 
 export function listRosters(params: {
   employeeId?: string;
+  employeeIds?: string[];
   from: string;
   to: string;
 }): Promise<RosterEntry[]> {
-  return client.get<RosterEntry[]>('/api/v1/attendance/rosters', { params }).then((r) => r.data);
+  const { employeeIds, ...rest } = params;
+  return client
+    .get<RosterEntry[]>('/api/v1/attendance/rosters', {
+      params: {
+        ...rest,
+        employeeIds: employeeIds && employeeIds.length > 0 ? employeeIds.join(',') : undefined,
+      },
+    })
+    .then((r) => r.data);
 }
 
 /** Lịch 1 ngày — backend suy ra từ policy tuần, ưu tiên sửa tay. */

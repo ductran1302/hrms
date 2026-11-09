@@ -1,6 +1,7 @@
 package com.hrms.attendance.shift;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,9 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
   List<ShiftAssignment> findAllByOrderByEffectiveFromDesc();
 
   List<ShiftAssignment> findByEmployeeIdOrderByEffectiveFromDesc(String employeeId);
+
+  List<ShiftAssignment> findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(
+      Collection<String> employeeIds);
 
   Optional<ShiftAssignment> findTopByEmployeeIdOrderByEffectiveFromDesc(String employeeId);
 

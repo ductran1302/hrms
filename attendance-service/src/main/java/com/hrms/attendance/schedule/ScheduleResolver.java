@@ -63,10 +63,9 @@ public class ScheduleResolver {
       assignments.computeIfAbsent(row.getEmployeeId(), k -> new ArrayList<>()).add(row);
     }
     Map<String, List<ShiftAssignment>> legacy = new HashMap<>();
-    for (ShiftAssignment row : legacyAssignmentRepository.findAllByOrderByEffectiveFromDesc()) {
-      if (ids.contains(row.getEmployeeId())) {
-        legacy.computeIfAbsent(row.getEmployeeId(), k -> new ArrayList<>()).add(row);
-      }
+    for (ShiftAssignment row
+        : legacyAssignmentRepository.findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(ids)) {
+      legacy.computeIfAbsent(row.getEmployeeId(), k -> new ArrayList<>()).add(row);
     }
     Map<UUID, WorkSchedulePolicy> policies = new HashMap<>();
     for (WorkSchedulePolicy policy : policyRepository.findAll()) {

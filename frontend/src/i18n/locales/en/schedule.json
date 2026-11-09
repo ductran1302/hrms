@@ -16,7 +16,8 @@
     "legendManual": "Manual",
     "employeeColumn": "Employees",
     "empty": "No employees in range",
-    "manualBadge": "Manual override"
+    "manualBadge": "Manual override",
+    "rangeLimit": "Up to {{days}} days per view - adjusted automatically"
   },
   "cell": {
     "title": "Schedule for {date}",

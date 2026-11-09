@@ -660,7 +660,7 @@ policy tuần — bảng `employee_shift_rosters` **chỉ còn dòng `MANUAL_OVE
   HALF → half; ALTERNATING → full + alternate null + anchor = first Saturday ≥ `fyStart`.
 - **API** (prefix `/api/v1/attendance`): `schedule-policies` (GET/list, GET `/default`,
   GET `/{id}`, POST, PUT `/{id}`, DELETE), `schedule-assignments` (GET `?employeeId=`, POST,
-  DELETE `/{id}`), `rosters` (GET `?employeeId&from&to` — ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER
+  DELETE `/{id}`), `rosters` (GET `?employeeId&employeeIds&from&to` — ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER
   theo `EmployeeScope`, suy ra on-read; GET `/{employeeId}/{date}`; PUT/DELETE
   `/{employeeId}/{date}` override). **Ghi = ADMIN** (audit
   `ROSTER_OVERRIDE|ROSTER_OVERRIDE_CLEAR`, `SCHEDULE_POLICY_*`, `SCHEDULE_ASSIGN|UNASSIGN`).
@@ -668,7 +668,7 @@ policy tuần — bảng `employee_shift_rosters` **chỉ còn dòng `MANUAL_OVE
 - **FE**: `WorkShiftPage` thêm `order={false}` cho 2 `TimePicker.RangePicker` +
   hậu tố `(+1 ngày)` khi `crossesMidnight`; i18n `shift.json` key `column.nextDay`,
   `help.overnight`.
-- **Smoke**: `scripts/verify-shift-calendar.sh` — 4 NV × 4 mode trên cửa sổ 63 ngày tương lai,
+- **Smoke**: `scripts/verify-shift-calendar.sh` — 4 NV × 4 mode trên cửa sổ 62 ngày tương lai,
   kiểm tra T7/T2–T6/CN, resolve ngày xa (ngoài cửa sổ 45/90 cũ), override giữ nguyên / bỏ
   override về policy, rồi tự dọn (gỡ gán → xoá policy/ca tạm). Chạy app stack:
   `API=http://gateway:8080`.
@@ -705,6 +705,16 @@ policy tuần — bảng `employee_shift_rosters` **chỉ còn dòng `MANUAL_OVE
   `RosterWorkDaySource` đọc resolver; migration `V27__purge_derived_rosters.sql` xoá row
   `source <> 'MANUAL_OVERRIDE'`. Đánh đổi đã chấp nhận: sửa policy retroactive làm đổi lịch
   quá khứ (audit `SCHEDULE_POLICY_*` ghi nhận; effective-dated policy để sau nếu cần).
+- **Phase 5 (2026-11-09) — hiệu năng + phạm vi list**: `GET /rosters` nhận thêm
+  `employeeIds` (CSV, tối đa **200** → 422; lọc đúng tập id + `assertCanAccess` từng NV);
+  không truyền → chỉ NV **status != TERMINATED** (`findByStatusNotOrderByFullNameAsc`) rồi
+  lọc scope (không còn load cả bảng + resolve mọi NV). Range bắt buộc ≤ **62 ngày** (422
+  `BusinessRuleException`, mặc định 7 ngày trước → 30 ngày sau). `ScheduleResolver.loadContext`
+  chỉ nạp assignment/legacy theo tập employeeId (`findByEmployeeIdIn…`), không `findAll`.
+  FE: bảng Lịch phân trang client-side (`page/pageSize=50`) và chỉ gọi API cho NV của trang
+  hiện tại; RangePicker tự cắt về 62 ngày + cảnh báo (`schedule.calendar.rangeLimit`).
+  Smoke `verify-shift-calendar.sh` (50 checks) có thêm range 90 ngày → 422, batch
+  `employeeIds` đủ 4 NV và chỉ chứa NV yêu cầu; `RANGE_DAYS` mặc định **61** (62 ngày gồm 2 đầu).
 
 ---
 

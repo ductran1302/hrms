@@ -61,6 +61,8 @@ public class EmployeeService {
     employee.setManagerId(event.getManagerId());
     employee.setStatus(event.getStatus());
     employee.setHiredAt(event.getHiredAt());
+    employee.setTerminatedAt(null);
+    employee.setTerminationReason(null);
     applyRoles(employee, event.getRoles());
     employeeRepository.save(employee);
     markProcessed(event.getEventId(), event.getEventType());
@@ -80,6 +82,10 @@ public class EmployeeService {
     employee.setManagerId(event.getManagerId());
     employee.setStatus(event.getStatus());
     employee.setHiredAt(event.getHiredAt());
+    if (!"TERMINATED".equals(event.getStatus())) {
+    employee.setTerminatedAt(null);
+    employee.setTerminationReason(null);
+    }
     applyRoles(employee, event.getRoles());
     employeeRepository.save(employee);
     markProcessed(event.getEventId(), event.getEventType());

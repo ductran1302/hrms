@@ -65,7 +65,8 @@ class ScheduleResolverTest {
     lenient().when(assignmentRepository
             .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
         .thenReturn(List.of());
-    lenient().when(legacyAssignmentRepository.findAllByOrderByEffectiveFromDesc())
+    lenient().when(legacyAssignmentRepository
+            .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
         .thenReturn(List.of());
     lenient().when(policyRepository.findAll()).thenReturn(List.of(defaultPolicy));
     lenient().when(policyRepository.findFirstByDefaultPolicyTrueAndActiveTrue())
@@ -158,7 +159,8 @@ class ScheduleResolverTest {
     legacy.setEffectiveFrom(monday.minusDays(60));
 
     stubDefaultContext();
-    when(legacyAssignmentRepository.findAllByOrderByEffectiveFromDesc())
+    when(legacyAssignmentRepository
+            .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
         .thenReturn(List.of(legacy));
 
     ScheduleResolver.Context context = resolver.loadContext(List.of("e-1"));
@@ -179,7 +181,8 @@ class ScheduleResolverTest {
     lenient().when(assignmentRepository
             .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
         .thenReturn(List.of());
-    lenient().when(legacyAssignmentRepository.findAllByOrderByEffectiveFromDesc())
+    lenient().when(legacyAssignmentRepository
+            .findByEmployeeIdInOrderByEmployeeIdAscEffectiveFromDesc(any()))
         .thenReturn(List.of());
     lenient().when(policyRepository.findAll()).thenReturn(List.of());
     lenient().when(policyRepository.findFirstByDefaultPolicyTrueAndActiveTrue())

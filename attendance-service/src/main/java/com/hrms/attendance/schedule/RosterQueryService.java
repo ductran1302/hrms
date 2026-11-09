@@ -14,7 +14,9 @@ import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class RosterQueryService {
 
+  private static final int MAX_RANGE_DAYS = 62;
+  private static final int MAX_EMPLOYEES = 200;
+  private static final String STATUS_TERMINATED = "TERMINATED";
+
   private final EmployeeShiftRosterRepository rosterRepository;
   private final EmployeeRepository employeeRepository;
   private final WorkShiftRepository workShiftRepository;
@@ -46,12 +52,22 @@ public class RosterQueryService {
 
   @Transactional(readOnly = true)
   public List<RosterEntryResponse> list(
-      String employeeId, LocalDate from, LocalDate to, String username, EmployeeScope scope) {
+      String employeeId,
+      Collection<String> employeeIds,
+      LocalDate from,
+      LocalDate to,
+      String username,
+      EmployeeScope scope) {
     LocalDate today = LocalDate.now();
     LocalDate start = from != null ? from : today.minusDays(7);
     LocalDate end = to != null ? to : today.plusDays(30);
     if (end.isBefore(start)) {
       throw new BusinessRuleException("'to' phải ≥ 'from'");
+    }
+    if (ChronoUnit.DAYS.between(start, end) + 1 > MAX_RANGE_DAYS) {
+      throw new BusinessRuleException(
+          "Khoảng xem tối đa " + MAX_RANGE_DAYS + " ngày (đang yêu cầu "
+              + (ChronoUnit.DAYS.between(start, end) + 1) + " ngày)");
     }
     EmployeeAccess access = scope == EmployeeScope.ALL
         ? EmployeeAccess.all() : accessResolver.resolve(username, scope);
@@ -62,8 +78,16 @@ public class RosterQueryService {
           .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", employeeId));
       access.assertCanAccess(employee);
       employees = List.of(employee);
+    } else if (employeeIds != null && !employeeIds.isEmpty()) {
+      List<String> ids = employeeIds.stream()
+          .filter(id -> id != null && !id.isBlank()).distinct().toList();
+      if (ids.size() > MAX_EMPLOYEES) {
+        throw new BusinessRuleException("Tối đa " + MAX_EMPLOYEES + " nhân viên mỗi lần xem");
+      }
+      employees = employeeRepository.findAllById(ids);
+      employees.forEach(access::assertCanAccess);
     } else {
-      employees = employeeRepository.findAll().stream()
+      employees = employeeRepository.findByStatusNotOrderByFullNameAsc(STATUS_TERMINATED).stream()
           .filter(access::canAccess)
           .toList();
     }

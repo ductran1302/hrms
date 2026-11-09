@@ -49,15 +49,27 @@ class RosterControllerTest {
   void list_withEmployeeRole_returns403() throws Exception {
     mockMvc.perform(get("/api/v1/attendance/rosters").with(jwt().authorities(EMPLOYEE)))
         .andExpect(status().isForbidden());
-    verify(queryService, never()).list(any(), any(), any(), any(), any());
+    verify(queryService, never()).list(any(), any(), any(), any(), any(), any());
   }
 
   @Test
   void list_withManagerRole_returns200() throws Exception {
-    when(queryService.list(isNull(), isNull(), isNull(), isNull(), any(EmployeeScope.class)))
+    when(queryService.list(isNull(), isNull(), isNull(), isNull(), isNull(),
+            any(EmployeeScope.class)))
         .thenReturn(List.of());
 
     mockMvc.perform(get("/api/v1/attendance/rosters").with(jwt().authorities(MANAGER)))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void list_withEmployeeIds_passesBatchToService() throws Exception {
+    when(queryService.list(isNull(), eq(List.of("e-1", "e-2")), isNull(), isNull(), isNull(),
+            any(EmployeeScope.class)))
+        .thenReturn(List.of());
+
+    mockMvc.perform(get("/api/v1/attendance/rosters?employeeIds=e-1,e-2")
+            .with(jwt().authorities(MANAGER)))
         .andExpect(status().isOk());
   }
 
