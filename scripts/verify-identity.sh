@@ -262,6 +262,28 @@ R=$(req GET "$MGR" /api/v1/job-titles)
 check "GET job-titles (MANAGER)" 200 "$(code_of "$R")"
 R=$(req GET "$EMP" /api/v1/job-titles)
 check "GET job-titles (EMPLOYEE)" 403 "$(code_of "$R")"
+# CRUD job-titles (ADMIN) — idempotent bang ma ngau nhien
+JT_CODE="JT$SUF"
+JT_BODY="{\"code\":\"$JT_CODE\",\"name\":\"Chuc vu test $SUF\",\"nameEn\":\"Test Title $SUF\",\"category\":\"TEST\",\"sortOrder\":900}"
+R=$(req POST "$EMP" /api/v1/job-titles "$JT_BODY")
+check "POST job-title (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req POST "$HR" /api/v1/job-titles "$JT_BODY")
+check "POST job-title (HR)" 201 "$(code_of "$R")"
+JT_ID=$(id_of "$R")
+check_has "job-title response co id" "$(has "$R" "\"id\":\"$JT_ID\"")" yes
+R=$(req POST "$HR" /api/v1/job-titles "$JT_BODY")
+check "POST job-title trung ma" 409 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/job-titles/$JT_ID")
+check "GET job-title theo id" 200 "$(code_of "$R")"
+R=$(req PATCH "$HR" "/api/v1/job-titles/$JT_ID" '{"sortOrder":901}')
+check "PATCH job-title" 200 "$(code_of "$R")"
+check_has "job-title sortOrder da doi" "$(has "$R" '"sortOrder":901')" yes
+R=$(req DELETE "$EMP" "/api/v1/job-titles/$JT_ID")
+check "DELETE job-title (EMPLOYEE)" 403 "$(code_of "$R")"
+R=$(req DELETE "$HR" "/api/v1/job-titles/$JT_ID")
+check "DELETE job-title (HR)" 204 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/job-titles/$JT_ID")
+check "GET job-title sau khi xoa" 404 "$(code_of "$R")"
 R=$(req GET "$HR" "/api/v1/departments/tree")
 check_has "cay to chuc co ENG-DEV-BE" "$(has "$R" '"code":"ENG-DEV-BE"')" yes
 check_has "cay to chuc co ORG goc" "$(has "$R" '"code":"ORG"')" yes
@@ -666,7 +688,11 @@ check "POST break ngoai khung" 422 "$(code_of "$R")"
 R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca vuot tong $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"08:00:00\",\"endWorkTime\":\"17:00:00\",\"workingTime\":500,\"breakingTime\":60}")
 check "POST working+break vuot ca" 422 "$(code_of "$R")"
 R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca dem $SUF\",\"shiftType\":\"FIXED\",\"startWorkTime\":\"22:00:00\",\"endWorkTime\":\"06:00:00\",\"workingTime\":480,\"breakingTime\":0}")
-check "POST ca qua nua dem" 422 "$(code_of "$R")"
+check "POST ca qua nua dem" 201 "$(code_of "$R")"
+NIGHT_ID=$(id_of "$R")
+check_has "ca dem crossesMidnight" "$(has "$R" '"crossesMidnight":true')" yes
+R=$(areq DELETE "$HR" "/api/v1/attendance/work-shifts/$NIGHT_ID")
+check "DELETE ca dem" 204 "$(code_of "$R")"
 # b. ca FLEXIBLE khong can khung gio nghi (chi breakingTime) + PATCH
 R=$(areq POST "$HR" "/api/v1/attendance/work-shifts" "{\"name\":\"Ca linh hoa verify $SUF\",\"shiftType\":\"FLEXIBLE\",\"startWorkTime\":\"07:00:00\",\"endWorkTime\":\"18:00:00\",\"workingTime\":480,\"breakingTime\":60}")
 check "POST tao ca FLEXIBLE (khong khung nghi)" 201 "$(code_of "$R")"

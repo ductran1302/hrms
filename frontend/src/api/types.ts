@@ -212,6 +212,7 @@ export interface JobHistoryItem {
 }
 
 export interface JobTitle {
+  id: string;
   code: string;
   name: string;
   nameEn: string | null;

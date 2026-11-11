@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [Fix CI backend + Danh mục chức vụ CRUD] 2026-11-11
+
+### Nội dung thay đổi
+- CI backend đỏ: `V29` đặt `policy_group_id`/`effective_from` NOT NULL nhưng
+  `DefaultPolicySeeder` insert trước khi set → ApplicationContext fail toàn bộ IT.
+  Seeder set `policyGroupId` + `effectiveFrom=1900-01-01` trước lần save đầu; thêm cờ
+  `hrms.schedule.seed.enabled` (default true) và tắt trong `LeaveSettingsPersistenceIT`,
+  `EmployeeProjectionIT`.
+- identity `job-titles`: đủ CRUD (`POST`, `GET /{id}`, `PATCH`, `DELETE`), ghi = ADMIN;
+  unique code/name, chặn đổi tên/xóa khi chức vụ đang được gán cho nhân viên; audit
+  `JOB_TITLE_CREATE|UPDATE|DELETE`; response thêm `id`; cập nhật type FE.
+- Smoke `verify-identity.sh`: thêm 15 check CRUD job-titles; sửa kỳ vọng ca qua đêm
+  422 → 201 + kiểm tra `crossesMidnight` + cleanup (theo Shift & Calendar Phase 1).
+- Verify: identity 158 unit + 6 IT, FE `tsc && vite build`, smoke identity 308/308.
+
 ## [Tính năng — Thời hạn quỹ phép (expires_at) + BONUS spill] 2026-10-29
 
 Quỹ phép có **thời hạn hiệu lực**: dòng hết hạn bị loại khỏi Tổng/Còn lại (on-read),

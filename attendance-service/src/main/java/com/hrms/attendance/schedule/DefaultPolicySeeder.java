@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "hrms.schedule.seed.enabled", havingValue = "true",
+    matchIfMissing = true)
 public class DefaultPolicySeeder implements ApplicationRunner {
 
   static final String FULL_SHIFT_NAME = "Ca hành chính";
@@ -67,6 +70,8 @@ public class DefaultPolicySeeder implements ApplicationRunner {
     policy.setSunShiftId(null);
     policy.setDefaultPolicy(true);
     policy.setActive(true);
+    policy.setEffectiveFrom(LocalDate.of(1900, 1, 1));
+    policy.setPolicyGroupId(UUID.randomUUID());
 
     switch (saturdayPolicy) {
       case OFF -> policy.setSatShiftId(null);

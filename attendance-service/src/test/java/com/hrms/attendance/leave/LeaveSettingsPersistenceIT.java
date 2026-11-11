@@ -31,6 +31,7 @@ class LeaveSettingsPersistenceIT {
     registry.add("spring.kafka.bootstrap-servers", () -> "localhost:9092");
     registry.add("spring.kafka.properties.schema.registry.url", () -> "http://localhost:8081");
     registry.add("spring.kafka.listener.auto-startup", () -> "false");
+    registry.add("hrms.schedule.seed.enabled", () -> "false");
   }
 
   @Autowired
