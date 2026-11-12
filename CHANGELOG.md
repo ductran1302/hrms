@@ -15,6 +15,9 @@
   service (cập nhật + outbox/audit, rỗng → 422, TERMINATED → 422).
 - Smoke `verify-identity.sh` §13: 401 thiếu token, PATCH 200 + kiểm tra giá trị,
   field cấm → 422 và `position` không đổi, body rỗng → 422.
+- Điều hướng sau đăng nhập theo role (`HomeRedirect`): staff
+  (`ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER`) → `/employees`, còn lại → `/my-profile`
+  (tránh EMPLOYEE gặp 403 ngay sau khi đăng nhập).
 - Verify: identity 164 unit test, FE `tsc && vite build`, smoke identity 316/316.
 
 ## [Fix CI backend + Danh mục chức vụ CRUD] 2026-11-11

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 
@@ -24,6 +25,11 @@ const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 const STAFF_ROLES = ['ADMIN', 'GLOBAL_LEAD', 'DEPT_LEAD', 'MANAGER'];
 const OT_ROLES = [...STAFF_ROLES, 'EMPLOYEE'];
 
+function HomeRedirect() {
+  const { hasRole } = useAuth();
+  return <Navigate to={hasRole(...STAFF_ROLES) ? '/employees' : '/my-profile'} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -37,7 +43,7 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Navigate to="/employees" replace />} />
+            <Route index element={<HomeRedirect />} />
             <Route
               path="employees"
               element={
