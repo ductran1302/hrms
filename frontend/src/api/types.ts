@@ -78,6 +78,17 @@ export interface EmployeeUpdate {
   emergencyContactRelation?: string;
 }
 
+/** Field cá nhân nhân viên được tự cập nhật (không gồm job info/định danh). */
+export interface EmployeeSelfUpdate {
+  phone?: string;
+  address?: string;
+  educationLevel?: string;
+  skills?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+}
+
 export interface EmployeeQuery {
   page?: number;
   size?: number;

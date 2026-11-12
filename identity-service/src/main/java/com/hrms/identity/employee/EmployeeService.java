@@ -16,6 +16,7 @@ import com.hrms.identity.department.DepartmentRepository;
 import com.hrms.identity.department.DepartmentStatus;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
+import com.hrms.identity.employee.dto.EmployeeSelfUpdateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
@@ -200,6 +201,68 @@ public class EmployeeService {
         .orElseThrow(() -> new ResourceNotFoundException(
             "Nhân viên (username/email " + preferredUsername + ")"));
     return mapper.toResponse(found);
+  }
+
+  /**
+   * Tự cập nhật hồ sơ cá nhân — chỉ field trong {@link EmployeeSelfUpdateRequest}; không
+   * đụng job info/định danh nên không ghi job history. Field null = không đổi, chuỗi rỗng
+   * = xóa. Nhân viên đã nghỉ việc bị chặn (token cũ vẫn có thể còn hiệu lực).
+   */
+  @Transactional
+  public EmployeeResponse updateSelf(EmployeeSelfUpdateRequest patch, String actorId,
+      EmployeeViewer viewer) {
+    if (isNothingToUpdateSelf(patch)) {
+      throw new BusinessRuleException("Không có trường nào để cập nhật");
+    }
+    Employee employee = resolveViewer(viewer).orElseThrow(() -> new ResourceNotFoundException(
+        "Nhân viên (username/email " + viewer.username() + ")"));
+    if (employee.getStatus() == EmployeeStatus.TERMINATED) {
+      throw new BusinessRuleException("Nhân viên đã nghỉ việc: " + employee.getEmployeeCode());
+    }
+
+    List<String> changed = new ArrayList<>();
+    if (patch.phone() != null && !Objects.equals(patch.phone(), employee.getPhone())) {
+      employee.setPhone(patch.phone());
+      changed.add("phone");
+    }
+    if (patch.address() != null && !Objects.equals(patch.address(), employee.getAddress())) {
+      employee.setAddress(patch.address());
+      changed.add("address");
+    }
+    if (patch.educationLevel() != null
+        && !Objects.equals(patch.educationLevel(), employee.getEducationLevel())) {
+      employee.setEducationLevel(patch.educationLevel());
+      changed.add("educationLevel");
+    }
+    if (patch.skills() != null && !Objects.equals(patch.skills(), employee.getSkills())) {
+      employee.setSkills(patch.skills());
+      changed.add("skills");
+    }
+    if (patch.emergencyContactName() != null
+        && !Objects.equals(patch.emergencyContactName(), employee.getEmergencyContactName())) {
+      employee.setEmergencyContactName(patch.emergencyContactName());
+      changed.add("emergencyContactName");
+    }
+    if (patch.emergencyContactPhone() != null
+        && !Objects.equals(patch.emergencyContactPhone(), employee.getEmergencyContactPhone())) {
+      employee.setEmergencyContactPhone(patch.emergencyContactPhone());
+      changed.add("emergencyContactPhone");
+    }
+    if (patch.emergencyContactRelation() != null
+        && !Objects.equals(patch.emergencyContactRelation(),
+            employee.getEmergencyContactRelation())) {
+      employee.setEmergencyContactRelation(patch.emergencyContactRelation());
+      changed.add("emergencyContactRelation");
+    }
+
+    if (!changed.isEmpty()) {
+      employeeRepository.save(employee);
+      writeOutbox(employee, EmployeeEventTypes.UPDATED, actorId, changed, null, null,
+          readRolesSafe(employee.getEmployeeCode()));
+      auditService.success("EMPLOYEE_SELF_UPDATE", "Employee", employee.getId(),
+          "changed=" + changed);
+    }
+    return mapper.toResponse(employee);
   }
 
   /** Khớp user đăng nhập với hồ sơ NV: username = employeeCode trước, fallback email. */
@@ -525,6 +588,16 @@ public class EmployeeService {
     if (!List.of("MALE", "FEMALE", "OTHER").contains(gender.trim().toUpperCase(Locale.ROOT))) {
       throw new BusinessRuleException("Giới tính chỉ nhận MALE/FEMALE/OTHER: " + gender);
     }
+  }
+
+  private boolean isNothingToUpdateSelf(EmployeeSelfUpdateRequest patch) {
+    return patch.phone() == null
+        && patch.address() == null
+        && patch.educationLevel() == null
+        && patch.skills() == null
+        && patch.emergencyContactName() == null
+        && patch.emergencyContactPhone() == null
+        && patch.emergencyContactRelation() == null;
   }
 
   private boolean isNothingToPatch(EmployeeUpdateRequest patch) {

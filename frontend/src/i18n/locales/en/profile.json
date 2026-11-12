@@ -1,7 +1,18 @@
 ﻿{
   "notFound": "Employee not found",
+  "myTitle": "My profile",
+  "myNotFound": "Your employee profile was not found",
   "upload": "Upload",
   "uploaded": "Document uploaded",
+  "edit": {
+    "button": "Edit",
+    "title": "Update personal profile",
+    "saved": "Profile updated",
+    "hint": "You can update your personal information. Department, position and status changes are managed by HR.",
+    "contactName": "Emergency contact name",
+    "contactPhone": "Emergency contact phone",
+    "contactRelation": "Relationship"
+  },
   "info": {
     "employeeCode": "Employee code",
     "fullName": "Full name",

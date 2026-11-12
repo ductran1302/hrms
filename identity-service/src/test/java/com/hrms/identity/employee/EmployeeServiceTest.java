@@ -29,6 +29,7 @@ import com.hrms.identity.department.DepartmentRepository;
 import com.hrms.identity.department.DepartmentStatus;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
+import com.hrms.identity.employee.dto.EmployeeSelfUpdateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.event.EmployeeEventPayload;
 import com.hrms.identity.history.JobHistoryService;
@@ -622,6 +623,67 @@ class EmployeeServiceTest {
     assertEquals("NV0002", service.me("manager1", "employee1@hrms.local").employeeCode());
   }
 
+  @Test
+  void updateSelf_changesAllowedFields_savesOutboxAndAuditWithoutJobHistory() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    employee.setPhone("0900000001");
+    when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(employee));
+    when(employeeRepository.save(any(Employee.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(outboxRepository.save(any(OutboxEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse());
+
+    EmployeeSelfUpdateRequest patch = new EmployeeSelfUpdateRequest(
+        "0900000002", "12 Phố Huế, Hà Nội", "Đại học", "Java, SQL",
+        "Nguyễn Văn B", "0912345678", "Vợ");
+
+    service.updateSelf(patch, actorId, selfViewer());
+
+    assertEquals("0900000002", employee.getPhone());
+    assertEquals("12 Phố Huế, Hà Nội", employee.getAddress());
+    assertEquals("Đại học", employee.getEducationLevel());
+    assertEquals("Java, SQL", employee.getSkills());
+    assertEquals("Nguyễn Văn B", employee.getEmergencyContactName());
+    assertEquals("0912345678", employee.getEmergencyContactPhone());
+    assertEquals("Vợ", employee.getEmergencyContactRelation());
+
+    ArgumentCaptor<OutboxEvent> outbox = ArgumentCaptor.forClass(OutboxEvent.class);
+    verify(outboxRepository).save(outbox.capture());
+    assertEquals(EmployeeEventTypes.UPDATED, outbox.getValue().getEventType());
+    EmployeeEventPayload payload = OutboxPayloadConverter.fromJson(outbox.getValue().getPayload(),
+        EmployeeEventPayload.class);
+    assertTrue(payload.changedFields().contains("phone"));
+    assertTrue(payload.changedFields().contains("emergencyContactRelation"));
+
+    verify(jobHistoryService, never()).record(any(), any(), any(), any(), any());
+    verify(auditService).success(eq("EMPLOYEE_SELF_UPDATE"), eq("Employee"), eq(employeeId),
+        eq("changed=[phone, address, educationLevel, skills, emergencyContactName, "
+            + "emergencyContactPhone, emergencyContactRelation]"));
+  }
+
+  @Test
+  void updateSelf_noFields_throwsBusinessRule() {
+    EmployeeSelfUpdateRequest patch = new EmployeeSelfUpdateRequest(null, null, null, null,
+        null, null, null);
+
+    assertThrows(BusinessRuleException.class,
+        () -> service.updateSelf(patch, actorId, selfViewer()));
+    verify(employeeRepository, never()).findByEmployeeCode(any());
+  }
+
+  @Test
+  void updateSelf_terminatedEmployee_throwsBusinessRule() {
+    Employee employee = employeeWithStatus(EmployeeStatus.TERMINATED);
+    when(employeeRepository.findByEmployeeCode("NV0001")).thenReturn(Optional.of(employee));
+
+    EmployeeSelfUpdateRequest patch = new EmployeeSelfUpdateRequest("0900000002", null, null,
+        null, null, null, null);
+
+    assertThrows(BusinessRuleException.class,
+        () -> service.updateSelf(patch, actorId, selfViewer()));
+    verify(employeeRepository, never()).save(any());
+    verify(outboxRepository, never()).save(any());
+  }
+
   private Employee employeeWithStatus(EmployeeStatus status) {
     Employee employee = new Employee();
     employee.setId(employeeId);
@@ -665,6 +727,10 @@ class EmployeeServiceTest {
 
   private static EmployeeViewer managerViewer() {
     return new EmployeeViewer("manager1", "manager1@hrms.vn", EmployeeScope.SELF);
+  }
+
+  private static EmployeeViewer selfViewer() {
+    return new EmployeeViewer("NV0001", "a@hrms.vn", EmployeeScope.SELF);
   }
 
   private static EmployeeViewer deptLeadViewer() {

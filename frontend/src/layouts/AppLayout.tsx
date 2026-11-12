@@ -140,6 +140,11 @@ export default function AppLayout() {
       icon: <CarryOutOutlined />,
       label: t('menu.myLeave'),
     },
+    {
+      key: '/my-profile',
+      icon: <UserOutlined />,
+      label: t('menu.myProfile'),
+    },
     // Cài đặt thấy mọi role; màn Tài khoản chỉ ADMIN (Q&A chốt)
     {
       key: '/settings',

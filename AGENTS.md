@@ -416,6 +416,11 @@ public class KafkaTopics {
   EmployeeService: `departmentScope(...)` BFS descendants + `assertWriteScope` (DEPT_LEAD không ghi self).
 - **@PreAuthorize matrix:** reads = `ADMIN/GLOBAL_LEAD/DEPT_LEAD/MANAGER` (+EMPLOYEE cho my-*,
   holiday đọc), writes = `ADMIN` (+`GLOBAL_LEAD/DEPT_LEAD` cho employee update), tạo NV = `ADMIN`.
+- **Self profile update — 2026-11-12:** `PATCH /api/v1/employees/me` (`isAuthenticated()`, mọi role)
+  — whitelist 7 field `phone/address/educationLevel/skills/emergencyContactName/
+  emergencyContactPhone/emergencyContactRelation`; null = không đổi, rỗng = xóa, field lạ bị
+  bỏ qua, không có field hợp lệ → 422; chặn `TERMINATED`; không job history; outbox `UPDATED`
+  + audit `EMPLOYEE_SELF_UPDATE`. FE `/my-profile` (`MyProfilePage`, menu mọi role).
 - **Auto-assign role (creation-only):** `RoleAssignmentService.resolveDefaultRole` —
   manager dept parent=null ACTIVE → `GLOBAL_LEAD` > manager dept ACTIVE bất kỳ → `DEPT_LEAD` >
   có reports ACTIVE → `MANAGER` > `EMPLOYEE`. Gọi lúc tạo NV + idempotent khi tạo hợp đồng.

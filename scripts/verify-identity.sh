@@ -485,6 +485,20 @@ sleep 3
 R=$(req GET "$QP_TOK" "/api/v1/employees/me")
 check "GET /employees/me (NV auto-provision)" 200 "$(code_of "$R")"
 check_has "me dung ma NV" "$(has "$R" "$QP_CODE")" yes
+# self profile update: EMPLOYEE tu sua field ca nhan, khong duoc doi job info
+R=$(req PATCH "" /api/v1/employees/me '{"phone":"0909999999"}')
+check "PATCH /employees/me khong token" 401 "$(code_of "$R")"
+R=$(req PATCH "$QP_TOK" /api/v1/employees/me '{"phone":"0909999999","address":"1 Duong Test","educationLevel":"Dai hoc","skills":"Java, SQL","emergencyContactName":"Nguoi than","emergencyContactPhone":"0911111111","emergencyContactRelation":"Vo"}')
+check "PATCH /employees/me (EMPLOYEE)" 200 "$(code_of "$R")"
+check_has "self update phone" "$(has "$R" '"phone":"0909999999"')" yes
+check_has "self update address" "$(has "$R" '"address":"1 Duong Test"')" yes
+check_has "self update emergency contact" "$(has "$R" '"emergencyContactPhone":"0911111111"')" yes
+R=$(req PATCH "$QP_TOK" /api/v1/employees/me '{"position":"Hacker"}')
+check "PATCH /employees/me chi field cam -> khong co field hop le" 422 "$(code_of "$R")"
+R=$(req GET "$QP_TOK" /api/v1/employees/me)
+check_has "position khong bi doi" "$(has "$R" '"position":"Hacker"')" no
+R=$(req PATCH "$QP_TOK" /api/v1/employees/me '{}')
+check "PATCH /employees/me rong" 422 "$(code_of "$R")"
 R=$(areq GET "$QP_TOK" "/api/v1/attendance/leave/quotas/$QP_ID?year=$YEAR")
 check "GET self quota (EMPLOYEE)" 200 "$(code_of "$R")"
 check_has "quota co baseDays" "$(has "$R" 'baseDays')" yes

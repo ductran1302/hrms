@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [Tính năng — Nhân viên tự cập nhật hồ sơ (self profile)] 2026-11-12
+
+### Nội dung thay đổi
+- identity `PATCH /api/v1/employees/me` (`isAuthenticated()`): nhân viên tự cập nhật
+  whitelist 7 field `phone`, `address`, `educationLevel`, `skills`,
+  `emergencyContactName`, `emergencyContactPhone`, `emergencyContactRelation`;
+  DTO `EmployeeSelfUpdateRequest`. Field null = không đổi, chuỗi rỗng = xóa; field lạ
+  (vd `position`) bị bỏ qua, request không có field hợp lệ → 422. Chặn hồ sơ
+  `TERMINATED`; không ghi job history; phát outbox `UPDATED` + audit `EMPLOYEE_SELF_UPDATE`.
+- Frontend: trang "Hồ sơ của tôi" `/my-profile` (mọi role) + menu; modal sửa 7 field,
+  chỉ gửi field thay đổi; `updateMyProfile` trong `api/employees.ts`; i18n vi/en.
+- Tests: controller (401/200 theo JWT `preferred_username`, field cấm không bind) +
+  service (cập nhật + outbox/audit, rỗng → 422, TERMINATED → 422).
+- Smoke `verify-identity.sh` §13: 401 thiếu token, PATCH 200 + kiểm tra giá trị,
+  field cấm → 422 và `position` không đổi, body rỗng → 422.
+- Verify: identity 164 unit test, FE `tsc && vite build`, smoke identity 316/316.
+
 ## [Fix CI backend + Danh mục chức vụ CRUD] 2026-11-11
 
 ### Nội dung thay đổi

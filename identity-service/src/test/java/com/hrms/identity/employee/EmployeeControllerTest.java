@@ -2,6 +2,7 @@ package com.hrms.identity.employee;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,7 @@ import com.hrms.common.web.PageResponse;
 import com.hrms.identity.config.SecurityConfig;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
+import com.hrms.identity.employee.dto.EmployeeSelfUpdateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.history.JobHistoryService;
 import java.util.List;
@@ -135,6 +137,50 @@ class EmployeeControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content("{\"position\":\"Senior QA\"}"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void selfUpdate_withoutToken_returns401() throws Exception {
+    mockMvc.perform(patch("/api/v1/employees/me")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"0901234567\"}"))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void selfUpdate_withEmployee_returns200AndUsesJwtClaims() throws Exception {
+    when(employeeService.updateSelf(any(EmployeeSelfUpdateRequest.class), eq("user-1"),
+        any(EmployeeViewer.class))).thenReturn(sampleResponse());
+
+    mockMvc.perform(patch("/api/v1/employees/me")
+            .with(jwt().authorities(EMPLOYEE).jwt(j -> j.subject("user-1")
+                .claim("preferred_username", "employee1")))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"phone\":\"0901234567\"}"))
+        .andExpect(status().isOk());
+
+    verify(employeeService).updateSelf(any(EmployeeSelfUpdateRequest.class), eq("user-1"),
+        argThat(viewer -> "employee1".equals(viewer.username())));
+  }
+
+  @Test
+  void selfUpdate_withForbiddenField_doesNotBindForbiddenData() throws Exception {
+    when(employeeService.updateSelf(any(EmployeeSelfUpdateRequest.class), any(),
+        any(EmployeeViewer.class))).thenReturn(sampleResponse());
+
+    mockMvc.perform(patch("/api/v1/employees/me")
+            .with(jwt().authorities(EMPLOYEE))
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"position\":\"Hacker\"}"))
+        .andExpect(status().isOk());
+
+    verify(employeeService).updateSelf(argThat(request -> request.phone() == null
+        && request.address() == null
+        && request.educationLevel() == null
+        && request.skills() == null
+        && request.emergencyContactName() == null
+        && request.emergencyContactPhone() == null
+        && request.emergencyContactRelation() == null), any(), any(EmployeeViewer.class));
   }
 
   @Test

@@ -1,7 +1,18 @@
 ﻿{
   "notFound": "Không tìm thấy nhân viên",
+  "myTitle": "Hồ sơ của tôi",
+  "myNotFound": "Không tìm thấy hồ sơ nhân viên của bạn",
   "upload": "Tải lên",
   "uploaded": "Đã tải lên tài liệu",
+  "edit": {
+    "button": "Chỉnh sửa",
+    "title": "Cập nhật hồ sơ cá nhân",
+    "saved": "Đã cập nhật hồ sơ",
+    "hint": "Bạn có thể tự cập nhật thông tin cá nhân. Thay đổi về phòng ban, chức danh, trạng thái do HR quản lý.",
+    "contactName": "Tên người liên hệ",
+    "contactPhone": "SĐT liên hệ",
+    "contactRelation": "Quan hệ"
+  },
   "info": {
     "employeeCode": "Mã nhân viên",
     "fullName": "Họ và tên",

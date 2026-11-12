@@ -4,6 +4,7 @@ import com.hrms.common.security.EmployeeScope;
 import com.hrms.common.web.PageResponse;
 import com.hrms.identity.employee.dto.EmployeeCreateRequest;
 import com.hrms.identity.employee.dto.EmployeeResponse;
+import com.hrms.identity.employee.dto.EmployeeSelfUpdateRequest;
 import com.hrms.identity.employee.dto.EmployeeUpdateRequest;
 import com.hrms.identity.history.JobHistoryService;
 import com.hrms.identity.history.dto.JobHistoryResponse;
@@ -78,6 +79,15 @@ public class EmployeeController {
   @Operation(summary = "Hồ sơ nhân viên của chính mình (username = employeeCode, fallback email)")
   public EmployeeResponse me(@AuthenticationPrincipal Jwt jwt) {
     return employeeService.me(jwt.getClaimAsString("preferred_username"), jwt.getClaimAsString("email"));
+  }
+
+  @PatchMapping("/me")
+  @PreAuthorize("isAuthenticated()")
+  @Operation(summary = "Tự cập nhật hồ sơ cá nhân (phone/address/học vấn/kỹ năng/liên hệ khẩn cấp)")
+  public EmployeeResponse updateMe(@Valid @RequestBody EmployeeSelfUpdateRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      Authentication authentication) {
+    return employeeService.updateSelf(request, jwt.getSubject(), viewer(jwt, authentication));
   }
 
   @GetMapping("/{id}")

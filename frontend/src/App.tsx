@@ -11,6 +11,7 @@ const EmployeeProfile = lazy(() => import('./pages/EmployeeProfile'));
 const HolidayPage = lazy(() => import('./pages/HolidayPage'));
 const LeaveQuotaPage = lazy(() => import('./pages/LeaveQuotaPage'));
 const MyLeavePage = lazy(() => import('./pages/MyLeavePage'));
+const MyProfilePage = lazy(() => import('./pages/MyProfilePage'));
 const OrgChartPage = lazy(() => import('./pages/OrgChartPage'));
 const SettingsAccountsPage = lazy(() => import('./pages/SettingsAccountsPage'));
 const SettingsPoliciesPage = lazy(() => import('./pages/SettingsPoliciesPage'));
@@ -130,6 +131,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MyLeavePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="my-profile"
+              element={
+                <ProtectedRoute>
+                  <MyProfilePage />
                 </ProtectedRoute>
               }
             />

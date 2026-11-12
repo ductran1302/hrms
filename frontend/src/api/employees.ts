@@ -3,6 +3,7 @@ import type {
   Employee,
   EmployeeCreate,
   EmployeeQuery,
+  EmployeeSelfUpdate,
   EmployeeUpdate,
   JobHistoryItem,
   PageResponse,
@@ -27,6 +28,11 @@ export function getEmployee(id: string): Promise<Employee> {
 /** Hồ sơ của chính mình (KC username = employeeCode). */
 export function getMyEmployee(): Promise<Employee> {
   return client.get<Employee>('/api/v1/employees/me').then((r) => r.data);
+}
+
+/** Tự cập nhật hồ sơ cá nhân — chỉ các field an toàn backend cho phép. */
+export function updateMyProfile(data: EmployeeSelfUpdate): Promise<Employee> {
+  return client.patch<Employee>('/api/v1/employees/me', data).then((r) => r.data);
 }
 
 export function getEmployeeHistory(id: string): Promise<JobHistoryItem[]> {
