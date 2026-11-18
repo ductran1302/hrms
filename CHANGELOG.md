@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## [Tuân thủ giấy phép — third-party notices] 2026-11-14
+
+### Nội dung thay đổi
+- Thêm `THIRD-PARTY-NOTICES.md` (tổng hợp nghĩa vụ license, cảnh báo Confluent
+  Community License, LGPL/EPL, nguồn asset) + báo cáo
+  `THIRD-PARTY-BACKEND.txt` (212 dependency Maven) và
+  `THIRD-PARTY-FRONTEND.txt` (148 package npm).
+- Thêm `LICENSES/` gồm toàn văn các giấy phép đang dùng (Apache-2.0, MIT, BSD,
+  0BSD, EPL, LGPL, PostgreSQL, CC0, MIT-0, Bouncy Castle, GPL-2.0 + Classpath
+  Exception, Confluent Community 1.0) và bảng mapping trong
+  `LICENSES/README.md`.
+- Dockerfile của identity/attendance/gateway copy notices + `LICENSES/` vào
+  `/app`; frontend copy vào `/usr/share/nginx/html/legal/` để có trong image
+  phát hành.
+- Ghi nhận điểm cần xử lý trước khi phát hành thương mại: xác nhận license ảnh
+  `login-hero.jpg`, legal review CCL/LGPL, cân nhắc thay Schema Registry bằng
+  Apicurio Registry (Apache-2.0).
+- Thêm CI job `licenses`: chặn dependency FE production có GPL/AGPL/LGPL/SSPL
+  (`license-checker` 25.0.1) và chặn báo cáo backend có AGPL/SSPL/GPL độc lập
+  (`scripts/check-third-party-licenses.sh`; vẫn cho phép LGPL của Hibernate/JNA
+  và GPL2 w/ CPE của Jakarta).
+- Thêm `ASSETS.md` ghi nguồn/hash asset: `favicon.svg` tự tạo; `login-hero.jpg`
+  chưa xác định nguồn — cần thay/xác nhận license trước phát hành thương mại.
+- Verify: build 4 image (`identity`, `attendance`, `gateway`, `frontend`) thành
+  công; kiểm tra file notices/licenses (gồm Confluent Community 1.0) có trong
+  cả 4 image và container đang chạy; script license gate PASS và fail đúng khi
+  report giả có AGPL.
+
 ## [Tính năng — Nhân viên tự cập nhật hồ sơ (self profile)] 2026-11-12
 
 ### Nội dung thay đổi

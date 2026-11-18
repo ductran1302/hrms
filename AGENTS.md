@@ -622,6 +622,9 @@ rollback / giữ connection khi KC chậm):
   - Quét thủ công/local: `mvn verify -Psecurity-scan` (OWASP `dependency-check-maven` 10.0.4,
     `failBuildOnCVSS=9`, bỏ test/provided scope). Cần tải NVD → không chạy trong CI mặc định;
     đặt `NVD_API_KEY` để tăng hạn mức tải.
+  - License gate (CI job `licenses`): FE production `license-checker@25.0.1` chặn
+    GPL/AGPL/LGPL/SSPL; BE sinh báo cáo `license-maven-plugin` rồi chạy
+    `scripts/check-third-party-licenses.sh` (cho phép LGPL Hibernate/JNA và GPL2 w/ CPE Jakarta).
 
 ### 4.21 Shift & Calendar Engine (Phase 1–4)
 
@@ -1128,7 +1131,10 @@ FIX: DocumentContentValidator (identity document) — whitelist extension + magi
 | Audit logging | `hrms-common/src/main/java/com/hrms/common/audit/` (`AuditService`) |
 | Audit migrations | identity `V12__audit_log.sql`, attendance `V17__audit_log.sql` |
 | Security headers (SPA) | `infra/nginx/frontend.conf` |
+| Third-party license notices | `THIRD-PARTY-NOTICES.md`, `THIRD-PARTY-BACKEND.txt`, `THIRD-PARTY-FRONTEND.txt`, `LICENSES/` |
+| Asset provenance | `ASSETS.md` (nguồn/license/hash ảnh) |
 | Dependency scan | `.github/workflows/dependency-review.yml`, `.github/dependabot.yml`, profile `security-scan` (root `pom.xml`) |
+| License gate | `.github/workflows/ci.yml` job `licenses`, `scripts/check-third-party-licenses.sh` |
 | Smoke tests | `scripts/verify-*.sh` |
 
 ---

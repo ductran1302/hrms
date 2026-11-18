@@ -10,4 +10,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY infra/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY THIRD-PARTY-NOTICES.md /usr/share/nginx/html/legal/THIRD-PARTY-NOTICES.md
+COPY THIRD-PARTY-FRONTEND.txt /usr/share/nginx/html/legal/THIRD-PARTY-FRONTEND.txt
+COPY LICENSES /usr/share/nginx/html/legal/LICENSES
 EXPOSE 80

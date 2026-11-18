@@ -54,3 +54,34 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  licenses:
+    name: License gate (FE prod + BE third-party)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend production license gate
+        working-directory: frontend
+        run: |
+          npm ci
+          npx --yes license-checker@25.0.1 --production \
+            --failOn "GPL;GPL-2.0;GPL-3.0;AGPL;AGPL-3.0;LGPL;LGPL-2.1;LGPL-3.0;SSPL"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Install modules for license report
+        run: mvn -B -q -Dmaven.test.skip=true install
+      - name: Generate backend third-party report
+        run: |
+          mvn -B -q org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-add-third-party \
+            -Dlicense.excludeTransitive=false
+      - name: Backend license gate
+        run: bash scripts/check-third-party-licenses.sh
