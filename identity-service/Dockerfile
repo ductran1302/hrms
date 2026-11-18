@@ -3,7 +3,7 @@ WORKDIR /src
 COPY . .
 RUN mvn -B -pl identity-service -am clean package -DskipTests
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
 COPY --from=build /src/identity-service/target/identity-service-*.jar app.jar
 COPY --from=build /src/THIRD-PARTY-NOTICES.md /app/THIRD-PARTY-NOTICES.md
