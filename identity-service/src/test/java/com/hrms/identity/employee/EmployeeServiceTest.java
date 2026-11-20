@@ -46,6 +46,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -230,6 +231,25 @@ class EmployeeServiceTest {
     assertEquals(1, result.items().size());
     assertEquals(1L, result.total());
     assertEquals("NV0001", result.items().get(0).employeeCode());
+  }
+
+  @Test
+  void search_negativePageAndOversizedPage_areClamped() {
+    when(employeeRepository.search(any(), any(), any(), any(), any(), any(), any(), any(),
+        any(Pageable.class))).thenReturn(List.of());
+    when(employeeRepository.countSearch(any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(0L);
+
+    PageResponse<EmployeeResponse> result =
+        service.search(-3, 10_000, null, null, null, null, null, adminViewer());
+
+    ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+    verify(employeeRepository).search(any(), any(), any(), any(), any(), any(), any(), any(),
+        captor.capture());
+    assertEquals(0, captor.getValue().getPageNumber());
+    assertEquals(200, captor.getValue().getPageSize());
+    assertEquals(0, result.page());
+    assertEquals(200, result.size());
   }
 
   @Test

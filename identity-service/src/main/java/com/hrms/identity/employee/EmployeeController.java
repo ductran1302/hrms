@@ -70,7 +70,7 @@ public class EmployeeController {
       @RequestParam(name = "q", required = false) String q,
       @AuthenticationPrincipal Jwt jwt,
       Authentication authentication) {
-    return employeeService.search(page, Math.max(size, 1), status, departmentId, position, office,
+    return employeeService.search(page, size, status, departmentId, position, office,
         q, viewer(jwt, authentication));
   }
 

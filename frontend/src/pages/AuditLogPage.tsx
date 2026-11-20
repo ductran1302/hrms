@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { searchAuditLogs, searchAttendanceAuditLogs } from '../api/audit';
 import { searchAccounts } from '../api/accounts';
 import { listAttendanceEmployees } from '../api/attendance';
-import { searchEmployees } from '../api/employees';
+import { listAllEmployees } from '../api/employees';
 import type { AuditLog, Account, AttendanceEmployee, PageResponse } from '../api/types';
 import { errorMessage } from '../api/client';
 
@@ -65,8 +65,8 @@ export default function AuditLogPage() {
     searchAccounts({ size: 500 }).then((r) => setAccounts(r.items)).catch(() => {});
     // load employees for target name resolution (identity)
     if (service === 'identity') {
-      searchEmployees({ size: 500 }).then((r) => {
-        const mapped: AttendanceEmployee[] = r.items.map((e) => ({
+      listAllEmployees().then((items) => {
+        const mapped: AttendanceEmployee[] = items.map((e) => ({
           employeeId: e.id,
           employeeCode: e.employeeCode,
           fullName: e.fullName,

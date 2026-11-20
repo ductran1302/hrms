@@ -1,13 +1,13 @@
 package com.hrms.identity.document;
 
 import com.hrms.common.security.EmployeeScope;
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
 import com.hrms.identity.employee.EmployeeService;
 import com.hrms.identity.employee.EmployeeViewer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
@@ -65,12 +65,14 @@ public class EmployeeDocumentController {
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Danh sách tài liệu của nhân viên (mới nhất trước; contractId? = lọc theo hợp đồng)")
-  public List<EmployeeDocumentResponse> list(@PathVariable UUID employeeId,
+  public PageResponse<EmployeeDocumentResponse> list(@PathVariable UUID employeeId,
       @RequestParam(name = "contractId", required = false) UUID contractId,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
       @AuthenticationPrincipal Jwt jwt,
       Authentication authentication) {
     employeeService.get(employeeId, viewer(jwt, authentication));
-    return documentService.list(employeeId, contractId);
+    return documentService.list(employeeId, contractId, page, size);
   }
 
   @GetMapping("/{documentId}")

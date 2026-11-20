@@ -2,6 +2,7 @@ package com.hrms.identity.document;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.config.SecurityConfig;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
 import com.hrms.identity.employee.EmployeeService;
@@ -74,13 +76,15 @@ class EmployeeDocumentControllerTest {
 
   @Test
   void list_withManager_returns200() throws Exception {
-    when(documentService.list(eq(employeeId), org.mockito.ArgumentMatchers.isNull()))
-        .thenReturn(List.of(sampleResponse()));
+    when(documentService.list(eq(employeeId), org.mockito.ArgumentMatchers.isNull(), eq(0),
+        eq(20)))
+        .thenReturn(PageResponse.of(List.of(sampleResponse()), 0, 20, 1));
 
     mockMvc.perform(get("/api/v1/employees/{id}/documents", employeeId)
             .with(jwt().authorities(MANAGER)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].fileName").value("cv.pdf"));
+        .andExpect(jsonPath("$.items[0].fileName").value("cv.pdf"))
+        .andExpect(jsonPath("$.total").value(1));
   }
 
   @Test
@@ -92,7 +96,7 @@ class EmployeeDocumentControllerTest {
             .with(jwt().authorities(MANAGER)))
         .andExpect(status().isForbidden());
 
-    verify(documentService, never()).list(any(), any());
+    verify(documentService, never()).list(any(), any(), anyInt(), anyInt());
   }
 
   @Test

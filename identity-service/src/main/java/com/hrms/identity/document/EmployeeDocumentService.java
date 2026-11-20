@@ -3,6 +3,7 @@ package com.hrms.identity.document;
 import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ResourceNotFoundException;
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.contract.Contract;
 import com.hrms.identity.contract.ContractRepository;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
@@ -19,6 +20,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +36,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 @Slf4j
 public class EmployeeDocumentService {
+
+  private static final int MAX_PAGE_SIZE = 200;
 
   private final EmployeeDocumentRepository documentRepository;
   private final EmployeeRepository employeeRepository;
@@ -91,15 +97,20 @@ public class EmployeeDocumentService {
   }
 
   @Transactional(readOnly = true)
-  public List<EmployeeDocumentResponse> list(UUID employeeId, UUID contractId) {
+  public PageResponse<EmployeeDocumentResponse> list(UUID employeeId, UUID contractId, int page,
+      int size) {
     ensureEmployeeExists(employeeId);
-    List<EmployeeDocument> documents = contractId == null
-        ? documentRepository.findByEmployeeIdOrderByUploadedAtDesc(employeeId)
-        : documentRepository.findByEmployeeIdAndContractIdOrderByUploadedAtDesc(employeeId,
-            contractId);
-    return documents.stream()
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+    PageRequest pageable = PageRequest.of(safePage, safeSize,
+        Sort.by("uploadedAt").descending());
+    Page<EmployeeDocument> documents = contractId == null
+        ? documentRepository.findByEmployeeId(employeeId, pageable)
+        : documentRepository.findByEmployeeIdAndContractId(employeeId, contractId, pageable);
+    List<EmployeeDocumentResponse> items = documents.getContent().stream()
         .map(EmployeeDocumentService::toResponse)
         .toList();
+    return PageResponse.of(items, safePage, safeSize, documents.getTotalElements());
   }
 
   @Transactional(readOnly = true)

@@ -22,7 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listContracts } from '../api/contracts';
 import { deleteDocument, downloadDocument, listDocuments, uploadDocument } from '../api/documents';
-import { getEmployee, getEmployeeHistory, searchEmployees } from '../api/employees';
+import { getEmployee, getEmployeeHistory, listAllEmployees } from '../api/employees';
 import type { Contract, Employee, EmployeeDocument, JobHistoryItem } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import ActionIcon from '../components/ActionIcon';
@@ -116,7 +116,9 @@ export default function EmployeeProfile() {
 
   const loadDocs = useCallback(() => {
     if (!canReadDocs) return Promise.resolve();
-    return listDocuments(id).then(setDocs).catch(() => setDocs([]));
+    return listDocuments(id, { size: 200 })
+      .then((page) => setDocs(page.items))
+      .catch(() => setDocs([]));
   }, [id, canReadDocs]);
 
   const load = useCallback(async () => {
@@ -125,13 +127,15 @@ export default function EmployeeProfile() {
       const [emp, hist, cons] = await Promise.all([
         getEmployee(id),
         getEmployeeHistory(id),
-        listContracts({ employeeId: id }),
+        listContracts({ employeeId: id, size: 200 }),
       ]);
       setEmployee(emp);
       setHistory(hist);
-      setContracts(cons);
+      setContracts(cons.items);
       if (canReadDocs) {
-        listDocuments(id).then(setDocs).catch(() => setDocs([]));
+        listDocuments(id, { size: 200 })
+          .then((page) => setDocs(page.items))
+          .catch(() => setDocs([]));
       }
     } catch (error) {
       message.error(errorMessage(error));
@@ -145,8 +149,8 @@ export default function EmployeeProfile() {
   }, [load]);
 
   useEffect(() => {
-    searchEmployees({ size: 500 })
-      .then((page) => setPeers(page.items))
+    listAllEmployees()
+      .then(setPeers)
       .catch(() => setPeers([]));
   }, []);
 

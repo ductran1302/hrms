@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [Hiệu năng — phân trang + cap size cho list identity] 2026-11-20
+
+### Nội dung thay đổi
+- `GET /api/v1/contracts` và `GET /api/v1/employees/{id}/contracts` trả
+  `PageResponse` (`page`/`size`, mặc định 20, tối đa 200); lọc scope chuyển
+  xuống query DB (`employee.id in :scopeIds`) thay vì load toàn bộ rồi lọc.
+- `GET /api/v1/employees/{id}/documents` trả `PageResponse`; repository dùng
+  `Page<EmployeeDocument>` (mặc định 20, tối đa 200).
+- `GET /api/v1/employees`: kẹp `page >= 0`, `size` trong `[1, 200]` tại service.
+- Frontend: cập nhật client contract/document; `ContractPage` dùng phân trang
+  server-side; thêm `listAllEmployees()` nạp lần lượt 200/trang cho dropdown,
+  thay các call `searchEmployees({ size: 500 })`.
+- Verify: identity unit tests `168/168` PASS; `verify-identity.sh` PASS=316
+  FAIL=0; `npm run build` PASS.
+
 ## [Hạ tầng — thay Schema Registry bằng Apicurio] 2026-11-19
 
 ### Nội dung thay đổi

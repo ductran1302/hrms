@@ -1,5 +1,6 @@
 package com.hrms.identity.contract;
 
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.contract.dto.ContractCreateRequest;
 import com.hrms.identity.contract.dto.ContractExtendRequest;
 import com.hrms.identity.contract.dto.ContractResponse;
@@ -47,12 +48,14 @@ public class ContractController {
   @GetMapping("/contracts")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Tìm kiếm hợp đồng theo scope người gọi (salary chỉ hiện với ADMIN/GLOBAL_LEAD)")
-  public List<ContractResponse> search(
+  public PageResponse<ContractResponse> search(
       @RequestParam(required = false) UUID employeeId,
       @RequestParam(required = false) String status,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
       @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
     return contractService.search(employeeId, parseStatus(status),
-        EmployeeViewer.of(jwt, authentication));
+        EmployeeViewer.of(jwt, authentication), page, size);
   }
 
   @GetMapping("/contracts/expiring-soon")
@@ -67,9 +70,12 @@ public class ContractController {
   @GetMapping("/employees/{employeeId}/contracts")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER','EMPLOYEE')")
   @Operation(summary = "Hợp đồng của 1 nhân viên (lịch sử; ngoài scope → 403)")
-  public List<ContractResponse> listByEmployee(@PathVariable UUID employeeId,
+  public PageResponse<ContractResponse> listByEmployee(@PathVariable UUID employeeId,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
       @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
-    return contractService.listByEmployee(employeeId, EmployeeViewer.of(jwt, authentication));
+    return contractService.listByEmployee(employeeId, EmployeeViewer.of(jwt, authentication),
+        page, size);
   }
 
   @PatchMapping("/contracts/{id}")

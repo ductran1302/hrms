@@ -21,6 +21,22 @@ export function searchEmployees(params: EmployeeQuery = {}): Promise<PageRespons
   return client.get<PageResponse<Employee>>('/api/v1/employees', { params: query }).then((r) => r.data);
 }
 
+/** Nạp toàn bộ nhân viên theo từng trang (API giới hạn tối đa 200/trang). */
+export async function listAllEmployees(
+  params: Omit<EmployeeQuery, 'page' | 'size'> = {},
+): Promise<Employee[]> {
+  const all: Employee[] = [];
+  let page = 0;
+  while (true) {
+    const response = await searchEmployees({ ...params, page, size: 200 });
+    all.push(...response.items);
+    if (response.items.length === 0 || all.length >= response.total) {
+      return all;
+    }
+    page += 1;
+  }
+}
+
 export function getEmployee(id: string): Promise<Employee> {
   return client.get<Employee>(`/api/v1/employees/${id}`).then((r) => r.data);
 }

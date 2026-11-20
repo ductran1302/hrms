@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,16 +20,20 @@ public interface ContractRepository extends JpaRepository<Contract, UUID> {
   boolean existsByEmployee_IdAndStatusInAndIdNot(UUID employeeId,
       Collection<ContractStatus> statuses, UUID id);
 
-  List<Contract> findByEmployee_IdOrderByStartDateDesc(UUID employeeId);
+  @EntityGraph(attributePaths = "employee")
+  Page<Contract> findByEmployee_Id(UUID employeeId, Pageable pageable);
 
+  @EntityGraph(attributePaths = "employee")
   @Query("""
-      select c from Contract c join fetch c.employee
+      select c from Contract c
       where (:employeeId is null or c.employee.id = :employeeId)
         and (:status is null or c.status = :status)
-      order by c.createdAt desc
+        and (:scopeIds is null or c.employee.id in :scopeIds)
       """)
-  List<Contract> search(@Param("employeeId") UUID employeeId,
-      @Param("status") ContractStatus status);
+  Page<Contract> search(@Param("employeeId") UUID employeeId,
+      @Param("status") ContractStatus status,
+      @Param("scopeIds") Collection<UUID> scopeIds,
+      Pageable pageable);
 
   List<Contract> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
 

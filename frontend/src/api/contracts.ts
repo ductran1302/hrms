@@ -1,8 +1,15 @@
 import client from './client';
-import type { Contract, ContractCreate, ContractUpdate } from './types';
+import type { Contract, ContractCreate, ContractUpdate, PageResponse } from './types';
 
-export function listContracts(params?: { employeeId?: string; status?: string }): Promise<Contract[]> {
-  return client.get<Contract[]>('/api/v1/contracts', { params }).then((r) => r.data);
+export interface ContractQuery {
+  employeeId?: string;
+  status?: string;
+  page?: number;
+  size?: number;
+}
+
+export function listContracts(params?: ContractQuery): Promise<PageResponse<Contract>> {
+  return client.get<PageResponse<Contract>>('/api/v1/contracts', { params }).then((r) => r.data);
 }
 
 export function listExpiringContracts(days = 30): Promise<Contract[]> {

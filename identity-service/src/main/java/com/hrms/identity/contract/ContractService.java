@@ -5,6 +5,7 @@ import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.security.EmployeeScope;
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.contract.dto.ContractCreateRequest;
 import com.hrms.identity.contract.dto.ContractExtendRequest;
 import com.hrms.identity.contract.dto.ContractResponse;
@@ -24,6 +25,9 @@ import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,6 +49,7 @@ public class ContractService {
   /** Trạng thái bị chặn chồng lấn: chỉ 1 hợp đồng/nhân viên ở trạng thái này tại một thời điểm. */
   private static final List<ContractStatus> OCCUPYING =
       List.of(ContractStatus.PENDING, ContractStatus.ACTIVE);
+  private static final int MAX_PAGE_SIZE = 200;
 
   private final ContractRepository contractRepository;
   private final EmployeeRepository employeeRepository;
@@ -101,26 +106,39 @@ public class ContractService {
   }
 
   @Transactional(readOnly = true)
-  public List<ContractResponse> search(UUID employeeId, ContractStatus status,
-      EmployeeViewer viewer) {
+  public PageResponse<ContractResponse> search(UUID employeeId, ContractStatus status,
+      EmployeeViewer viewer, int page, int size) {
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     boolean includeSalary = isSalaryVisible();
     Set<UUID> allowed = allowedEmployeeIds(viewer);
-    return contractRepository.search(employeeId, status).stream()
-        .filter(contract -> allowed == null || allowed.contains(contract.getEmployeeId()))
+    if (allowed != null && allowed.isEmpty()) {
+      return PageResponse.of(List.of(), safePage, safeSize, 0);
+    }
+    Page<Contract> contracts = contractRepository.search(employeeId, status, allowed,
+        PageRequest.of(safePage, safeSize, Sort.by("createdAt").descending()));
+    List<ContractResponse> items = contracts.getContent().stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
+    return PageResponse.of(items, safePage, safeSize, contracts.getTotalElements());
   }
 
   @Transactional(readOnly = true)
-  public List<ContractResponse> listByEmployee(UUID employeeId, EmployeeViewer viewer) {
+  public PageResponse<ContractResponse> listByEmployee(UUID employeeId, EmployeeViewer viewer,
+      int page, int size) {
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     boolean includeSalary = isSalaryVisible();
     Set<UUID> allowed = allowedEmployeeIds(viewer);
     if (allowed != null && !allowed.contains(employeeId)) {
       throw new AccessDeniedException("Bạn không có quyền xem hợp đồng của nhân viên này");
     }
-    return contractRepository.findByEmployee_IdOrderByStartDateDesc(employeeId).stream()
+    Page<Contract> contracts = contractRepository.findByEmployee_Id(employeeId,
+        PageRequest.of(safePage, safeSize, Sort.by("startDate").descending()));
+    List<ContractResponse> items = contracts.getContent().stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
+    return PageResponse.of(items, safePage, safeSize, contracts.getTotalElements());
   }
 
   /** Hợp đồng ACTIVE sắp hết hạn trong {@code days} ngày tới (cảnh báo, theo scope người gọi). */

@@ -3,12 +3,15 @@ package com.hrms.identity.document;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.hrms.common.audit.AuditService;
 import com.hrms.common.exception.BusinessRuleException;
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.contract.ContractRepository;
 import com.hrms.identity.document.dto.EmployeeDocumentResponse;
 import com.hrms.identity.employee.Employee;
@@ -16,6 +19,7 @@ import com.hrms.identity.employee.EmployeeRepository;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -56,7 +63,24 @@ class EmployeeDocumentServiceTest {
     employeeId = UUID.randomUUID();
     Employee employee = new Employee();
     employee.setId(employeeId);
-    when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+    lenient().when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+  }
+
+  @Test
+  void list_negativePageAndOversizedPage_areClamped() {
+    when(employeeRepository.existsById(employeeId)).thenReturn(true);
+    when(documentRepository.findByEmployeeId(eq(employeeId), any(Pageable.class)))
+        .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 200), 0));
+
+    PageResponse<EmployeeDocumentResponse> result =
+        service.list(employeeId, null, -3, 10_000);
+
+    ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+    verify(documentRepository).findByEmployeeId(eq(employeeId), captor.capture());
+    assertThat(captor.getValue().getPageNumber()).isZero();
+    assertThat(captor.getValue().getPageSize()).isEqualTo(200);
+    assertThat(result.page()).isZero();
+    assertThat(result.size()).isEqualTo(200);
   }
 
   @Test

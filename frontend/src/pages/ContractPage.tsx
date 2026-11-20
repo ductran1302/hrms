@@ -24,12 +24,13 @@ import {
   createContract,
   extendContract,
   listContracts,
+  listExpiringContracts,
   replaceContract,
   terminateContract,
   updateContract,
 } from '../api/contracts';
 import { deleteDocument, downloadDocument, listDocuments, uploadDocument } from '../api/documents';
-import { searchEmployees } from '../api/employees';
+import { listAllEmployees } from '../api/employees';
 import type {
   Contract,
   ContractStatusValue,
@@ -99,26 +100,17 @@ export default function ContractPage() {
   const canWrite = auth.hasRole('ADMIN');
 
   useEffect(() => {
-    searchEmployees({ size: 500 })
-      .then((page) => setEmployees(page.items))
+    listAllEmployees()
+      .then(setEmployees)
       .catch(() => setEmployees([]));
-    listContracts()
-      .then((all) => {
-        const today = dayjs();
-        const count = all.filter(
-          (c) =>
-            c.effectiveStatus === 'IN_EFFECT' &&
-            c.endDate &&
-            dayjs(c.endDate).diff(today, 'day') <= EXPIRING_WINDOW_DAYS,
-        ).length;
-        setExpiringCount(count);
-      })
+    listExpiringContracts(EXPIRING_WINDOW_DAYS)
+      .then((all) => setExpiringCount(all.length))
       .catch(() => setExpiringCount(null));
   }, []);
 
   const loadDocs = (contract: Contract) => {
-    listDocuments(contract.employeeId, contract.id)
-      .then(setDocs)
+    listDocuments(contract.employeeId, { contractId: contract.id, size: 200 })
+      .then((page) => setDocs(page.items))
       .catch(() => setDocs([]));
   };
 
@@ -459,13 +451,12 @@ export default function ContractPage() {
             const data = await listContracts({
               employeeId: employeeFilter,
               status: statusFilter,
+              page: (params.current ?? 1) - 1,
+              size: params.pageSize ?? 20,
             });
-            const size = params.pageSize ?? 20;
-            const current = params.current ?? 1;
-            const start = (current - 1) * size;
             return {
-              data: data.slice(start, start + size),
-              total: data.length,
+              data: data.items,
+              total: data.total,
               success: true,
             };
           } catch (error) {

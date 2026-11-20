@@ -2,6 +2,7 @@ package com.hrms.identity.contract;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.config.SecurityConfig;
 import com.hrms.identity.contract.dto.ContractResponse;
 import java.time.LocalDate;
@@ -70,6 +72,30 @@ class ContractControllerTest {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.status").value("PENDING"))
         .andExpect(jsonPath("$.effectiveStatus").value("NOT_YET_EFFECTIVE"));
+  }
+
+  @Test
+  void search_withAdmin_returnsPageResponse() throws Exception {
+    when(contractService.search(isNull(), isNull(), any(), eq(0), eq(20)))
+        .thenReturn(PageResponse.of(List.of(activeResponse()), 0, 20, 1));
+
+    mockMvc.perform(get("/api/v1/contracts")
+            .with(jwt().authorities(ADMIN)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].employeeCode").value("nthieu"))
+        .andExpect(jsonPath("$.total").value(1));
+  }
+
+  @Test
+  void listByEmployee_withAdmin_returnsPageResponse() throws Exception {
+    when(contractService.listByEmployee(eq(employeeId), any(), eq(0), eq(20)))
+        .thenReturn(PageResponse.of(List.of(activeResponse()), 0, 20, 1));
+
+    mockMvc.perform(get("/api/v1/employees/{id}/contracts", employeeId)
+            .with(jwt().authorities(ADMIN)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items[0].effectiveStatus").value("IN_EFFECT"))
+        .andExpect(jsonPath("$.size").value(20));
   }
 
   @Test

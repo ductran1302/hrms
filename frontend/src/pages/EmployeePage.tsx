@@ -18,7 +18,13 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
 import { listDepartments } from '../api/departments';
-import { createEmployee, searchEmployees, terminateEmployee, updateEmployee } from '../api/employees';
+import {
+  createEmployee,
+  listAllEmployees,
+  searchEmployees,
+  terminateEmployee,
+  updateEmployee,
+} from '../api/employees';
 import { assignEmployeeCalendar, listCalendars } from '../api/holidays';
 import { listJobTitles } from '../api/jobtitles';
 import type { Department, Employee, EmployeeUpdate, HolidayCalendar } from '../api/types';
@@ -95,11 +101,11 @@ export default function EmployeePage() {
     listCalendars()
       .then((data) => setCalendars(data.filter((c) => c.status === 'ACTIVE')))
       .catch(() => setCalendars([]));
-    searchEmployees({ size: 500 })
-      .then((page) => {
+    listAllEmployees()
+      .then((items) => {
         const positions = new Set<string>();
         const offices = new Set<string>();
-        page.items.forEach((e) => {
+        items.forEach((e) => {
           if (e.position) positions.add(e.position);
           if (e.office) offices.add(e.office);
         });
@@ -118,8 +124,8 @@ export default function EmployeePage() {
     suggestedCodeRef.current = '';
     form.setFieldsValue({ hiredAt: dayjs() });
     setModalOpen(true);
-    void searchEmployees({ size: 500 })
-      .then((page) => setManagerOptions(page.items))
+    void listAllEmployees()
+      .then(setManagerOptions)
       .catch(() => setManagerOptions([]));
   };
 
@@ -157,8 +163,8 @@ export default function EmployeePage() {
       calendarId: record.calendarId ?? undefined,
     });
     setModalOpen(true);
-    void searchEmployees({ size: 500 })
-      .then((page) => setManagerOptions(page.items.filter((e) => e.id !== record.id)))
+    void listAllEmployees()
+      .then((items) => setManagerOptions(items.filter((e) => e.id !== record.id)))
       .catch(() => setManagerOptions([]));
   };
 

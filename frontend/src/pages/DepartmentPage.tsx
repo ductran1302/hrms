@@ -10,7 +10,7 @@ import {
   listDepartments,
   updateDepartment,
 } from '../api/departments';
-import { searchEmployees } from '../api/employees';
+import { listAllEmployees } from '../api/employees';
 import type { Department, Employee } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import ActionIcon from '../components/ActionIcon';
@@ -40,8 +40,8 @@ export default function DepartmentPage() {
     listDepartments()
       .then(setDepartments)
       .catch(() => setDepartments([]));
-    searchEmployees({ size: 500, status: 'ACTIVE' })
-      .then((page) => setEmployees(page.items))
+    listAllEmployees({ status: 'ACTIVE' })
+      .then(setEmployees)
       .catch(() => setEmployees([]));
   };
 

@@ -50,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmployeeService {
 
   private static final String AGGREGATE_TYPE = "Employee";
+  private static final int MAX_PAGE_SIZE = 200;
 
   private final EmployeeRepository employeeRepository;
   private final OutboxRepository outboxRepository;
@@ -125,20 +126,22 @@ public class EmployeeService {
    * ALL (ADMIN/GLOBAL_LEAD) toàn bộ, không mask; DEPARTMENT (DEPT_LEAD) nhân viên các
    * phòng mình quản lý (gồm nhánh con) + trực thuộc + self, PII đầy đủ; SELF (MANAGER/
    * EMPLOYEE) trực thuộc + self, PII nhạy cảm bị mask. Không khớp hồ sơ → danh sách rỗng
-   * (fail-closed).
+   * (fail-closed). {@code page} âm → 0; {@code size} được kẹp trong [1, 200].
    */
   @Transactional(readOnly = true)
   public PageResponse<EmployeeResponse> search(int page, int size, EmployeeStatus status,
       UUID departmentId, String position, String office, String q, EmployeeViewer viewer) {
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     String query = (q == null || q.isBlank()) ? "" : q.trim().toLowerCase(Locale.ROOT);
     String pos = (position == null || position.isBlank()) ? "" : position.trim();
     String off = (office == null || office.isBlank()) ? "" : office.trim();
-    PageRequest pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by("createdAt").descending());
 
     if (!viewer.unrestricted()) {
       Optional<Employee> self = resolveViewer(viewer);
       if (self.isEmpty()) {
-        return PageResponse.of(List.of(), page, size, 0);
+        return PageResponse.of(List.of(), safePage, safeSize, 0);
       }
       UUID selfId = self.get().getId();
       List<UUID> deptScope = departmentScope(viewer, selfId);
@@ -149,7 +152,7 @@ public class EmployeeService {
           .toList();
       long total = employeeRepository.countSearch(
           status, departmentId, pos, off, query, selfId, deptScope, selfId);
-      return PageResponse.of(items, page, size, total);
+      return PageResponse.of(items, safePage, safeSize, total);
     }
 
     List<EmployeeResponse> items = employeeRepository
@@ -158,7 +161,7 @@ public class EmployeeService {
         .toList();
     long total = employeeRepository.countSearch(status, departmentId, pos, off, query, null, null,
         null);
-    return PageResponse.of(items, page, size, total);
+    return PageResponse.of(items, safePage, safeSize, total);
   }
 
   /**

@@ -1,13 +1,19 @@
 import client from './client';
-import type { EmployeeDocument } from './types';
+import type { EmployeeDocument, PageResponse } from './types';
+
+export interface DocumentQuery {
+  contractId?: string;
+  page?: number;
+  size?: number;
+}
 
 export function listDocuments(
   employeeId: string,
-  contractId?: string,
-): Promise<EmployeeDocument[]> {
+  params?: DocumentQuery,
+): Promise<PageResponse<EmployeeDocument>> {
   return client
-    .get<EmployeeDocument[]>(`/api/v1/employees/${employeeId}/documents`, {
-      params: contractId ? { contractId } : undefined,
+    .get<PageResponse<EmployeeDocument>>(`/api/v1/employees/${employeeId}/documents`, {
+      params,
     })
     .then((r) => r.data);
 }
