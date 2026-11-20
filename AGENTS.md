@@ -67,7 +67,7 @@ docker compose -f docker-compose.app.yml up -d frontend
 
 > **Host ports tránh dải 8080–8089** (trùng dự án khác, chốt 2026-10-26): host dùng dải **818x**;
 > port **nội bộ Docker (identity:8080, gateway:8080, attendance:8080, keycloak:8080,
-> schema-registry:8081) giữ nguyên** — trong mạng container không trùng với host.
+> schema-registry:8080) giữ nguyên** — trong mạng container không trùng với host.
 
 | Service | Dev Port (host) | App Stack Port (host) | Notes |
 |---|---|---|---|
@@ -76,7 +76,7 @@ docker compose -f docker-compose.app.yml up -d frontend
 | attendance | 8186 | 8080 (nội bộ) | Dev `SERVER_PORT=8186`; app stack không publish host |
 | frontend | 5173 | 3000 | Vite dev vs nginx |
 | keycloak | **8181** | — | Host + issuer `KC_HOSTNAME=http://localhost:8181` |
-| schema-registry | 8182 | — | Host (container nội bộ 8081) |
+| schema-registry | 8182 | — | Apicurio Registry; container nội bộ 8080, ccompat `/apis/ccompat/v7` |
 | kafka | 9092 (host) / 29092 (in-network) | — | |
 
 **Lưu ý:** Khi app stack (`docker-compose.app.yml`) đang chạy → `localhost:8180` là app gateway (dev identity vẫn 8183 — không còn chồng nhau như cũ).
@@ -300,6 +300,8 @@ alter table employees add column photo_url varchar(500);
 - Luôn có: `eventId` (idempotency), `eventType`, `occurredAt`
 - Event type constants: `EmployeeEventTypes.java` trong `hrms-common`
 - Thêm package mới → cập nhật `org.apache.avro.SERIALIZABLE_PACKAGES=com.hrms` trong root `pom.xml`
+- Schema Registry: **Apicurio Registry 3.3.4** (KafkaSQL), client Confluent dùng ccompat
+  `http://schema-registry:8080/apis/ccompat/v7`; từ host `http://localhost:8182/apis/ccompat/v7`
 
 ### 4.11 Outbox Pattern
 

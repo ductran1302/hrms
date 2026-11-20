@@ -22,7 +22,7 @@ spring:
       group-id: attendance-service
       auto-offset-reset: earliest
     properties:
-      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8080/apis/ccompat/v7}
   security:
     oauth2:
       resourceserver:

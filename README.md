@@ -44,7 +44,7 @@ npx @devcontainers/cli exec --workspace-folder . bash
 
 Bên trong container đã có sẵn: **JDK 21, Maven 3.8.7, Node 22.23.2, npm 12, git, ripgrep**.
 Container join network `hrms_default` nên kết nối trực tiếp bằng hostname:
-`postgres:5432`, `kafka:29092`, `schema-registry:8081`, `keycloak:8080`.
+`postgres:5432`, `kafka:29092`, `schema-registry:8080/apis/ccompat/v7`, `keycloak:8080`.
 
 ```powershell
 docker exec hrms-dev mvn -v      # verify toolchain
@@ -76,7 +76,7 @@ Mở:
 |---|---|---|
 | Kafka UI | http://localhost:8090 | — |
 | Zipkin | http://localhost:9411 | — |
-| Schema Registry | http://localhost:8182/subjects | — |
+| Apicurio Registry (ccompat) | http://localhost:8182/apis/ccompat/v7/subjects | — |
 | Keycloak (realm hrms) | http://localhost:8181/realms/hrms | issuer + discovery |
 | Frontend (Vite dev) | http://localhost:5173 | cần `npm run dev` trong container |
 | Swagger UI | http://localhost:8183/swagger-ui.html | identity (:8183), attendance (:8186) |
@@ -121,12 +121,12 @@ $t.access_token
 |---|---|---|
 | `hrms-postgres` | 5432 | 4 DB: `identity_db`, `attendance_db`, `payroll_db`, `notification_db` |
 | `hrms-kafka` | 9092 (host) / 29092 (in-network) | KRaft, 1 node |
-| `hrms-schema-registry` | 8182 | Avro schema registry |
+| `hrms-schema-registry` | 8182 | Apicurio Registry (KafkaSQL, ccompat API) |
 | `hrms-keycloak` | 8181 | OIDC / JWT issuer |
 | `hrms-zipkin` | 9411 | Distributed tracing |
 | `hrms-kafka-ui` | 8090 | Kafka admin UI |
 
-> **Quy ước kết nối:** service chạy trong network compose dùng hostname `kafka:29092`, `postgres:5432`, `keycloak:8080`. Host dùng `localhost` + port ở trên. **Schema Registry luôn trỏ `localhost:8182`** (dùng làm cả advertised, tránh lỗi container không phân biệt được host/container).
+> **Quy ước kết nối:** service chạy trong network compose dùng hostname `kafka:29092`, `postgres:5432`, `keycloak:8080`. Host dùng `localhost` + port ở trên. **Schema Registry dùng Apicurio ccompat API**: trong network `http://schema-registry:8080/apis/ccompat/v7`, từ host `http://localhost:8182/apis/ccompat/v7`.
 
 ## Lệnh thường dùng
 
@@ -421,7 +421,7 @@ docker compose -f docker-compose.app.yml up -d --build   # build lại khi đổ
 
 ## Lộ trình
 
-- [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Schema Registry, Keycloak, Zipkin, Kafka UI
+- [x] **Bước 1** — Hạ tầng: Postgres, Kafka, Apicurio Registry, Keycloak, Zipkin, Kafka UI
 - [x] **Bước 2** — Dev container (JDK 21 + Maven + Node trong container)
 - [x] **Bước 3** — Parent POM + `hrms-common` (Avro event, outbox, error handler, security, Kafka config)
 - [x] **Bước 4** — `identity-service` + Transactional Outbox → Kafka

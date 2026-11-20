@@ -292,10 +292,10 @@ check_has "org-chart co Chairman (root)" "$(has "$R" '"fullName":"Nguyễn Hoàn
 check_has "org-chart co CTO" "$(has "$R" '"fullName":"Hoàng Đức Trí"')" yes
 
 echo "== 11. Hop dong: PENDING / gia han / thay the / phu luc / canh bao het han"
-R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd1$$\",\"fullName\":\"NV Hop Dong 1\"}")
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd1$SUF\",\"fullName\":\"NV Hop Dong 1\"}")
 check "POST tao NV hd1" 201 "$(code_of "$R")"
 EMP_HD=$(id_of "$R")
-R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd2$$\",\"fullName\":\"NV Hop Dong 2\"}")
+R=$(req POST "$HR" "/api/v1/employees" "{\"employeeCode\":\"nvhd2$SUF\",\"fullName\":\"NV Hop Dong 2\"}")
 EMP_HD2=$(id_of "$R")
 # a. startDate tuong lai -> PENDING (chu hieu luc) — tach trang thai nghiep vu hieu luc theo ngay
 R=$(req POST "$HR" "/api/v1/employees/$EMP_HD/contracts" '{"contractType":"FULL_TIME","startDate":"2030-01-01","endDate":"2031-12-31","salary":10000000}')

@@ -1,22 +1,40 @@
 # CHANGELOG
 
+## [Hạ tầng — thay Schema Registry bằng Apicurio] 2026-11-19
+
+### Nội dung thay đổi
+- Thay `confluentinc/cp-schema-registry:7.6.3` bằng
+  `apicurio/apicurio-registry:3.3.4` (Apache-2.0), storage KafkaSQL, topic
+  `kafkasql-journal`; healthcheck qua management port `9000/health/ready`.
+- Container `schema-registry` giữ tên/network cũ nhưng đổi port nội bộ sang
+  `8080`; client Confluent Avro dùng ccompat API
+  `http://schema-registry:8080/apis/ccompat/v7` (host `localhost:8182`).
+- Cập nhật `identity-service`/`attendance-service` `application.yml`, app stack,
+  Kafka UI, test IT, README/AGENTS/.env.example.
+- Bỏ Confluent Community License khỏi `LICENSES/`/notices vì không còn dùng
+  Schema Registry server của Confluent; client Avro Confluent vẫn Apache-2.0.
+- Lưu ý migration: schema ID do Apicurio cấp; message cũ do Confluent serialize
+  có thể không đọc được nếu chưa import/migrate schema.
+- Verify: Apicurio healthy, ccompat list/register/get schema OK, subject tồn tại
+  sau restart; `verify-identity.sh` PASS=316 FAIL=0; `verify-attendance.sh`
+  không có lỗi; build lại image identity/attendance và app stack healthy.
+
 ## [Tuân thủ giấy phép — third-party notices] 2026-11-14
 
 ### Nội dung thay đổi
-- Thêm `THIRD-PARTY-NOTICES.md` (tổng hợp nghĩa vụ license, cảnh báo Confluent
-  Community License, LGPL/EPL, nguồn asset) + báo cáo
+- Thêm `THIRD-PARTY-NOTICES.md` (tổng hợp nghĩa vụ license, LGPL/EPL, nguồn
+  asset) + báo cáo
   `THIRD-PARTY-BACKEND.txt` (212 dependency Maven) và
   `THIRD-PARTY-FRONTEND.txt` (148 package npm).
 - Thêm `LICENSES/` gồm toàn văn các giấy phép đang dùng (Apache-2.0, MIT, BSD,
   0BSD, EPL, LGPL, PostgreSQL, CC0, MIT-0, Bouncy Castle, GPL-2.0 + Classpath
-  Exception, Confluent Community 1.0) và bảng mapping trong
-  `LICENSES/README.md`.
+  Exception) và bảng mapping trong `LICENSES/README.md`.
 - Dockerfile của identity/attendance/gateway copy notices + `LICENSES/` vào
   `/app`; frontend copy vào `/usr/share/nginx/html/legal/` để có trong image
   phát hành.
 - Ghi nhận điểm cần xử lý trước khi phát hành thương mại: xác nhận license ảnh
-  `login-hero.jpg`, legal review CCL/LGPL, cân nhắc thay Schema Registry bằng
-  Apicurio Registry (Apache-2.0).
+  `login-hero.jpg`, legal review LGPL/EPL (Schema Registry đã chuyển Apicurio
+  ngày 2026-11-19).
 - Thêm CI job `licenses`: chặn dependency FE production có GPL/AGPL/LGPL/SSPL
   (`license-checker` 25.0.1) và chặn báo cáo backend có AGPL/SSPL/GPL độc lập
   (`scripts/check-third-party-licenses.sh`; vẫn cho phép LGPL của Hibernate/JNA
@@ -24,9 +42,8 @@
 - Thêm `ASSETS.md` ghi nguồn/hash asset: `favicon.svg` tự tạo; `login-hero.jpg`
   chưa xác định nguồn — cần thay/xác nhận license trước phát hành thương mại.
 - Verify: build 4 image (`identity`, `attendance`, `gateway`, `frontend`) thành
-  công; kiểm tra file notices/licenses (gồm Confluent Community 1.0) có trong
-  cả 4 image và container đang chạy; script license gate PASS và fail đúng khi
-  report giả có AGPL.
+  công; kiểm tra file notices/licenses có trong cả 4 image và container đang
+  chạy; script license gate PASS và fail đúng khi report giả có AGPL.
 
 ## [Tính năng — Nhân viên tự cập nhật hồ sơ (self profile)] 2026-11-12
 

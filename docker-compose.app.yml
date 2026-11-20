@@ -22,7 +22,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
       SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:29092"
       SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: "kafka:29092"
-      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://zipkin:9411/api/v2/spans"
     volumes:
       - hrms-documents:/app/data/documents
@@ -39,7 +39,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
       SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: "kafka:29092"
       SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: "kafka:29092"
-      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8080/apis/ccompat/v7"
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: "http://zipkin:9411/api/v2/spans"
 
   gateway:

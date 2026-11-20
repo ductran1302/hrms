@@ -23,7 +23,6 @@ trong HRMS. Danh sách dependency và license tương ứng nằm ở:
 | `Bouncy-Castle.txt` | Bouncy Castle Licence | Bouncy Castle Provider |
 | `GPL-2.0-only.txt` | GNU GPL 2.0 | OpenJDK runtime (Temurin base image) |
 | `Classpath-exception-2.0.txt` | Classpath Exception 2.0 | OpenJDK runtime (Temurin base image) |
-| `Confluent-Community-1.0.txt` | Confluent Community License 1.0 | `confluentinc/cp-schema-registry` container image (nếu phân phối kèm) |
 
 Ghi chú:
 
@@ -34,8 +33,6 @@ Ghi chú:
 - **Go License** của `com.google.re2j:re2j` là dạng BSD-3-Clause; xem
   `BSD-3-Clause.txt`.
 - Các file trên lấy từ SPDX License List
-  (https://github.com/spdx/license-list-data), trừ `Bouncy-Castle.txt` và
-  `Confluent-Community-1.0.txt` (lấy từ
-  `confluentinc/schema-registry/LICENSE-ConfluentCommunity`).
+  (https://github.com/spdx/license-list-data), trừ `Bouncy-Castle.txt`.
 - Khi phân phối binary/container, giữ nguyên thư mục này và
   `THIRD-PARTY-NOTICES.md` trong gói phát hành.

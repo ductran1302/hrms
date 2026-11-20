@@ -49,25 +49,24 @@ services:
       retries: 20
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.6.3
+    image: apicurio/apicurio-registry:3.3.4
     container_name: hrms-schema-registry
     restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
     ports:
-      - "${SCHEMA_REGISTRY_PORT:-8182}:8081"
+      - "${SCHEMA_REGISTRY_PORT:-8182}:8080"
     environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-      SCHEMA_REGISTRY_ADVERTISED_LISTENERS: ${SCHEMA_REGISTRY_ADVERTISED:-http://localhost:8182}
-      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+      APICURIO_STORAGE_KIND: kafkasql
+      APICURIO_KAFKASQL_BOOTSTRAP_SERVERS: kafka:29092
+      APICURIO_KAFKASQL_TOPIC: kafkasql-journal
+      APICURIO_KAFKASQL_TOPIC_AUTO_CREATE: "true"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/subjects >/dev/null"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health/ready >/dev/null"]
       interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 30
 
   keycloak:
     image: quay.io/keycloak/keycloak:25.0.6
@@ -128,7 +127,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: hrms
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_SCHEMA_REGISTRY_URL: http://schema-registry:8080/apis/ccompat/v7
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ >/dev/null 2>&1 || exit 1"]
       interval: 15s

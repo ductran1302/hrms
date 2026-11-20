@@ -29,7 +29,7 @@ import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
  * <p>Service chỉ cần {@code @Import(KafkaAvroConfiguration.class)} và cấu hình:
  * <pre>
  * spring.kafka.bootstrap-servers=kafka:29092
- * spring.kafka.properties.schema.registry.url=http://schema-registry:8081
+ * spring.kafka.properties.schema.registry.url=http://schema-registry:8080/apis/ccompat/v7
  * </pre>
  * Key luôn là String (aggregateId/UUID), value là {@link SpecificRecord} (Avro).
  * Bean đều {@code @ConditionalOnMissingBean} — service muốn override cứ khai báo lại.

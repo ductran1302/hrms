@@ -18,8 +18,8 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
     properties:
-      # Client URL in-network (SCHEMA_REGISTRY_ADVERTISED chỉ dành cho host)
-      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8081}
+      # Apicurio ccompat API (tương thích Confluent Schema Registry client)
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://schema-registry:8080/apis/ccompat/v7}
   security:
     oauth2:
       resourceserver:

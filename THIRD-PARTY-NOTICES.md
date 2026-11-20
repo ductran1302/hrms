@@ -44,8 +44,8 @@ Lưu ý:
   dùng unmodified, không tạo tác phẩm phái sinh.
 - **Confluent Avro client** (`io.confluent:kafka-avro-serializer`,
   `kafka-schema-serializer`, `kafka-schema-registry-client`) là Apache-2.0.
-  Riêng **Schema Registry server** dùng container Confluent có giấy phép khác —
-  xem mục Container images.
+  **Schema Registry server** dùng Apicurio Registry (Apache-2.0) — xem mục
+  Container images.
 - Các dependency test (JUnit, Testcontainers, Mockito, v.v.) không nằm trong
   artifact runtime nhưng vẫn được liệt kê để đầy đủ.
 - `com.hrms:hrms-common` trong báo cáo là module nội bộ của dự án, không phải
@@ -68,7 +68,7 @@ Không có GPL/AGPL/SSPL trong dependency frontend production.
 |---|---|---|
 | `postgres:16-alpine` | PostgreSQL License | Permissive |
 | `apache/kafka:3.7.1` | Apache-2.0 | Apache Kafka |
-| `confluentinc/cp-schema-registry:7.6.3` | **Confluent Community License** | Source-available, **không phải OSI**; xem cảnh báo bên dưới |
+| `apicurio/apicurio-registry:3.3.4` | Apache-2.0 | Schema Registry (KafkaSQL, ccompat API) |
 | `quay.io/keycloak/keycloak:25.0.6` | Apache-2.0 | Keycloak |
 | `openzipkin/zipkin:3.4.1` | Apache-2.0 | Zipkin |
 | `provectuslabs/kafka-ui:v0.7.2` | Apache-2.0 | Kafka UI |
@@ -76,17 +76,13 @@ Không có GPL/AGPL/SSPL trong dependency frontend production.
 | `node:22-bookworm-slim` | MIT (Node.js) + giấy phép Debian | Chỉ dùng ở build stage frontend |
 | `eclipse-temurin:21-jre-jammy` | GPL-2.0 **kèm Classpath Exception** (OpenJDK) | Runtime backend; dùng image chính thức không sửa đổi |
 
-### Cảnh báo Confluent Community License
+### Schema Registry
 
-- Được phép dùng, sửa, phân phối cho mục đích nội bộ.
-- **Không được** cung cấp Schema Registry (hoặc phần mềm dựa trên nó) như
-  SaaS/PaaS/IaaS cạnh tranh với sản phẩm/dịch vụ tương ứng của Confluent.
-- Nếu phân phối HRMS on-prem, phải kèm giấy phép Confluent Community License
-  (`LICENSES/Confluent-Community-1.0.txt`) và nên được legal review.
-- Phương án thay thế sạch giấy phép: **Apicurio Registry 3.x (Apache-2.0)**,
-  có API tương thích Confluent tại `/apis/ccompat/v7`. Cần đổi image/env
-  `schema-registry`, đổi `schema.registry.url` sang URL ccompat và migrate dữ
-  liệu schema — chưa thực hiện trong repo này.
+- Dùng **Apicurio Registry 3.3.4** (Apache-2.0), storage KafkaSQL.
+- Client Confluent Avro vẫn giữ nguyên (Apache-2.0); chỉ đổi URL sang
+  `http://schema-registry:8080/apis/ccompat/v7`.
+- Schema ID do Apicurio cấp; message cũ do Confluent Registry serialize có thể
+  không đọc được sau khi đổi registry nếu chưa migrate/import schema tương ứng.
 
 ## Tài sản hình ảnh
 
@@ -109,17 +105,14 @@ Không có GPL/AGPL/SSPL trong dependency frontend production.
 - **MIT/BSD/0BSD/MIT-0**: kèm copyright notice và permission notice.
 - **EPL/LGPL**: kèm toàn văn giấy phép; không sửa đổi nếu không muốn phát sinh
   nghĩa vụ công bố source; giữ thư viện ở dạng có thể thay thế.
-- **Confluent Community License**: kèm giấy phép; không dùng cho dịch vụ cạnh
-  tranh; legal review trước khi bán on-prem/SaaS.
 - **Container image**: giữ notice/SBOM của image gốc; không xóa thông tin bản
   quyền trong image.
 - Với SaaS nội bộ, việc phân phối binary có thể không xảy ra, nhưng vẫn nên giữ
-  các tài liệu này để audit và tuân thủ CCL.
+  các tài liệu này để audit và tuân thủ giấy phép.
 
 ## Việc cần làm trước khi phát hành thương mại
 
 1. Xác nhận nguồn/license của `login-hero.jpg`.
-2. Legal review Confluent Community License và nghĩa vụ LGPL/EPL.
-3. Cân nhắc thay Schema Registry bằng Apicurio Registry (Apache-2.0).
-4. Đóng gói `THIRD-PARTY-NOTICES.md`, các báo cáo và `LICENSES/` vào artifact
+2. Legal review nghĩa vụ LGPL/EPL.
+3. Đóng gói `THIRD-PARTY-NOTICES.md`, các báo cáo và `LICENSES/` vào artifact
    phát hành (Docker image đã được cấu hình copy các file này).
