@@ -11,6 +11,8 @@
 - Migration `V13__identity_list_indexes.sql`: thêm composite index cho contract
   (`employee_id, created_at`; `status, created_at`; `status, end_date`) và document
   (`employee_id, uploaded_at`) phục vụ truy vấn phân trang.
+- `GET /api/v1/departments` trả `PageResponse` (`page`/`size`, tối đa 200); trang
+  `Phòng Ban` dùng phân trang server-side, dropdown phụ thuộc dùng `listAllDepartments()`.
 - Tests: identity `169/169` PASS; thêm `JobHistoryServiceTest` (clamp page/size),
   `ContractPaginationIT` (PostgreSQL/Testcontainers, chạy với `-Pit`); `tsc --noEmit` PASS.
 

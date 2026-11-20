@@ -12,8 +12,6 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
   boolean existsByCodeAndIdNot(String code, UUID id);
 
-  List<Department> findAllByOrderByCreatedAtAsc();
-
   Optional<Department> findByCode(String code);
 
   // left join fetch: phòng chưa có quản lý (cây tổ chức mới seed) vẫn phải xuất hiện trong tree

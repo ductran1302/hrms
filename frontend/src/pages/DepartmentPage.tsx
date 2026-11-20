@@ -7,6 +7,7 @@ import { errorMessage } from '../api/client';
 import {
   createDepartment,
   deactivateDepartment,
+  listAllDepartments,
   listDepartments,
   updateDepartment,
 } from '../api/departments';
@@ -37,7 +38,7 @@ export default function DepartmentPage() {
   const canWrite = auth.hasRole('ADMIN');
 
   const reloadMeta = () => {
-    listDepartments()
+    listAllDepartments()
       .then(setDepartments)
       .catch(() => setDepartments([]));
     listAllEmployees({ status: 'ACTIVE' })
@@ -177,7 +178,7 @@ export default function DepartmentPage() {
         columns={columns}
         headerTitle={t('department.title')}
         search={false}
-        pagination={false}
+        pagination={{ defaultPageSize: 20, showSizeChanger: true }}
         options={{ density: false, setting: false }}
         toolBarRender={() => [
           canWrite ? (
@@ -186,10 +187,13 @@ export default function DepartmentPage() {
             </Button>
           ) : null,
         ]}
-        request={async () => {
+        request={async (params) => {
           try {
-            const data = await listDepartments();
-            return { data, success: true };
+            const data = await listDepartments({
+              page: (params.current ?? 1) - 1,
+              size: params.pageSize,
+            });
+            return { data: data.items, total: data.total, success: true };
           } catch (error) {
             message.error(errorMessage(error));
             return { data: [], success: false };

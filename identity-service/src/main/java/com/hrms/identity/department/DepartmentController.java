@@ -1,5 +1,6 @@
 package com.hrms.identity.department;
 
+import com.hrms.common.web.PageResponse;
 import com.hrms.identity.department.dto.DepartmentCreateRequest;
 import com.hrms.identity.department.dto.DepartmentNode;
 import com.hrms.identity.department.dto.DepartmentResponse;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,9 +45,11 @@ public class DepartmentController {
 
   @GetMapping
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
-  @Operation(summary = "Danh sách phòng ban (phẳng, kèm số nhân viên active)")
-  public List<DepartmentResponse> list() {
-    return departmentService.list();
+  @Operation(summary = "Danh sách phòng ban phân trang (phẳng, kèm số nhân viên active)")
+  public PageResponse<DepartmentResponse> list(
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size) {
+    return departmentService.list(page, size);
   }
 
   @GetMapping("/tree")

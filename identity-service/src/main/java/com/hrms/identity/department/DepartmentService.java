@@ -4,6 +4,7 @@ import com.hrms.common.exception.BusinessRuleException;
 import com.hrms.common.exception.ConflictException;
 import com.hrms.common.exception.ResourceNotFoundException;
 import com.hrms.common.kafka.DepartmentEventTypes;
+import com.hrms.common.web.PageResponse;
 import com.hrms.common.kafka.EmployeeEventTypes;
 import com.hrms.common.kafka.KafkaTopics;
 import com.hrms.common.outbox.OutboxEvent;
@@ -26,6 +27,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +44,7 @@ public class DepartmentService {
 
   private static final String EMPLOYEE_AGGREGATE = "Employee";
   private static final String DEPARTMENT_AGGREGATE = "Department";
+  private static final int MAX_PAGE_SIZE = 200;
 
   private final DepartmentRepository departmentRepository;
   private final EmployeeRepository employeeRepository;
@@ -62,10 +67,15 @@ public class DepartmentService {
   }
 
   @Transactional(readOnly = true)
-  public List<DepartmentResponse> list() {
-    return departmentRepository.findAllByOrderByCreatedAtAsc().stream()
+  public PageResponse<DepartmentResponse> list(int page, int size) {
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+    Page<Department> departments = departmentRepository.findAll(
+        PageRequest.of(safePage, safeSize, Sort.by("createdAt").ascending()));
+    List<DepartmentResponse> items = departments.getContent().stream()
         .map(this::toResponse)
         .toList();
+    return PageResponse.of(items, safePage, safeSize, departments.getTotalElements());
   }
 
   @Transactional(readOnly = true)

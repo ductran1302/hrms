@@ -1,8 +1,33 @@
 import client from './client';
-import type { Department, DepartmentCreate, DepartmentNode, DepartmentUpdate } from './types';
+import type {
+  Department,
+  DepartmentCreate,
+  DepartmentNode,
+  DepartmentUpdate,
+  PageResponse,
+} from './types';
 
-export function listDepartments(): Promise<Department[]> {
-  return client.get<Department[]>('/api/v1/departments').then((r) => r.data);
+export interface DepartmentQuery {
+  page?: number;
+  size?: number;
+}
+
+export function listDepartments(params?: DepartmentQuery): Promise<PageResponse<Department>> {
+  return client.get<PageResponse<Department>>('/api/v1/departments', { params }).then((r) => r.data);
+}
+
+/** Nạp toàn bộ phòng ban theo từng trang (API giới hạn tối đa 200/trang). */
+export async function listAllDepartments(): Promise<Department[]> {
+  const all: Department[] = [];
+  let page = 0;
+  while (true) {
+    const response = await listDepartments({ page, size: 200 });
+    all.push(...response.items);
+    if (response.items.length === 0 || all.length >= response.total) {
+      return all;
+    }
+    page += 1;
+  }
 }
 
 export function getDepartmentTree(): Promise<DepartmentNode[]> {

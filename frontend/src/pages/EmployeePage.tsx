@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
-import { listDepartments } from '../api/departments';
+import { listAllDepartments } from '../api/departments';
 import {
   createEmployee,
   listAllEmployees,
@@ -92,7 +92,7 @@ export default function EmployeePage() {
   const canCreate = auth.hasRole('ADMIN');
 
   useEffect(() => {
-    listDepartments()
+    listAllDepartments()
       .then((data) => setDepartments(data.filter((d) => d.status === 'ACTIVE')))
       .catch(() => setDepartments([]));
     listJobTitles()

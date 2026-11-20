@@ -34,7 +34,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '../api/client';
-import { listDepartments } from '../api/departments';
+import { listAllDepartments } from '../api/departments';
 import { getOrgChart, getOrgChartStats } from '../api/orgchart';
 import type { Department, OrgChartNode, OrgChartStats } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -248,7 +248,7 @@ export default function OrgChartPage() {
         if (statsRes.status === 'fulfilled') setStats(statsRes.value);
       })
       .finally(() => setLoading(false));
-    listDepartments()
+    listAllDepartments()
       .then((data) => setDepartments(data.filter((d) => d.status === 'ACTIVE')))
       .catch(() => setDepartments([]));
   }, [message]);
