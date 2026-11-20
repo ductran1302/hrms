@@ -9,7 +9,6 @@ import com.hrms.identity.employee.EmployeeViewer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -61,10 +60,12 @@ public class ContractController {
   @GetMapping("/contracts/expiring-soon")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Cảnh báo hợp đồng ACTIVE sắp hết hạn trong N ngày (mặc định 30) — theo scope")
-  public List<ContractResponse> expiringSoon(
+  public PageResponse<ContractResponse> expiringSoon(
       @RequestParam(name = "days", defaultValue = "30") int days,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
       @AuthenticationPrincipal Jwt jwt, Authentication authentication) {
-    return contractService.expiringSoon(days, EmployeeViewer.of(jwt, authentication));
+    return contractService.expiringSoon(days, EmployeeViewer.of(jwt, authentication), page, size);
   }
 
   @GetMapping("/employees/{employeeId}/contracts")

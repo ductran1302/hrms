@@ -63,7 +63,10 @@ public class AuditLogController {
       }
       return cb.and(preds.toArray(new Predicate[0]));
     };
-    Pageable pageable = PageRequest.of(page, Math.min(size, 200), Sort.by(Sort.Direction.DESC, "occurredAt"));
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), 200);
+    Pageable pageable = PageRequest.of(safePage, safeSize,
+        Sort.by(Sort.Direction.DESC, "occurredAt"));
     return auditLogRepository.findAll(spec, pageable);
   }
 }

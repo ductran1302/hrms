@@ -11,7 +11,6 @@ import com.hrms.identity.history.dto.JobHistoryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -102,11 +101,13 @@ public class EmployeeController {
   @GetMapping("/{id}/history")
   @PreAuthorize("hasAnyRole('ADMIN','GLOBAL_LEAD','DEPT_LEAD','MANAGER')")
   @Operation(summary = "Lịch sử thay đổi job info của nhân viên (mới nhất trước)")
-  public List<JobHistoryResponse> history(@PathVariable UUID id,
+  public PageResponse<JobHistoryResponse> history(@PathVariable UUID id,
+      @RequestParam(name = "page", defaultValue = "0") int page,
+      @RequestParam(name = "size", defaultValue = "20") int size,
       @AuthenticationPrincipal Jwt jwt,
       Authentication authentication) {
     employeeService.get(id, viewer(jwt, authentication));
-    return jobHistoryService.listByEmployee(id);
+    return jobHistoryService.listByEmployee(id, page, size);
   }
 
   @PatchMapping("/{id}")

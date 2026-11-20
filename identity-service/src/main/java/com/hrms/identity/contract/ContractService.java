@@ -143,17 +143,24 @@ public class ContractService {
 
   /** Hợp đồng ACTIVE sắp hết hạn trong {@code days} ngày tới (cảnh báo, theo scope người gọi). */
   @Transactional(readOnly = true)
-  public List<ContractResponse> expiringSoon(int days, EmployeeViewer viewer) {
+  public PageResponse<ContractResponse> expiringSoon(int days, EmployeeViewer viewer, int page,
+      int size) {
+    int safePage = Math.max(page, 0);
+    int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     int window = Math.max(1, Math.min(days, 365));
     LocalDate today = LocalDate.now();
     boolean includeSalary = isSalaryVisible();
     Set<UUID> allowed = allowedEmployeeIds(viewer);
-    return contractRepository
-        .findByStatusAndEndDateBetween(ContractStatus.ACTIVE, today, today.plusDays(window))
-        .stream()
-        .filter(contract -> allowed == null || allowed.contains(contract.getEmployeeId()))
+    if (allowed != null && allowed.isEmpty()) {
+      return PageResponse.of(List.of(), safePage, safeSize, 0);
+    }
+    Page<Contract> contracts = contractRepository.findExpiring(ContractStatus.ACTIVE, today,
+        today.plusDays(window), allowed,
+        PageRequest.of(safePage, safeSize, Sort.by("endDate").ascending()));
+    List<ContractResponse> items = contracts.getContent().stream()
         .map(contract -> toResponse(contract, includeSalary))
         .toList();
+    return PageResponse.of(items, safePage, safeSize, contracts.getTotalElements());
   }
 
   /** Id nhân viên hợp lệ với người xem; {@code null} = không giới hạn (ADMIN/GLOBAL_LEAD). */

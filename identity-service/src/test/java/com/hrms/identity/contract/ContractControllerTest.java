@@ -99,13 +99,15 @@ class ContractControllerTest {
   }
 
   @Test
-  void expiringSoon_withAdmin_returns200() throws Exception {
-    when(contractService.expiringSoon(eq(30), any())).thenReturn(List.of(activeResponse()));
+  void expiringSoon_withAdmin_returnsPageResponse() throws Exception {
+    when(contractService.expiringSoon(eq(30), any(), eq(0), eq(20)))
+        .thenReturn(PageResponse.of(List.of(activeResponse()), 0, 20, 1));
 
     mockMvc.perform(get("/api/v1/contracts/expiring-soon")
             .with(jwt().authorities(ADMIN)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].effectiveStatus").value("IN_EFFECT"));
+        .andExpect(jsonPath("$.items[0].effectiveStatus").value("IN_EFFECT"))
+        .andExpect(jsonPath("$.total").value(1));
   }
 
   @Test

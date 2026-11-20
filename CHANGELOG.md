@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## [Hiệu năng — hoàn tất phân trang list identity] 2026-11-20
+
+### Nội dung thay đổi
+- `GET /api/v1/contracts/expiring-soon` trả `PageResponse` (`page`/`size`, tối đa 200);
+  lọc `status`/`endDate`/scope tại DB, sắp xếp theo `endDate` tăng dần.
+- `GET /api/v1/employees/{id}/history` trả `PageResponse` (tối đa 200); frontend nạp
+  lần lượt 200/trang để giữ nguyên timeline hồ sơ.
+- `GET /api/v1/audit-log`: kẹp `page >= 0`, `size` trong `[1, 200]` (trước đây page âm lỗi 500).
+- Migration `V13__identity_list_indexes.sql`: thêm composite index cho contract
+  (`employee_id, created_at`; `status, created_at`; `status, end_date`) và document
+  (`employee_id, uploaded_at`) phục vụ truy vấn phân trang.
+- Tests: identity `169/169` PASS; thêm `JobHistoryServiceTest` (clamp page/size),
+  `ContractPaginationIT` (PostgreSQL/Testcontainers, chạy với `-Pit`); `tsc --noEmit` PASS.
+
 ## [Hiệu năng — phân trang + cap size cho list identity] 2026-11-20
 
 ### Nội dung thay đổi

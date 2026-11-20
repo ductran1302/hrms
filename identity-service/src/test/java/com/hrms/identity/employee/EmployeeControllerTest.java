@@ -184,12 +184,17 @@ class EmployeeControllerTest {
   }
 
   @Test
-  void history_withManager_returns200() throws Exception {
+  void history_withManager_returnsPageResponse() throws Exception {
     UUID id = UUID.randomUUID();
+    when(jobHistoryService.listByEmployee(id, 0, 20))
+        .thenReturn(PageResponse.of(List.of(), 0, 20, 0));
+
     mockMvc.perform(get("/api/v1/employees/{id}/history", id)
             .with(jwt().authorities(MANAGER)))
-        .andExpect(status().isOk());
-    verify(jobHistoryService).listByEmployee(id);
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.items").isArray())
+        .andExpect(jsonPath("$.total").value(0));
+    verify(jobHistoryService).listByEmployee(id, 0, 20);
   }
 
   @Test

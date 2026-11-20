@@ -12,8 +12,15 @@ export function listContracts(params?: ContractQuery): Promise<PageResponse<Cont
   return client.get<PageResponse<Contract>>('/api/v1/contracts', { params }).then((r) => r.data);
 }
 
-export function listExpiringContracts(days = 30): Promise<Contract[]> {
-  return client.get<Contract[]>('/api/v1/contracts/expiring-soon', { params: { days } }).then((r) => r.data);
+export function listExpiringContracts(
+  days = 30,
+  params?: { page?: number; size?: number },
+): Promise<PageResponse<Contract>> {
+  return client
+    .get<PageResponse<Contract>>('/api/v1/contracts/expiring-soon', {
+      params: { days, ...params },
+    })
+    .then((r) => r.data);
 }
 
 export function createContract(employeeId: string, data: ContractCreate): Promise<Contract> {

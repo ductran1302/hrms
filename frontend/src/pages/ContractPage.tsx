@@ -103,8 +103,8 @@ export default function ContractPage() {
     listAllEmployees()
       .then(setEmployees)
       .catch(() => setEmployees([]));
-    listExpiringContracts(EXPIRING_WINDOW_DAYS)
-      .then((all) => setExpiringCount(all.length))
+    listExpiringContracts(EXPIRING_WINDOW_DAYS, { size: 1 })
+      .then((page) => setExpiringCount(page.total))
       .catch(() => setExpiringCount(null));
   }, []);
 

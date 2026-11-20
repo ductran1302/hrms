@@ -37,6 +37,16 @@ public interface ContractRepository extends JpaRepository<Contract, UUID> {
 
   List<Contract> findByStatusAndEndDateBefore(ContractStatus status, LocalDate endDate);
 
-  List<Contract> findByStatusAndEndDateBetween(ContractStatus status, LocalDate from,
-      LocalDate to);
+  @EntityGraph(attributePaths = "employee")
+  @Query("""
+      select c from Contract c
+      where c.status = :status
+        and c.endDate between :from and :to
+        and (:scopeIds is null or c.employee.id in :scopeIds)
+      """)
+  Page<Contract> findExpiring(@Param("status") ContractStatus status,
+      @Param("from") LocalDate from,
+      @Param("to") LocalDate to,
+      @Param("scopeIds") Collection<UUID> scopeIds,
+      Pageable pageable);
 }

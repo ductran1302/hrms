@@ -51,8 +51,22 @@ export function updateMyProfile(data: EmployeeSelfUpdate): Promise<Employee> {
   return client.patch<Employee>('/api/v1/employees/me', data).then((r) => r.data);
 }
 
-export function getEmployeeHistory(id: string): Promise<JobHistoryItem[]> {
-  return client.get<JobHistoryItem[]>(`/api/v1/employees/${id}/history`).then((r) => r.data);
+/** Nạp toàn bộ lịch sử job info theo từng trang (API giới hạn tối đa 200/trang). */
+export async function getEmployeeHistory(id: string): Promise<JobHistoryItem[]> {
+  const all: JobHistoryItem[] = [];
+  let page = 0;
+  while (true) {
+    const response = await client
+      .get<PageResponse<JobHistoryItem>>(`/api/v1/employees/${id}/history`, {
+        params: { page, size: 200 },
+      })
+      .then((r) => r.data);
+    all.push(...response.items);
+    if (response.items.length === 0 || all.length >= response.total) {
+      return all;
+    }
+    page += 1;
+  }
 }
 
 export function createEmployee(data: EmployeeCreate): Promise<Employee> {
