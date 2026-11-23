@@ -234,6 +234,15 @@ docker exec hrms-dev bash /workspaces/HRMS/scripts/verify-identity.sh
 | `/api/v1/employees`, `/api/v1/employees/{id}` | GET | `HR_ADMIN`, `MANAGER` |
 | `/api/v1/employees/{id}` | PATCH | `HR_ADMIN` |
 | `/api/v1/employees/{id}` | DELETE (nghỉ việc, soft) | `HR_ADMIN` |
+| `/api/v1/accounts/role-audit` | GET (dry-run) | `ADMIN` |
+| `/api/v1/accounts/role-audit/apply` | POST (sửa role an toàn) | `ADMIN` |
+
+> **Audit role Keycloak:** `GET /api/v1/accounts/role-audit` chỉ báo cáo; `POST .../apply`
+> sửa role đơn sai/thiếu, giữ role ngoài HRMS, bỏ qua tài khoản có `ADMIN` và đánh dấu
+> `REVIEW` khi có nhiều role HRMS. Sau apply gọi
+> `POST /api/v1/accounts/resync-role-events` để đồng bộ role sang attendance.
+> Username Keycloak có thể lowercase (`nvit001`) — service fallback lookup
+> `employee_code` không phân biệt hoa/thường.
 
 > **Keycloak issuer:** compose đặt `KC_HOSTNAME=http://localhost:8181` → token luôn có
 > `iss=http://localhost:8181/realms/hrms` dù request qua `localhost:8181` (host) hay

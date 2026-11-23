@@ -271,7 +271,8 @@ public class EmployeeService {
   /** Khớp user đăng nhập với hồ sơ NV: username = employeeCode trước, fallback email. */
   private Optional<Employee> resolveViewer(EmployeeViewer viewer) {
     if (!isBlank(viewer.username())) {
-      Optional<Employee> byCode = employeeRepository.findByEmployeeCode(viewer.username());
+      Optional<Employee> byCode = employeeRepository.findByEmployeeCode(viewer.username())
+          .or(() -> employeeRepository.findByEmployeeCodeIgnoreCase(viewer.username()));
       if (byCode.isPresent()) {
         return byCode;
       }

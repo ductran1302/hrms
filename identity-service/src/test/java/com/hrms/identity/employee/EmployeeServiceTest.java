@@ -633,6 +633,18 @@ class EmployeeServiceTest {
   }
 
   @Test
+  void me_matchedByEmployeeCodeIgnoreCase_returnsProfile() {
+    Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
+    when(employeeRepository.findByEmployeeCode("nvit001")).thenReturn(Optional.empty());
+    when(employeeRepository.findByEmployeeCodeIgnoreCase("nvit001"))
+        .thenReturn(Optional.of(employee));
+    when(mapper.toResponse(employee)).thenReturn(sampleResponse());
+
+    assertEquals("NV0001", service.me("nvit001", null).employeeCode());
+    verify(employeeRepository, never()).findFirstByEmail(any());
+  }
+
+  @Test
   void me_fallbackEmail_returnsProfile() {
     Employee employee = employeeWithStatus(EmployeeStatus.ACTIVE);
     when(employeeRepository.findByEmployeeCode("manager1")).thenReturn(Optional.empty());

@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [Bảo mật — sửa role assignment + audit role Keycloak] 2026-11-23
+
+### Nội dung thay đổi
+- `RoleAssignmentService`: suy role theo chính nhân viên (quản lý phòng root →
+  `GLOBAL_LEAD`, quản lý phòng → `DEPT_LEAD`, có reports → `MANAGER`), không còn
+  kiểm tra nhầm quản lý của nhân viên.
+- `GET /api/v1/employees/{id}/history`: ẩn `oldValue/newValue` của `contract.salary`
+  với role không phải `ADMIN`/`GLOBAL_LEAD` (fail-closed).
+- Thêm `GET /api/v1/accounts/role-audit` (dry-run) và
+  `POST /api/v1/accounts/role-audit/apply` (ADMIN): audit/reconcile role Keycloak.
+  Chỉ tự sửa role đơn sai/thiếu; bỏ qua tài khoản có `ADMIN`, đánh dấu `REVIEW` khi
+  có nhiều role HRMS.
+- Lookup `employee_code` thêm fallback không phân biệt hoa/thường cho username Keycloak
+  (`nvit001` ↔ `NVIT001`) ở auth profile, contract, holiday, role event và audit.
+- Đã chạy audit trên dữ liệu hiện tại: quét 543 user, sửa 21 role, 13 tài khoản nhiều role
+  để review, 2 tài khoản ADMIN bỏ qua, 3 username không map nhân viên; resync 540 role events.
+- Tests: identity `191/191` PASS.
+
 ## [Hiệu năng — hoàn tất phân trang list identity] 2026-11-20
 
 ### Nội dung thay đổi

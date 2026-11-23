@@ -14,6 +14,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
   Optional<Employee> findByEmployeeCode(String employeeCode);
 
+  /** Keycloak có thể lưu username lowercase trong khi employee_code giữ nguyên hoa/thường. */
+  Optional<Employee> findByEmployeeCodeIgnoreCase(String employeeCode);
+
   Optional<Employee> findFirstByEmail(String email);
 
   boolean existsByEmployeeCodeAndIdNot(String employeeCode, UUID id);

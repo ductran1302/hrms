@@ -145,7 +145,9 @@ public class HolidayService {
   }
 
   private HolidayCalendar resolveEmployeeCalendar(String employeeCode) {
-    Employee employee = employeeRepository.findByEmployeeCode(employeeCode).orElse(null);
+    Employee employee = employeeRepository.findByEmployeeCode(employeeCode)
+        .or(() -> employeeRepository.findByEmployeeCodeIgnoreCase(employeeCode))
+        .orElse(null);
     if (employee != null && employee.getCalendarId() != null) {
       return calendarRepository.findById(employee.getCalendarId())
           .orElseThrow(() -> new ResourceNotFoundException("HolidayCalendar",

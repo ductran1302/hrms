@@ -38,16 +38,12 @@ public class RoleAssignmentService {
     Employee employee = employeeRepository.findById(employeeId)
         .orElseThrow(() -> new IllegalStateException(
             "Không tìm thấy nhân viên " + employeeId + " để suy role"));
-    UUID managerId = employee.getManagerId();
-    if (managerId == null) {
-      return Roles.EMPLOYEE;
-    }
     if (departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
-        managerId, DepartmentStatus.ACTIVE)) {
+        employeeId, DepartmentStatus.ACTIVE)) {
       log.info("Auto-assign GLOBAL_LEAD cho '{}': quản lý phòng cấp root", employee.getEmployeeCode());
       return Roles.GLOBAL_LEAD;
     }
-    if (departmentRepository.existsByManager_IdAndStatus(managerId, DepartmentStatus.ACTIVE)) {
+    if (departmentRepository.existsByManager_IdAndStatus(employeeId, DepartmentStatus.ACTIVE)) {
       log.info("Auto-assign DEPT_LEAD cho '{}': quản lý phòng ban ACTIVE", employee.getEmployeeCode());
       return Roles.DEPT_LEAD;
     }

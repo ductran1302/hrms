@@ -140,7 +140,9 @@ public class AccountService {
 
   /** Ghi outbox EmployeeUpdatedEvent (changedFields=[roles]) — false nếu không có employee. */
   private boolean emitRolesEvent(String username, List<String> roles) {
-    Employee employee = employeeRepository.findByEmployeeCode(username).orElse(null);
+    Employee employee = employeeRepository.findByEmployeeCode(username)
+        .or(() -> employeeRepository.findByEmployeeCodeIgnoreCase(username))
+        .orElse(null);
     if (employee == null) {
       return false; // user không map nhân viên (admin realm, svc...) → bỏ qua
     }

@@ -429,6 +429,13 @@ public class KafkaTopics {
 - **PATCH `/api/v1/accounts/{username}/roles`** (ADMIN, 204): validate subset `Roles.all()` (422),
   chặn tự hạ mình khi target==actor (422). KC running đã có HR_ADMIN → chạy `scripts/kc-init-roles.sh`
   (rename + tạo role + group HR; idempotent).
+- **Audit/reconcile role Keycloak** (2026-11-23): `GET /api/v1/accounts/role-audit` (ADMIN,
+  dry-run) + `POST /api/v1/accounts/role-audit/apply` (ADMIN). So role hiện có với role suy ra
+  từ dữ liệu nhân sự; chỉ tự sửa role đơn sai/thiếu, giữ role ngoài HRMS, bỏ qua tài khoản có
+  `ADMIN`, đánh dấu `REVIEW` khi có nhiều role HRMS. Sau apply chạy
+  `POST /api/v1/accounts/resync-role-events` để đồng bộ `employees.roles` sang attendance.
+  Lookup `employee_code` fallback `IgnoreCase` vì Keycloak có thể lưu username lowercase
+  (`nvit001` ↔ `NVIT001`).
 - **Scoping đọc (IDOR) — 2026-10-23:** mọi GET tham chiếu nhân sự áp `EmployeeScope`; fail-closed
   khi `username` không khớp hồ sơ (`employeeCode`).
   - **Attendance:** `EmployeeAccess` + `EmployeeAccessResolver` (employee/) — ALL → toàn bộ;

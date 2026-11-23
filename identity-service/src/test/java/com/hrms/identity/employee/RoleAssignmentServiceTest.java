@@ -29,58 +29,52 @@ class RoleAssignmentServiceTest {
   private RoleAssignmentService service;
 
   private final UUID employeeId = UUID.randomUUID();
-  private final UUID managerId = UUID.randomUUID();
 
   @Test
-  void resolveDefaultRole_noManager_returnsEmployee() {
-    Employee employee = new Employee();
-    employee.setId(employeeId);
-    employee.setEmployeeCode("NV0001");
+  void resolveDefaultRole_noDeptNoReports_returnsEmployee() {
+    Employee employee = employee();
     when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
+    when(departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
+    when(departmentRepository.existsByManager_IdAndStatus(
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
+    when(employeeRepository.existsByManagerIdAndStatusNot(
+        employeeId, EmployeeStatus.TERMINATED)).thenReturn(false);
 
     assertEquals(Roles.EMPLOYEE, service.resolveDefaultRole(employeeId));
-    verify(departmentRepository, never()).existsByManager_IdAndParentIsNullAndStatus(any(), any());
   }
 
   @Test
-  void resolveDefaultRole_managerOfRootDept_returnsGlobalLead() {
-    Employee employee = new Employee();
-    employee.setId(employeeId);
-    employee.setEmployeeCode("NV0001");
-    employee.setManagerId(managerId);
+  void resolveDefaultRole_employeeManagesRootDept_returnsGlobalLead() {
+    Employee employee = employee();
     when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
     when(departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(true);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(true);
 
     assertEquals(Roles.GLOBAL_LEAD, service.resolveDefaultRole(employeeId));
+    verify(departmentRepository, never()).existsByManager_IdAndStatus(any(), any());
   }
 
   @Test
-  void resolveDefaultRole_managerOfSubDept_returnsDeptLead() {
-    Employee employee = new Employee();
-    employee.setId(employeeId);
-    employee.setEmployeeCode("NV0001");
-    employee.setManagerId(managerId);
+  void resolveDefaultRole_employeeManagesSubDept_returnsDeptLead() {
+    Employee employee = employee();
     when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
     when(departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(false);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
     when(departmentRepository.existsByManager_IdAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(true);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(true);
 
     assertEquals(Roles.DEPT_LEAD, service.resolveDefaultRole(employeeId));
   }
 
   @Test
   void resolveDefaultRole_hasReports_returnsManager() {
-    Employee employee = new Employee();
-    employee.setId(employeeId);
-    employee.setEmployeeCode("NV0001");
-    employee.setManagerId(managerId);
+    Employee employee = employee();
     when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
     when(departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(false);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
     when(departmentRepository.existsByManager_IdAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(false);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
     when(employeeRepository.existsByManagerIdAndStatusNot(
         employeeId, EmployeeStatus.TERMINATED)).thenReturn(true);
 
@@ -88,19 +82,24 @@ class RoleAssignmentServiceTest {
   }
 
   @Test
-  void resolveDefaultRole_plainEmployee_returnsEmployee() {
-    Employee employee = new Employee();
-    employee.setId(employeeId);
-    employee.setEmployeeCode("NV0001");
-    employee.setManagerId(managerId);
+  void resolveDefaultRole_managedByDeptLead_doesNotInheritLeadRole() {
+    Employee employee = employee();
+    employee.setManagerId(UUID.randomUUID());
     when(employeeRepository.findById(employeeId)).thenReturn(java.util.Optional.of(employee));
     when(departmentRepository.existsByManager_IdAndParentIsNullAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(false);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
     when(departmentRepository.existsByManager_IdAndStatus(
-        managerId, DepartmentStatus.ACTIVE)).thenReturn(false);
+        employeeId, DepartmentStatus.ACTIVE)).thenReturn(false);
     when(employeeRepository.existsByManagerIdAndStatusNot(
         employeeId, EmployeeStatus.TERMINATED)).thenReturn(false);
 
     assertEquals(Roles.EMPLOYEE, service.resolveDefaultRole(employeeId));
+  }
+
+  private Employee employee() {
+    Employee employee = new Employee();
+    employee.setId(employeeId);
+    employee.setEmployeeCode("NV0001");
+    return employee;
   }
 }
