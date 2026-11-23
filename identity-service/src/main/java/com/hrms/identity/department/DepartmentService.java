@@ -72,8 +72,17 @@ public class DepartmentService {
     int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
     Page<Department> departments = departmentRepository.findAll(
         PageRequest.of(safePage, safeSize, Sort.by("createdAt").ascending()));
+    List<UUID> departmentIds = departments.getContent().stream()
+        .map(Department::getId)
+        .toList();
+    Map<UUID, Long> activeCounts = new HashMap<>();
+    if (!departmentIds.isEmpty()) {
+      departmentRepository.countActiveEmployeesByDepartmentIds(departmentIds).forEach(row ->
+          activeCounts.put(row.getDepartmentId(), row.getActiveCount()));
+    }
     List<DepartmentResponse> items = departments.getContent().stream()
-        .map(this::toResponse)
+        .map(department ->
+            toResponse(department, activeCounts.getOrDefault(department.getId(), 0L)))
         .toList();
     return PageResponse.of(items, safePage, safeSize, departments.getTotalElements());
   }
@@ -265,6 +274,10 @@ public class DepartmentService {
   }
 
   private DepartmentResponse toResponse(Department department) {
+    return toResponse(department, departmentRepository.countActiveEmployees(department.getId()));
+  }
+
+  private DepartmentResponse toResponse(Department department, long employeeCount) {
     return new DepartmentResponse(
         department.getId(),
         department.getCode(),
@@ -273,7 +286,7 @@ public class DepartmentService {
         department.getManagerId(),
         department.getManagerName(),
         department.getStatus().name(),
-        departmentRepository.countActiveEmployees(department.getId()));
+        employeeCount);
   }
 
   private Department find(UUID id) {

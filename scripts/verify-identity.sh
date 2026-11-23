@@ -103,6 +103,13 @@ check "POST trung ma phong" 409 "$(code_of "$R")"
 R=$(req POST "$MGR" /api/v1/departments '{"code":"XX1","name":"X"}')
 check "POST phong boi MANAGER" 403 "$(code_of "$R")"
 R=$(req GET "$HR" /api/v1/departments);          check "GET departments" 200 "$(code_of "$R")"
+R=$(req GET "$HR" "/api/v1/departments?page=0&size=1")
+check "GET departments page size=1" 200 "$(code_of "$R")"
+check_has "departments tra PageResponse items/total" "$(has "$R" '"items"')" yes
+check_has "departments tra total" "$(has "$R" '"total"')" yes
+check_has "departments dung size yeu cau" "$(has "$R" '"size":1')" yes
+R=$(req GET "$HR" "/api/v1/departments?page=0&size=500")
+check_has "departments cap size 200" "$(has "$R" '"size":200')" yes
 R=$(req GET "$MGR" /api/v1/departments/tree);    check "GET departments tree" 200 "$(code_of "$R")"
 
 echo "== 3. Nhan vien + gan phong ban + search"

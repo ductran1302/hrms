@@ -1,10 +1,12 @@
 package com.hrms.identity.department;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
@@ -26,6 +28,23 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
 
   @Query("select count(e) from Employee e where e.departmentId = :departmentId and e.status <> com.hrms.identity.employee.EmployeeStatus.TERMINATED")
   long countActiveEmployees(UUID departmentId);
+
+  /** Đếm nhân viên chưa nghỉ theo từng phòng ban bằng 1 query cho cả trang. */
+  @Query("""
+      select e.departmentId as departmentId, count(e) as activeCount
+      from Employee e
+      where e.departmentId in :departmentIds
+        and e.status <> com.hrms.identity.employee.EmployeeStatus.TERMINATED
+      group by e.departmentId
+      """)
+  List<ActiveEmployeeCount> countActiveEmployeesByDepartmentIds(
+      @Param("departmentIds") Collection<UUID> departmentIds);
+
+  interface ActiveEmployeeCount {
+    UUID getDepartmentId();
+
+    long getActiveCount();
+  }
 
   /** Id các phòng đang ACTIVE mà employee là trưởng phòng (scope DEPT_LEAD + auto-assign role). */
   java.util.List<UUID> findIdsByManager_IdAndStatus(UUID managerId, DepartmentStatus status);
