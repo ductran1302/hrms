@@ -114,7 +114,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.5.0</version>
+          <version>3.7.0</version>
           <executions>
             <execution>
               <id>enforce-java</id>
@@ -184,7 +184,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-failsafe-plugin</artifactId>
-            <version>3.2.5</version>
+            <version>3.6.1</version>
             <configuration>
               <systemPropertyVariables>
                 <org.apache.avro.SERIALIZABLE_PACKAGES>com.hrms</org.apache.avro.SERIALIZABLE_PACKAGES>
